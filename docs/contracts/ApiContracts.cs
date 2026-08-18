@@ -110,13 +110,20 @@ public sealed record NotificationDto(
     bool IsRead);
 
 /// <summary>One of the caller's own materials.</summary>
+/// <param name="ImageUrl">
+/// Relative path (resolved against the API host), as on <see cref="CatalogueItemDto"/>. Null when
+/// the item has no uploaded image — the client falls back to a category glyph. A 404 on the file
+/// is "use the fallback", not an error.
+/// PENDING: not yet returned by the API. See docs/backend-request-material-image.md.
+/// </param>
 public sealed record MyMaterialDto(
     int ItemId,
     string NameAr,
     string Unit,
     decimal Quantity,
     int ServingsLeft,
-    string Level);
+    string Level,
+    string? ImageUrl);
 
 public sealed record DeclareMaterialRequest(int ItemId, decimal Quantity, string? Note);
 

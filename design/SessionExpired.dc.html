@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Cairo', 'Segoe UI', system-ui, sans-serif; }
+    a { color: #6D22D8; } a:hover { color: #5417B0; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+<div dir="rtl" style="width: 390px; height: 844px; background: #FFFFFF; display: flex; flex-direction: column; padding: 0 24px; line-height: 1.7; color: #141B2E;">
+
+  <div style="height: 88px;"></div>
+
+  <div style="display: flex; flex-direction: column; align-items: center;">
+    <img src="./logo-defi.png" alt="Digital Egypt for Investment" style="width: 208px; height: auto;">
+  </div>
+
+  <div style="height: 40px;"></div>
+
+  <div style="display: flex; gap: 12px; background: #F4F6FA; border: 1px solid #E9EFF9; border-radius: 14px; padding: 16px;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5C6780" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 4px;">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M12 7v5l3 2"></path>
+    </svg>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <div style="font-size: 14px; font-weight: 700;">انتهت الجلسة</div>
+      <div style="font-size: 13px; color: #5C6780;">سجّل الدخول مرة أخرى للمتابعة.</div>
+    </div>
+  </div>
+
+  <div style="height: 32px;"></div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <label style="font-size: 13px; font-weight: 600;">البريد الإلكتروني</label>
+    <div style="display: flex; align-items: center; height: 52px; border: 1px solid #E9EFF9; border-radius: 14px; background: #F4F6FA; padding: 0 16px; gap: 8px;">
+      <span style="font-size: 15px;">ahmed.hassan</span>
+      <span dir="ltr" style="font-size: 15px; color: #5C6780;">@company.com</span>
+    </div>
+  </div>
+
+  <div style="height: 16px;"></div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <label style="font-size: 13px; font-weight: 600;">كلمة المرور</label>
+    <div style="display: flex; align-items: center; height: 52px; border: 1px solid #E9EFF9; border-radius: 14px; background: #FFFFFF; padding: 0 16px;">
+      <span style="flex-grow: 1; font-size: 15px; color: #5C6780;">أدخل كلمة المرور</span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5C6780" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle>
+      </svg>
+    </div>
+  </div>
+
+  <div style="height: 32px;"></div>
+
+  <div style="display: flex; align-items: center; justify-content: center; height: 52px; border-radius: 14px; background: #123A7A;">
+    <span style="font-size: 16px; font-weight: 700; color: #FFFFFF;">دخول</span>
+  </div>
+
+  <div style="height: 24px;"></div>
+
+  <div style="display: flex; align-items: center; justify-content: center; gap: 8px; height: 52px; border-radius: 14px; border: 1px solid #E9EFF9; background: #FFFFFF;">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#123A7A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3a4 4 0 0 0-4 4v3"></path><path d="M12 3a4 4 0 0 1 4 4v3"></path>
+      <path d="M6 10h12v4a6 6 0 0 1-12 0z"></path>
+      <path d="M9 21c1-1.5 1.5-3 1.5-5"></path><path d="M15 21c-1-1.5-1.5-3-1.5-5"></path>
+    </svg>
+    <span style="font-size: 15px; font-weight: 600; color: #123A7A;">الدخول ببصمة الإصبع</span>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+brand      #123A7A   brandDark #0B1E4B   brandLight #E9EFF9
+accent     #6D22D8   accentBright #A78BFA   focus #5417B0
+ink        #141B2E   muted #5C6780   surface #FFFFFF   page #F4F6FA
+danger     #B42318   warning #B54708   ok #0E7C5A
+radiusSm 10  radius 14  radiusLg 18
+space 4/8/12/16/24/32/48/64
+font: Cairo, line-height 1.7, tabular figures in lists

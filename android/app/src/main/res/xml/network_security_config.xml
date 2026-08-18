@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  §11: "if the API is served over plain HTTP in development, that needs an
+  explicit ATS exception (iOS) and a network-security config (Android).
+  PRODUCTION MUST BE HTTPS; do not ship the exception."
+
+  The exception below is scoped to the single development host and nothing
+  else — cleartext stays off for every other domain, which is what
+  `cleartextTrafficPermitted="false"` in base-config enforces. Widening this to
+  a blanket allow would put every request the app ever makes in the clear.
+
+  A bearer token sent over http:// is readable by anything on the network path,
+  and these tokens last 30 days with no refresh endpoint to rotate them. When
+  the API moves to https://, DELETE this file and the
+  android:networkSecurityConfig attribute in AndroidManifest.xml.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">digitalbuffet.runasp.net</domain>
+    </domain-config>
+</network-security-config>

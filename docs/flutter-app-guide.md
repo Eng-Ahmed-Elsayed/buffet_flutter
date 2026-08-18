@@ -299,7 +299,7 @@ against a dev instance if you like, but the contracts in `ApiContracts.cs` are t
 | `POST` | `/orders/{id}/cancel` | `204`. Pending only, ownership-checked |
 | `GET` | `/notifications` | |
 | `POST` | `/notifications/read` | |
-| `GET` | `/materials/mine` | The caller's own balances |
+| `GET` | `/materials/mine` | The caller's own balances, with a **relative** `imageUrl` |
 | `POST` | `/materials/declare` | → **`202 Accepted`**, not `201` — see §7 |
 
 `/catalogue` is bundled deliberately: a phone on office wifi should not need four requests to
@@ -529,7 +529,17 @@ notification that arrives while the app is closed.
 
 ### 7.5 My materials
 
-`GET /materials/mine` returns quantity, `servingsLeft` and a `level` string for the colour band.
+`GET /materials/mine` returns quantity, `servingsLeft` and a `level` string for the colour band,
+plus `imageUrl` — the item's picture, so a jar shown as a photograph in the composer is not a
+generic glyph one screen later.
+
+**`imageUrl` here is root-relative** (`/uploads/items/12.png`), unlike `CatalogueItemDto.imageUrl`
+on `/catalogue`, which is absolute. Resolve this one against the configured API host, so switching
+a build from staging to production needs no host-stripping. It is `null` whenever no image was
+uploaded — the normal case — and a `404` on the file is not an error either: §7.1 notes the
+uploads folder is outside database backups, so a row can outlive its file. Both cases fall back to
+the category glyph without surfacing anything to the user.
+
 `POST /materials/declare` returns **`202 Accepted`, not `201`** — and the wording of the
 confirmation must reflect that:
 

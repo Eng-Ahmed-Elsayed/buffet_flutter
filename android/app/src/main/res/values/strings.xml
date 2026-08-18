@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launcher label. Arabic is the primary locale (values-ar/strings.xml);
+         this is the fallback for any device not set to Arabic. -->
+    <string name="app_name">Digital Buffet</string>
+</resources>
