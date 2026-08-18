@@ -101,6 +101,27 @@ logo gradient* — never recolour the logo to match a theme. Keep the contrast-r
 colour constants; a palette edit is exactly when those silently stop holding. Two traps:
 `accentBright` is non-text only (2.72:1), and exits are always faster than entrances (§2.3).
 
+## Standing rules
+
+Not a workflow — these hold on every edit, whether or not a skill was invoked.
+
+- **Never weaken a check to make something pass.** Do not delete or `skip` a failing test, loosen
+  an `analysis_options.yaml` rule, add `// ignore:`, or catch-and-swallow to clear an error. Fix
+  the cause, or stop and say what is blocking.
+- **Never invent an endpoint, field, or status.** If it is not in [docs/contracts/](docs/contracts/)
+  or the two spec documents, it does not exist. Ask rather than guess a field name.
+- **Never hand-edit generated files.** `*.g.dart` and `*.freezed.dart` come from
+  `dart run build_runner build --delete-conflicting-outputs`. Change the source and regenerate.
+- **Never commit or push unless asked.** Same for adding a dependency to `pubspec.yaml` — propose
+  it first; §10 already settled the stack.
+- **Never hardcode a colour, duration, radius or spacing value.** They live in `lib/theme/`. A
+  literal in a widget is a bug even when it looks right.
+- **Never write user-facing English into a widget.** Arabic is the primary locale; strings go
+  through ARB files. Surface `ApiError.message` as-is — it arrives already localised.
+- **Never log or print a token, password, or full auth header**, including while debugging.
+- **State what the tests actually said.** If `flutter test` or `flutter analyze` was not run, say
+  so — do not describe unverified work as done.
+
 ## Commands
 
 Once the project is scaffolded:
@@ -114,3 +135,26 @@ flutter test
 flutter test test/path/to/file_test.dart --plain-name 'test name'   # single test
 flutter run
 ```
+
+## Tooling in this repo
+
+- **`/buffet-feature`** ([.claude/skills/buffet-feature/](.claude/skills/buffet-feature/)) — the
+  nine-stage pipeline for building a feature: requirements → architecture → Context7 → plan →
+  implement → test → analyze → review → fix. Use it for a screen, repository, or model; skip it
+  for a one-line edit or a question.
+- **`dart-guard` hook** ([.claude/hooks/dart-guard.sh](.claude/hooks/dart-guard.sh), wired in
+  [.claude/settings.json](.claude/settings.json)) — runs after every `Edit`/`Write` on a `.dart`
+  file and flags `left`/`right`, literal `Color(0xFF…)` outside `lib/theme/`, status compared to an
+  integer, a token near `SharedPreferences`, and a control disabled near stock. Advisory, not
+  blocking: it surfaces feedback, so read it rather than working around it. Extend the script when
+  a new mechanical rule appears — it catches what review forgets.
+- **Skills worth reaching for directly:** `impeccable` and `emil-design-eng` (UI craft),
+  `animate` (motion), `flutter-apply-architecture-best-practices` (the repository seam),
+  `dart-run-static-analysis`, and the `flutter-add-*-test` family.
+- **Context7 MCP** — call `resolve-library-id` then `query-docs` before writing against `dio`,
+  `go_router`, `riverpod`, `local_auth`, or `flutter_secure_storage`. Their APIs move; do not
+  write from memory.
+
+The Dart MCP server is **not** currently installed — the `dart-*` skills fall back to CLI
+commands, and `dart-fix-runtime-errors` cannot verify via hot reload. Installing
+`dart-flutter@dart-flutter` from the `flutter/agent-plugins` marketplace would enable both.
