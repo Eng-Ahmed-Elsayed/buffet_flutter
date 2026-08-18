@@ -1,0 +1,106 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../features/auth/auth_controller.dart';
+import '../features/auth/change_password_screen.dart';
+import '../features/auth/login_screen.dart';
+import '../features/auth/splash_screen.dart';
+import '../features/materials/my_materials_screen.dart';
+import '../features/order/composer_screen.dart';
+import '../features/order/order_status_screen.dart';
+import '../features/staff_queue/queue_screen.dart';
+import 'routes.dart';
+
+/// Implements the §5 auth state machine as a redirect guard.
+///
+/// All four decisions live here rather than in the screens, because a screen
+/// that guards itself can be reached by a route that forgot to.
+final routerProvider = Provider<GoRouter>((ref) {
+  final notifier = ValueNotifier<AuthState>(ref.read(authControllerProvider));
+  ref.listen<AuthState>(
+    authControllerProvider,
+    (_, next) => notifier.value = next,
+  );
+  ref.onDispose(notifier.dispose);
+
+  return GoRouter(
+    initialLocation: Routes.splash,
+    refreshListenable: notifier,
+
+    redirect: (context, state) {
+      final auth = ref.read(authControllerProvider);
+      final location = state.matchedLocation;
+
+      switch (auth.stage) {
+        // Still reading secure storage. Hold on the splash rather than
+        // flashing the login screen at someone who is already signed in.
+        case AuthStage.restoring:
+          return location == Routes.splash ? null : Routes.splash;
+
+        case AuthStage.signedOut:
+          return location == Routes.login ? null : Routes.login;
+
+        // The token works here, so every route must bounce back to the change
+        // screen — otherwise a deep link would let someone order on the shared
+        // seeded password (§5, rule 10).
+        case AuthStage.mustChangePassword:
+          return location == Routes.changePassword
+              ? null
+              : Routes.changePassword;
+
+        case AuthStage.signedIn:
+          // Nobody signed in belongs on the splash, login or forced-change
+          // screens; send them to their landing screen by role.
+          if (location == Routes.splash ||
+              location == Routes.login ||
+              location == Routes.changePassword) {
+            return auth.role.startsOnQueue ? Routes.queue : Routes.catalogue;
+          }
+
+          // The queue is staff-only. An employee reaching it by deep link goes
+          // to the catalogue rather than seeing a screen whose every call 403s.
+          if (location == Routes.queue && !auth.role.startsOnQueue) {
+            return Routes.catalogue;
+          }
+
+          return null;
+      }
+    },
+
+    routes: [
+      GoRoute(
+        path: Routes.splash,
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: Routes.login,
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: Routes.changePassword,
+        builder: (context, state) => const ChangePasswordScreen(),
+      ),
+      GoRoute(
+        path: Routes.catalogue,
+        builder: (context, state) => const ComposerScreen(),
+      ),
+      GoRoute(
+        path: Routes.orderStatus,
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['orderId'] ?? '');
+          if (id == null) return const ComposerScreen();
+          return OrderStatusScreen(orderId: id);
+        },
+      ),
+      GoRoute(
+        path: Routes.materials,
+        builder: (context, state) => const MyMaterialsScreen(),
+      ),
+      GoRoute(
+        path: Routes.queue,
+        builder: (context, state) => const QueueScreen(),
+      ),
+    ],
+  );
+});

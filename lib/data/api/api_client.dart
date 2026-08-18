@@ -41,7 +41,8 @@ final dioProvider = Provider<Dio>((ref) {
       // Non-2xx must reach onError so the interceptor can act on 401 and the
       // repository can read the server's message. 200 and 201 are both success
       // for an order placement, so the range covers them together.
-      validateStatus: (status) => status != null && status >= 200 && status < 300,
+      validateStatus: (status) =>
+          status != null && status >= 200 && status < 300,
       contentType: Headers.jsonContentType,
       responseType: ResponseType.json,
     ),

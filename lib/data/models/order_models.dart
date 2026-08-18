@@ -42,7 +42,8 @@ enum OrderStatus {
 
   /// Whether the app should keep polling. A completed or cancelled order is
   /// finished — polling it is pure noise.
-  bool get isLive => this == OrderStatus.pending || this == OrderStatus.inProgress;
+  bool get isLive =>
+      this == OrderStatus.pending || this == OrderStatus.inProgress;
 }
 
 /// Mirrors `PlaceOrderApiRequest` in ApiContracts.cs.

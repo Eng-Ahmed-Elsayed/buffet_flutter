@@ -24,7 +24,10 @@ class SecureTokenStore {
   ///
   /// The expiry is kept so the router can send an obviously-dead token to the
   /// login screen without spending a round trip to be told `401`.
-  Future<void> write({required String token, required DateTime expiresUtc}) async {
+  Future<void> write({
+    required String token,
+    required DateTime expiresUtc,
+  }) async {
     await _storage.write(key: _tokenKey, value: token);
     await _storage.write(
       key: _expiryKey,

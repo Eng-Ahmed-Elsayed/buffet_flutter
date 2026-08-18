@@ -19,9 +19,13 @@ android {
         applicationId = "com.defi.buffet_app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // §11: minSdkVersion 23. Required by local_auth's BiometricPrompt and
-        // by flutter_secure_storage's EncryptedSharedPreferences backing.
-        minSdk = 23
+        // §11 requires minSdkVersion >= 23, for local_auth's BiometricPrompt
+        // and flutter_secure_storage's EncryptedSharedPreferences backing.
+        // Flutter's own default is 24 on this SDK, which already satisfies it,
+        // so this deliberately tracks the default rather than pinning 23 and
+        // *lowering* the floor. If flutter.minSdkVersion ever drops below 23,
+        // pin it here instead.
+        minSdk = maxOf(flutter.minSdkVersion, 23)
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
