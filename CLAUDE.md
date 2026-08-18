@@ -1,0 +1,116 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Current state
+
+**No Flutter project has been scaffolded yet.** This repo currently holds only `README.md`,
+`docs/` and `assets/`. There is no `pubspec.yaml`, no `lib/`, no `android/` or `ios/`. Work here
+starts with `flutter create` and the setup in §11 of the guide, not with editing existing code.
+
+## What this repo is
+
+The Flutter client for the Digital Buffet ordering system — **employee view and staff view only**.
+Admin work (import, reporting, audit) stays on the web and must not be built here.
+
+The backend is a separate ASP.NET Core 10 repository at `../buffet_app`. Paths in the docs like
+`src/BuffetApp.Web/Api/StaffApi.cs` refer to *that* repo. The C# wire contracts have been copied
+verbatim into [docs/contracts/](docs/contracts/) — mirror those field-for-field when writing Dart
+models (the wire is `camelCase` via System.Text.Json defaults).
+
+## Authoritative documents
+
+- [docs/flutter-app-guide.md](docs/flutter-app-guide.md) — the build reference. §0 (live API and
+  deviations), §2 (brand tokens), §3 (architecture), §5 (auth state machine), §7–8 (screen rules),
+  §12 (definition of done, usable as a review checklist).
+- [docs/staff-api-spec.md](docs/staff-api-spec.md) — staff endpoints, plus the four documented
+  deviations at the end.
+
+These documents are authoritative for **meaning and behaviour**. A design (see below) is
+authoritative only for layout and dimension.
+
+## Workflow: design before Dart
+
+Screens are designed and approved *before* widgets are written, using the `/design` skill to
+produce a canvas of artboards. §1.2 names the five screens that carry the domain rules; §1.3 names
+what must deliberately **not** be designed (a staff declarations tab, a sugar name on the queue
+card, a guest-order screen, any admin screen).
+
+Ask for the *states*, not just the happy path: shortage warning that does not disable, an order
+sitting in `Ready`, empty catalogue, expired token.
+
+## Domain rules that the API shape does not reveal
+
+These are the ones most likely to be broken by someone reading only the contracts:
+
+1. **Stock is deducted at `Ready`, not `Completed`.** `Ready` = the drink was made; `Completed` =
+   handed over. `POST /staff/orders/{id}/ready` is the only path that writes ledger rows.
+2. **Shortages warn but never block.** `/ready` returns `200` with a `warnings` array, never `400`.
+   Never disable a control on a stock reading — physical and recorded stock drift, and halting
+   service is worse than a negative number an admin reconciles.
+3. **Violet (`accent`) means "from my own jar"**, everywhere. Never reuse it for generic selection.
+4. **A declaration creates nothing** until an admin confirms receipt. `POST /materials/declare`
+   returns **`202 Accepted`** — say "awaiting confirmation", never "added".
+5. **Compare order status by name, never by ordinal** (`Ready = 4`, out of workflow order). Send
+   and compare the string name.
+6. **Arabic RTL first.** Only `start`/`end` (`EdgeInsetsDirectional`, `AlignmentDirectional`),
+   never `left`/`right`. Bidi-isolate any quantity-plus-unit string — unit names are admin-entered
+   and keep whatever language they were typed in.
+7. **Declaration endpoints are admin-only.** A `Staff` token gets `403` on all three
+   `/staff/declarations*` endpoints. This is separation of duties, not an oversight — do not build
+   the tab.
+8. **`StaffOrderLineDto.SugarNameAr` is always null.** The queue card shows spoon count and source
+   owner instead.
+9. **`GET /staff/queue` returns `Pending` + `InProgress` only.** `Ready` orders need a separate
+   `?status=Ready` fetch for the handover list.
+10. **`mustChangePassword` is not dismissible.** The token works, so a careless client could skip
+    the screen and order anyway. Block navigation until `204` from `/auth/change-password`.
+11. **Never queue orders offline.** Fail the placement, keep the composer filled, let the user
+    retry with the *same* idempotency key.
+
+## API essentials
+
+Base URL `https://<host>/api/v1`. **JWT bearer only** — cookie auth is deliberately rejected
+because the API has no antiforgery tokens. Never drive the MVC screens from the app.
+
+- Tokens last 30 days and **there is no refresh endpoint**; biometric unlock exists to make
+  re-login rare, not to extend the session.
+- Send `Accept-Language`; error messages are localised server-side. Surface `ApiError.message`
+  as-is rather than mapping codes to client strings.
+- Map `401` centrally in a Dio interceptor: clear the token, route to login, do not retry.
+- Every timestamp is UTC (`...Utc` suffix). Convert for display; never render a raw UTC value.
+- `POST /orders` idempotency key is client-generated: create a UUID when the composer opens, keep
+  it across retries, discard only on confirmation. `201 duplicate:false` and `200 duplicate:true`
+  are both success.
+- Staff endpoints are additive; employee endpoints are caller-scoped and cannot be reused for
+  staff (`/orders/{id}` 404s on anyone else's order, deliberately).
+
+## Stack decisions already made (§3, §10)
+
+`dio` · `flutter_secure_storage` (never `SharedPreferences` for the token) · `local_auth` ·
+`flutter_riverpod` · `go_router` · `json_serializable` + `build_runner` ·
+`flutter_localizations` + `intl` with `generate: true`.
+
+Layered `lib/` structure with a repository seam — **widgets never call the API directly**. The
+directory layout is spelled out in §3.
+
+## Theme tokens
+
+Ported verbatim from the backend's `site.css` into `lib/theme/`. The palette is *sampled from the
+logo gradient* — never recolour the logo to match a theme. Keep the contrast-ratio comments on the
+colour constants; a palette edit is exactly when those silently stop holding. Two traps:
+`accentBright` is non-text only (2.72:1), and exits are always faster than entrances (§2.3).
+
+## Commands
+
+Once the project is scaffolded:
+
+```bash
+flutter pub get
+flutter analyze
+dart format .
+dart run build_runner build --delete-conflicting-outputs   # after touching models
+flutter test
+flutter test test/path/to/file_test.dart --plain-name 'test name'   # single test
+flutter run
+```
