@@ -88,11 +88,11 @@ class _BiometricEnrolmentSheetState
         children: [
           Center(
             child: Container(
-              width: 40,
-              height: 4,
+              width: Dimens.handleWidth,
+              height: Dimens.handleHeight,
               decoration: BoxDecoration(
                 color: Theme.of(context).dividerColor,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(Dimens.handleRadius),
               ),
             ),
           ),

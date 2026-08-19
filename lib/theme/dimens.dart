@@ -24,6 +24,20 @@ abstract final class Dimens {
   /// fall below this.
   static const minTarget = 44.0;
 
+  /// Border widths. A selected control reads as selected by weight as well as
+  /// by colour — colour is never the only signal (§2.5).
+  static const borderHairline = 1.0;
+  static const borderSelected = 2.0;
+
+  /// The grab handle on a bottom sheet.
+  static const handleWidth = 40.0;
+  static const handleHeight = 4.0;
+  static const handleRadius = 2.0;
+
+  /// The stock meter on a material row.
+  static const meterHeight = 6.0;
+  static const meterRadius = 3.0;
+
   /// Standard height for a primary control — comfortably above [minTarget].
   static const controlHeight = 52.0;
 

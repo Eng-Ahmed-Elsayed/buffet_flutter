@@ -165,10 +165,10 @@ class _MaterialCard extends StatelessWidget {
             children: [
               Expanded(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(Dimens.meterRadius),
                   child: LinearProgressIndicator(
                     value: fraction,
-                    minHeight: 6,
+                    minHeight: Dimens.meterHeight,
                     backgroundColor: BrandColors.brandLight,
                     valueColor: AlwaysStoppedAnimation(levelColour),
                   ),

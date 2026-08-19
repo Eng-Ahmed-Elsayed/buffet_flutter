@@ -46,6 +46,15 @@ class CatalogueItemDto {
   /// Empty for drinks made only one way, so the client shows the selector only
   /// when there is a choice to make.
   final List<VariantDto> variants;
+
+  /// The item's name in [languageCode], falling back to Arabic.
+  ///
+  /// **The fallback is not optional.** `nameEn` is admin-entered and is empty
+  /// for most items on the live server — قهوة تركية بالهيل, كركديه, نعناع and
+  /// ينسون all have none. An English user must see the Arabic name rather than
+  /// an empty tile, so Arabic is the floor for both locales.
+  String localisedName(String languageCode) =>
+      languageCode == 'ar' || nameEn.trim().isEmpty ? nameAr : nameEn;
 }
 
 /// Mirrors `VariantDto` in ApiContracts.cs.
@@ -65,6 +74,10 @@ class VariantDto {
   final String nameAr;
   final String nameEn;
   final bool isDefault;
+
+  /// As on [CatalogueItemDto.localisedName] — Arabic is the floor.
+  String localisedName(String languageCode) =>
+      languageCode == 'ar' || nameEn.trim().isEmpty ? nameAr : nameEn;
 }
 
 /// Mirrors `CatalogueResponse` in ApiContracts.cs.

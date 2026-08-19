@@ -32,8 +32,11 @@ class DeclarableItem {
   final MyMaterialDto? balance;
 
   int get itemId => item.itemId;
-  String get nameAr => item.nameAr;
   String get unit => item.unit;
+
+  /// Falls back to Arabic when the admin left `nameEn` empty, which is the
+  /// common case on the live server.
+  String localisedName(String languageCode) => item.localisedName(languageCode);
 }
 
 /// Every catalogue item, joined to the caller's balances.
@@ -140,7 +143,8 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final locale = ref.watch(localeControllerProvider);
-    final items = ref.watch(declarableItemsProvider).valueOrNull ?? const [];
+    final itemsAsync = ref.watch(declarableItemsProvider);
+    final items = itemsAsync.valueOrNull ?? const <DeclarableItem>[];
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -160,11 +164,11 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
               children: [
                 Center(
                   child: Container(
-                    width: 40,
-                    height: 4,
+                    width: Dimens.handleWidth,
+                    height: Dimens.handleHeight,
                     decoration: BoxDecoration(
                       color: Theme.of(context).dividerColor,
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(Dimens.handleRadius),
                     ),
                   ),
                 ),
@@ -185,13 +189,35 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
                   const SizedBox(height: Dimens.space4),
                 ],
 
+                // A failed catalogue fetch left the dropdown permanently
+                // disabled under a "loading" hint with no way to retry —
+                // indistinguishable from a server with no items.
+                if (itemsAsync.hasError) ...[
+                  InlineBanner(
+                    tone: BannerTone.danger,
+                    title: itemsAsync.error is ApiException
+                        ? (itemsAsync.error! as ApiException).message
+                        : l10n.genericError,
+                    trailing: TextButton(
+                      onPressed: () => ref.invalidate(declarableItemsProvider),
+                      child: Text(l10n.retry),
+                    ),
+                  ),
+                  const SizedBox(height: Dimens.space4),
+                ],
+
                 // Every catalogue item, not only the ones already owned —
                 // otherwise a first-time declaration is impossible to make.
                 DropdownButtonFormField<DeclarableItem>(
                   initialValue: _selectedItem,
                   decoration: InputDecoration(
                     labelText: l10n.item,
-                    helperText: items.isEmpty ? l10n.loading : null,
+                    helperText: switch (itemsAsync) {
+                      AsyncValue(hasError: true) => null,
+                      AsyncValue(isLoading: true) => l10n.loading,
+                      _ when items.isEmpty => l10n.emptyCatalogueTitle,
+                      _ => null,
+                    },
                   ),
                   isExpanded: true,
                   items: [
@@ -281,7 +307,12 @@ class _ItemLabel extends StatelessWidget {
     final balance = item.balance;
     return Row(
       children: [
-        Expanded(child: Text(item.nameAr, overflow: TextOverflow.ellipsis)),
+        Expanded(
+          child: Text(
+            item.localisedName(locale.languageCode),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         if (balance != null) ...[
           const SizedBox(width: Dimens.space2),
           Text(

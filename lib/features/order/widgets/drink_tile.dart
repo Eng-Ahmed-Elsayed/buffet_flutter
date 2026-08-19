@@ -5,6 +5,7 @@ import '../../../data/models/catalogue_models.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../theme/brand_colors.dart';
 import '../../../theme/dimens.dart';
+import '../../../theme/motion.dart';
 import 'item_image.dart';
 
 /// A tappable drink tile.
@@ -31,15 +32,25 @@ class DrinkTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final ownStockOut = item.hasOwnStock && item.ownServingsLeft <= 0;
+    // Item names are admin-entered in both languages, but nameEn is often
+    // empty — localisedName falls back to Arabic rather than showing a blank.
+    final name = item.localisedName(
+      Localizations.localeOf(context).languageCode,
+    );
 
     return Semantics(
       button: true,
       selected: selected,
-      label: item.nameAr,
+      label: name,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(Dimens.radius),
-        child: Container(
+        // Motion.of collapses this to zero when the platform asks for reduced
+        // motion. The colour change still happens either way — only the
+        // animation between states stops (§2.3).
+        child: AnimatedContainer(
+          duration: Motion.of(context, Motion.fast),
+          curve: Motion.easeSoft,
           padding: const EdgeInsetsDirectional.symmetric(
             horizontal: Dimens.space2,
             vertical: Dimens.space3,
@@ -47,8 +58,12 @@ class DrinkTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: BrandColors.surface,
             border: Border.all(
-              color: selected ? BrandColors.accent : BrandColors.brandLight,
-              width: selected ? 2 : 1,
+              // Selection is marked in BRAND, never in accent. Violet means
+              // "from my own jar" and nothing else (rule 3) — reusing it here
+              // would make the tile's own violet servings label ambiguous, on
+              // the very tile where ownership matters most.
+              color: selected ? BrandColors.brand : BrandColors.brandLight,
+              width: selected ? Dimens.borderSelected : Dimens.borderHairline,
             ),
             borderRadius: BorderRadius.circular(Dimens.radius),
           ),
@@ -62,7 +77,7 @@ class DrinkTile extends StatelessWidget {
               ),
               const SizedBox(height: Dimens.space2),
               Text(
-                item.nameAr,
+                name,
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,

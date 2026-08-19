@@ -30,6 +30,10 @@
   "orderTheUsual": "Order the usual",
   "drink": "Drink",
   "sugar": "Sugar",
+  "preparation": "Preparation",
+  "@preparation": { "description": "Label above the variant chips — how a drink is made (dark, light, French)." },
+  "orderNotesHint": "Anything staff should know",
+  "@orderNotesHint": { "description": "Hint inside the order notes field." },
   "extras": "Extras",
   "spoons": "{count, plural, =0{No sugar} =1{1 spoon} other{{count} spoons}}",
   "@spoons": {

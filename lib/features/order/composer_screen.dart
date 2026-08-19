@@ -12,6 +12,7 @@ import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../../theme/motion.dart';
 import 'composer_controller.dart';
 import 'widgets/drink_tile.dart';
 import 'widgets/sugar_stepper.dart';
@@ -177,14 +178,29 @@ class _ComposerBody extends ConsumerWidget {
                 const SizedBox(height: Dimens.space4),
               ],
 
-              if (composer.ownStockIsShort) ...[
-                InlineBanner(
-                  tone: BannerTone.warning,
-                  title: l10n.ownStockShortTitle,
-                  body: l10n.ownStockShortBody,
-                ),
-                const SizedBox(height: Dimens.space4),
-              ],
+              // The shortage warning fades in rather than snapping: it appears
+              // as a consequence of selecting a drink, and an element that
+              // materialises instantly reads as an error the user caused.
+              // Collapses to no animation under reduced motion (§2.3).
+              AnimatedSwitcher(
+                duration: Motion.of(context, Motion.base),
+                switchInCurve: Motion.easeOut,
+                // Exits are always faster than entrances (§2.3).
+                switchOutCurve: Motion.easeSoft,
+                child: composer.ownStockIsShort
+                    ? Padding(
+                        key: const ValueKey('own-stock-short'),
+                        padding: const EdgeInsetsDirectional.only(
+                          bottom: Dimens.space4,
+                        ),
+                        child: InlineBanner(
+                          tone: BannerTone.warning,
+                          title: l10n.ownStockShortTitle,
+                          body: l10n.ownStockShortBody,
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
 
               Text(l10n.drink, style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: Dimens.space3),
@@ -207,6 +223,39 @@ class _ComposerBody extends ConsumerWidget {
                   );
                 },
               ),
+
+              // Shown ONLY when the selected drink has more than one way of
+              // being made. `variants` is empty for drinks made one way, so a
+              // selector with a single option would be a decision the user
+              // does not actually have.
+              if ((composer.drink?.variants.length ?? 0) > 1) ...[
+                const SizedBox(height: Dimens.space5),
+                Text(
+                  l10n.preparation,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: Dimens.space2),
+                Wrap(
+                  spacing: Dimens.space2,
+                  runSpacing: Dimens.space2,
+                  children: [
+                    for (final variant in composer.drink!.variants)
+                      ChoiceChip(
+                        label: Text(
+                          variant.localisedName(
+                            Localizations.localeOf(context).languageCode,
+                          ),
+                        ),
+                        selected: composer.variantId == variant.variantId,
+                        onSelected: (_) =>
+                            controller.selectVariant(variant.variantId),
+                        // Brand, not accent: this is a preparation choice,
+                        // not a statement about whose jar it comes from.
+                        selectedColor: BrandColors.brandLight,
+                      ),
+                  ],
+                ),
+              ],
 
               // Appears only once a drink the user owns is selected — showing
               // it always is noise for the majority who own nothing (§7.1).
@@ -240,7 +289,11 @@ class _ComposerBody extends ConsumerWidget {
                   children: [
                     for (final extra in catalogue.extras)
                       FilterChip(
-                        label: Text(extra.nameAr),
+                        label: Text(
+                          extra.localisedName(
+                            Localizations.localeOf(context).languageCode,
+                          ),
+                        ),
                         selected: composer.extraItemIds.contains(extra.itemId),
                         onSelected: (_) => controller.toggleExtra(extra.itemId),
                         // Violet only when it is genuinely the user's own
@@ -450,6 +503,24 @@ class _ComposerFooter extends ConsumerWidget {
                 },
           ),
           const SizedBox(height: Dimens.space3),
+
+          // Free-text notes for the whole order. The controller and the wire
+          // contract both carried this from the start; without a field the
+          // user had no way to say "no milk" and the staff queue card that
+          // renders notes could never have anything to show.
+          TextField(
+            decoration: InputDecoration(
+              labelText: l10n.orderNotes,
+              hintText: l10n.orderNotesHint,
+              prefixIcon: const Icon(Icons.notes_outlined, size: 18),
+            ),
+            maxLines: 2,
+            textInputAction: TextInputAction.done,
+            onChanged: (text) =>
+                controller.setNotes(text.trim().isEmpty ? null : text.trim()),
+          ),
+          const SizedBox(height: Dimens.space3),
+
           FilledButton(
             // Disabled only when there is genuinely nothing to order.
             // NEVER disabled on a stock reading — see ownStockIsShort, which
