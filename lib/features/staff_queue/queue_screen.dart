@@ -220,6 +220,44 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     }
   }
 
+  /// Cancels an order, asking for a reason first.
+  ///
+  /// **The one staff action that gets a dialog** (§8.1). Everything else is one
+  /// tap with an undo window; this one takes a reason and cannot be walked
+  /// back by simply not sending it, so a deliberate confirmation is right
+  /// rather than an obstacle.
+  ///
+  /// Cancelling a `Ready` order reverses the consumption and re-books it as
+  /// waste server-side — the balance is unchanged, but nobody is credited with
+  /// a drink they never received.
+  Future<void> _cancel(StaffOrderDto order) async {
+    final l10n = AppLocalizations.of(context);
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (_) => _CancelDialog(orderId: order.orderId),
+    );
+
+    // Dismissing the dialog cancels the cancellation, not the order.
+    if (reason == null || !mounted) return;
+
+    final locale = ref.read(localeControllerProvider);
+    try {
+      await ref
+          .read(queueRepositoryProvider)
+          .cancel(
+            orderId: order.orderId,
+            reason: reason.trim().isEmpty ? null : reason.trim(),
+            languageCode: locale.languageCode,
+            networkErrorFallback: l10n.networkError,
+          );
+      await _refresh();
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
   Future<void> _complete(StaffOrderDto order) async {
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
@@ -309,6 +347,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                     onRefresh: _refresh,
                     onMarkReady: _markReadyAfterUndoWindow,
                     onComplete: null,
+                    onCancel: _cancel,
                   ),
                   _QueueList(
                     orders: _visible(_handovers),
@@ -318,6 +357,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                     onRefresh: _refresh,
                     onMarkReady: null,
                     onComplete: _complete,
+                    // Not offered on the handover list: the drink is already
+                    // made and stock already deducted, so cancelling there is
+                    // the wrong remedy.
+                    onCancel: null,
                   ),
                 ],
               ),
@@ -335,6 +378,7 @@ class _QueueList extends StatelessWidget {
     required this.onRefresh,
     required this.onMarkReady,
     required this.onComplete,
+    required this.onCancel,
   });
 
   final List<StaffOrderDto> orders;
@@ -345,6 +389,7 @@ class _QueueList extends StatelessWidget {
   final Future<void> Function(StaffOrderDto, {required bool deliverNow})?
   onMarkReady;
   final Future<void> Function(StaffOrderDto)? onComplete;
+  final Future<void> Function(StaffOrderDto)? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -377,9 +422,62 @@ class _QueueList extends StatelessWidget {
             warnings: warnings[order.orderId],
             onMarkReady: onMarkReady,
             onComplete: onComplete,
+            onCancel: onCancel,
           );
         },
       ),
+    );
+  }
+}
+
+/// Asks for a cancellation reason.
+///
+/// Returns the reason on confirm and null on dismiss — dismissing cancels the
+/// cancellation, not the order. The reason is optional on the wire, so an
+/// empty field is allowed rather than blocked: forcing text would invite "x".
+class _CancelDialog extends StatefulWidget {
+  const _CancelDialog({required this.orderId});
+
+  final int orderId;
+
+  @override
+  State<_CancelDialog> createState() => _CancelDialogState();
+}
+
+class _CancelDialogState extends State<_CancelDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    return AlertDialog(
+      title: Text(l10n.cancelWithReason),
+      content: TextField(
+        controller: _controller,
+        decoration: InputDecoration(labelText: l10n.cancelReason),
+        autofocus: true,
+        maxLines: 2,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (value) => Navigator.of(context).pop(value),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(l10n.cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(_controller.text),
+          style: TextButton.styleFrom(foregroundColor: BrandColors.danger),
+          child: Text(l10n.confirm),
+        ),
+      ],
     );
   }
 }

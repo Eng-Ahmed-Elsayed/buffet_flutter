@@ -20,6 +20,7 @@ class QueueCard extends StatelessWidget {
     required this.warnings,
     required this.onMarkReady,
     required this.onComplete,
+    required this.onCancel,
     super.key,
   });
 
@@ -32,6 +33,10 @@ class QueueCard extends StatelessWidget {
   final Future<void> Function(StaffOrderDto, {required bool deliverNow})?
   onMarkReady;
   final Future<void> Function(StaffOrderDto)? onComplete;
+
+  /// Cancels with a reason. Null on the handover list, where the drink is
+  /// already made and cancelling is the wrong remedy.
+  final Future<void> Function(StaffOrderDto)? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -59,11 +64,18 @@ class QueueCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      order.requesterDisplayName,
+                      // A person's name is user data in an unknown script.
+                      Formatters.isolate(order.requesterDisplayName),
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     Text(
-                      '${order.department} · ${order.locationText}',
+                      // Each half isolated SEPARATELY, not the joined string:
+                      // department and location have independent directions
+                      // (observed live: "المالية · meeting room 1"), and one
+                      // isolate around the pair would still let the bidi
+                      // algorithm reorder them around the separator.
+                      '${Formatters.isolate(order.department)} · '
+                      '${Formatters.isolate(order.locationText)}',
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ],
@@ -97,6 +109,7 @@ class QueueCard extends StatelessWidget {
             order: order,
             onMarkReady: onMarkReady,
             onComplete: onComplete,
+            onCancel: onCancel,
           ),
         ],
       ),
@@ -298,12 +311,14 @@ class _Actions extends StatelessWidget {
     required this.order,
     required this.onMarkReady,
     required this.onComplete,
+    required this.onCancel,
   });
 
   final StaffOrderDto order;
   final Future<void> Function(StaffOrderDto, {required bool deliverNow})?
   onMarkReady;
   final Future<void> Function(StaffOrderDto)? onComplete;
+  final Future<void> Function(StaffOrderDto)? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -323,6 +338,28 @@ class _Actions extends StatelessWidget {
 
     if (onMarkReady == null) return const SizedBox.shrink();
 
+    return Column(
+      children: [
+        _readyRow(context, l10n),
+        if (onCancel != null) ...[
+          const SizedBox(height: Dimens.space2),
+          // The ONE staff action that warrants a dialog (§8.1): it takes a
+          // reason, and unlike Ready it cannot be undone by simply not
+          // sending it. Everything else here is one tap with an undo window.
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => onCancel!(order),
+              style: TextButton.styleFrom(foregroundColor: BrandColors.danger),
+              child: Text(l10n.cancelWithReason),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _readyRow(BuildContext context, AppLocalizations l10n) {
     return Row(
       children: [
         // deliverNow is the common case at the counter — ready and handed over

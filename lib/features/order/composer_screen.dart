@@ -8,6 +8,7 @@ import '../../data/api/api_exception.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/repositories/catalogue_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
@@ -364,8 +365,15 @@ class _UsualOrderCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: Dimens.space2),
-          // Server-composed and human-readable; rendered as-is.
-          Text(usual.summary, style: Theme.of(context).textTheme.bodySmall),
+          // Server-composed and rendered as-is per §4 — but ISOLATED: the
+          // server builds this from the item's English name and an Arabic
+          // parenthetical regardless of Accept-Language, so it is reliably
+          // mixed-script ("Coffee (بدون سكر)"). Without the isolate the bidi
+          // algorithm reorders the parentheses around the Latin run.
+          Text(
+            Formatters.isolate(usual.summary),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: Dimens.space3),
           SizedBox(
             width: double.infinity,
