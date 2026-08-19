@@ -99,6 +99,15 @@ class AuthRepository {
   Future<bool> hasValidToken() => _tokenStore.hasValidToken();
 
   Future<String?> rememberedEmail() => _preferences.readEmail();
+
+  /// Whether biometric unlock is switched on for this device.
+  ///
+  /// A device preference, not an account claim — the server knows nothing
+  /// about it (§6).
+  Future<bool> biometricsEnabled() => _preferences.readBiometricsEnabled();
+
+  Future<void> setBiometricsEnabled(bool enabled) =>
+      _preferences.writeBiometricsEnabled(enabled);
 }
 
 final authRepositoryProvider = Provider<AuthRepository>(

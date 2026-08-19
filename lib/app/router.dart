@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../features/auth/auth_controller.dart';
 import '../features/auth/change_password_screen.dart';
+import '../features/auth/lock_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/materials/my_materials_screen.dart';
@@ -42,6 +43,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         case AuthStage.signedOut:
           return location == Routes.login ? null : Routes.login;
 
+        // A stored token exists but nothing is revealed until the prompt
+        // succeeds. Every route bounces here, exactly as mustChangePassword
+        // does — a deep link must not walk around the gate.
+        case AuthStage.locked:
+          return location == Routes.lock ? null : Routes.lock;
+
         // The token works here, so every route must bounce back to the change
         // screen — otherwise a deep link would let someone order on the shared
         // seeded password (§5, rule 10).
@@ -55,6 +62,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           // screens; send them to their landing screen by role.
           if (location == Routes.splash ||
               location == Routes.login ||
+              location == Routes.lock ||
               location == Routes.changePassword) {
             return auth.role.startsOnQueue ? Routes.queue : Routes.catalogue;
           }
@@ -77,6 +85,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.login,
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: Routes.lock,
+        builder: (context, state) => const LockScreen(),
       ),
       GoRoute(
         path: Routes.changePassword,

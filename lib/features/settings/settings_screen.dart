@@ -8,6 +8,7 @@ import '../../l10n/app_localizations.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../auth/auth_controller.dart';
+import 'biometric_tile.dart';
 
 /// Settings: the language switch and sign-out.
 ///
@@ -68,7 +69,15 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: Dimens.space6),
+          const SizedBox(height: Dimens.space5),
+          const Divider(),
+          const SizedBox(height: Dimens.space2),
+
+          // Offered here as well as once after sign-in, so a user who declined
+          // the first time can still find it (§6).
+          const BiometricTile(),
+
+          const SizedBox(height: Dimens.space5),
           const Divider(),
           const SizedBox(height: Dimens.space4),
 

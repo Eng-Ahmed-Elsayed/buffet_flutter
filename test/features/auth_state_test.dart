@@ -91,4 +91,90 @@ void main() {
       expect(state.rememberedEmail, 'someone@company.com');
     });
   });
+
+  group('AuthState — the biometric lock (§6)', () {
+    test('locked is a distinct stage, not a flavour of signedOut', () {
+      // The router bounces every route to the lock exactly as it does for
+      // mustChangePassword. Folding it into signedOut would show a login
+      // screen to someone who already holds a valid token.
+      const state = AuthState(stage: AuthStage.locked);
+      expect(state.stage, isNot(AuthStage.signedOut));
+      expect(state.stage, isNot(AuthStage.signedIn));
+    });
+
+    test('biometrics default to off, so nothing is enabled silently', () {
+      // §6: never enable it without asking. A default of true would gate a
+      // user behind hardware they never opted into.
+      const state = AuthState(stage: AuthStage.signedIn);
+      expect(state.biometricsEnabled, isFalse);
+      expect(state.offerBiometricEnrolment, isFalse);
+    });
+
+    test('the enrolment offer survives copyWith until it is answered', () {
+      const offered = AuthState(
+        stage: AuthStage.signedIn,
+        offerBiometricEnrolment: true,
+      );
+      // Any unrelated state change must not silently swallow the offer.
+      expect(
+        offered.copyWith(biometricsEnabled: true).offerBiometricEnrolment,
+        isTrue,
+      );
+      // Answering it clears it, so the sheet cannot appear twice.
+      expect(
+        offered
+            .copyWith(offerBiometricEnrolment: false)
+            .offerBiometricEnrolment,
+        isFalse,
+      );
+    });
+
+    test('unlocking moves to signedIn while keeping the preference on', () {
+      const locked = AuthState(
+        stage: AuthStage.locked,
+        biometricsEnabled: true,
+      );
+      final unlocked = locked.copyWith(stage: AuthStage.signedIn);
+
+      expect(unlocked.stage, AuthStage.signedIn);
+      // A successful unlock is not a reason to stop using biometrics.
+      expect(unlocked.biometricsEnabled, isTrue);
+    });
+
+    test('unavailable hardware clears the flag AND lets the user through', () {
+      // The strand: a flag set for hardware that can no longer satisfy a
+      // prompt would leave the user at a lock with no key. §6 says fall back
+      // to the password path silently and turn the flag off — here the token
+      // is still valid, so they go straight in.
+      const locked = AuthState(
+        stage: AuthStage.locked,
+        biometricsEnabled: true,
+      );
+      final recovered = locked.copyWith(
+        stage: AuthStage.signedIn,
+        biometricsEnabled: false,
+      );
+
+      expect(recovered.stage, AuthStage.signedIn);
+      expect(recovered.biometricsEnabled, isFalse);
+    });
+
+    test(
+      'signing out of the lock returns to signedOut with the email kept',
+      () {
+        // The way past the lock. The remembered email survives so the password
+        // sign-in that follows is prefilled (§5.1).
+        const state = AuthState(
+          stage: AuthStage.signedOut,
+          rememberedEmail: 'sara@company.com',
+          biometricsEnabled: false,
+        );
+        expect(state.stage, AuthStage.signedOut);
+        expect(state.rememberedEmail, 'sara@company.com');
+        // The flag goes with the token it unlocked — otherwise the next user of
+        // this device is gated on the previous one's fingerprint.
+        expect(state.biometricsEnabled, isFalse);
+      },
+    );
+  });
 }
