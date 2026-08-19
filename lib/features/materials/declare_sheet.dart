@@ -3,12 +3,63 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/locale_controller.dart';
 import '../../data/api/api_exception.dart';
+import '../../data/models/catalogue_models.dart';
 import '../../data/models/material_models.dart';
 import '../../data/repositories/materials_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../theme/dimens.dart';
+import '../order/composer_screen.dart';
 import 'my_materials_screen.dart';
+
+/// One item a user may declare, with the balance they already hold of it.
+///
+/// The list comes from the **catalogue**, not from `/materials/mine`. Sourcing
+/// it from the balances would let a user top up only what they already own —
+/// a material they have never brought in before could never be declared at
+/// all, which is the common case this sheet exists for. The server agrees:
+/// `POST /materials/declare` returns `202` for any catalogue item, owned or
+/// not.
+class DeclarableItem {
+  const DeclarableItem({required this.item, this.balance});
+
+  final CatalogueItemDto item;
+
+  /// The caller's confirmed balance, when they already hold some. Null for an
+  /// item they have never declared — which is not an error, just the first
+  /// time.
+  final MyMaterialDto? balance;
+
+  int get itemId => item.itemId;
+  String get nameAr => item.nameAr;
+  String get unit => item.unit;
+}
+
+/// Every catalogue item, joined to the caller's balances.
+///
+/// Drinks, sugars and extras all appear: a user brings in their own milk or
+/// sugar as readily as their own coffee, and the API draws no distinction.
+/// Watches [catalogueProvider] as a future rather than reading it: the sheet
+/// can be opened without ever visiting the composer, in which case the
+/// catalogue has never been fetched and reading it would sit at null forever.
+final declarableItemsProvider =
+    FutureProvider.autoDispose<List<DeclarableItem>>((ref) async {
+      final catalogue = await ref.watch(catalogueProvider.future);
+      final balances = {
+        for (final m in await ref.watch(myMaterialsProvider.future))
+          m.itemId: m,
+      };
+
+      return [
+        for (final item in [
+          ...catalogue.drinks,
+          ...catalogue.sugars,
+          ...catalogue.extras,
+        ])
+          DeclarableItem(item: item, balance: balances[item.itemId]),
+      ];
+    });
 
 /// Declares materials handed to staff.
 ///
@@ -29,7 +80,7 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
   final _quantityController = TextEditingController();
   final _noteController = TextEditingController();
 
-  MyMaterialDto? _selectedItem;
+  DeclarableItem? _selectedItem;
   bool _submitting = false;
   String? _errorMessage;
 
@@ -88,7 +139,8 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final materials = ref.watch(myMaterialsProvider).valueOrNull ?? [];
+    final locale = ref.watch(localeControllerProvider);
+    final items = ref.watch(declarableItemsProvider).valueOrNull ?? const [];
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -133,14 +185,23 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
                   const SizedBox(height: Dimens.space4),
                 ],
 
-                DropdownButtonFormField<MyMaterialDto>(
+                // Every catalogue item, not only the ones already owned —
+                // otherwise a first-time declaration is impossible to make.
+                DropdownButtonFormField<DeclarableItem>(
                   initialValue: _selectedItem,
-                  decoration: InputDecoration(labelText: l10n.item),
+                  decoration: InputDecoration(
+                    labelText: l10n.item,
+                    helperText: items.isEmpty ? l10n.loading : null,
+                  ),
+                  isExpanded: true,
                   items: [
-                    for (final item in materials)
-                      DropdownMenuItem(value: item, child: Text(item.nameAr)),
+                    for (final item in items)
+                      DropdownMenuItem(
+                        value: item,
+                        child: _ItemLabel(item: item, locale: locale),
+                      ),
                   ],
-                  onChanged: _submitting
+                  onChanged: _submitting || items.isEmpty
                       ? null
                       : (value) => setState(() => _selectedItem = value),
                   validator: (value) => value == null ? '' : null,
@@ -200,6 +261,37 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// One row in the item dropdown.
+///
+/// Names the item, and — only when the user already holds some — the balance
+/// they are adding to. An item with no balance simply shows its name: a first
+/// declaration is the normal case, not a gap.
+class _ItemLabel extends StatelessWidget {
+  const _ItemLabel({required this.item, required this.locale});
+
+  final DeclarableItem item;
+  final Locale locale;
+
+  @override
+  Widget build(BuildContext context) {
+    final balance = item.balance;
+    return Row(
+      children: [
+        Expanded(child: Text(item.nameAr, overflow: TextOverflow.ellipsis)),
+        if (balance != null) ...[
+          const SizedBox(width: Dimens.space2),
+          Text(
+            // Bidi-isolated: the unit is admin-entered and keeps whatever
+            // language it was typed in (§2.4).
+            Formatters.quantity(balance.quantity, balance.unit),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+      ],
     );
   }
 }
