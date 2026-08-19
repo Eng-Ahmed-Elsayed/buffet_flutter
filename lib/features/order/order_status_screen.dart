@@ -17,6 +17,7 @@ import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/source_chip.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import 'composer_screen.dart';
 
 /// Live status for one order.
 ///
@@ -396,16 +397,23 @@ class _StatusTrack extends StatelessWidget {
   }
 }
 
-class _OrderLineCard extends StatelessWidget {
+class _OrderLineCard extends ConsumerWidget {
   const _OrderLineCard({required this.line, required this.order});
 
   final OrderLineDto line;
   final OrderSummaryDto order;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
+    final languageCode = Localizations.localeOf(context).languageCode;
+
+    // The order response carries only variantId, so the name comes from the
+    // catalogue. Null while it loads or if the item has since changed — the
+    // chip is simply omitted rather than showing a bare number.
+    final catalogue = ref.watch(catalogueProvider).valueOrNull;
+    final variantName = _variantName(catalogue, languageCode);
 
     return Container(
       padding: const EdgeInsetsDirectional.all(Dimens.space4),
@@ -417,12 +425,20 @@ class _OrderLineCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(line.drinkNameAr, style: Theme.of(context).textTheme.titleSmall),
+          Text(
+            // The order stores the Arabic name; prefer the catalogue's
+            // localised one so an English user is not shown Arabic here alone.
+            _drinkName(catalogue, languageCode) ?? line.drinkNameAr,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
           const SizedBox(height: Dimens.space2),
           Wrap(
             spacing: Dimens.space2,
             runSpacing: Dimens.space2,
             children: [
+              // The preparation the user actually chose. Without this they
+              // could pick "فاتح" and never see it confirmed anywhere.
+              if (variantName != null) DetailChip(label: variantName),
               DetailChip(label: l10n.spoons(line.sugarSpoons)),
               if (line.drinkFromOwn)
                 SourceChip(label: l10n.drink, ownerName: _ownLabel(context)),
@@ -441,7 +457,15 @@ class _OrderLineCard extends StatelessWidget {
               const SizedBox(width: Dimens.space2),
               Expanded(
                 child: Text(
-                  order.locationText,
+                  // locationText is optional — the managed list is a
+                  // suggestion and an order stands without one. An empty
+                  // string left a bare pin icon with nothing beside it,
+                  // which reads as a failed load rather than as "none given".
+                  order.locationText.trim().isEmpty
+                      ? l10n.noLocationGiven
+                      // Isolated: user-entered and may run counter to the
+                      // page direction (§2.4).
+                      : Formatters.isolate(order.locationText),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -470,6 +494,34 @@ class _OrderLineCard extends StatelessWidget {
 
   /// On the employee's own screen "my jar" needs no name — the owner is the
   /// person reading it.
+  /// The drink's name in the current locale, or null when the catalogue has
+  /// not loaded — the caller falls back to the Arabic name on the order.
+  String? _drinkName(CatalogueResponse? catalogue, String languageCode) {
+    if (catalogue == null) return null;
+    for (final item in catalogue.drinks) {
+      if (item.itemId == line.drinkItemId) {
+        return item.localisedName(languageCode);
+      }
+    }
+    return null;
+  }
+
+  /// Resolves [OrderLineDto.variantId] to a display name via the catalogue.
+  String? _variantName(CatalogueResponse? catalogue, String languageCode) {
+    final variantId = line.variantId;
+    if (variantId == null || catalogue == null) return null;
+
+    for (final item in catalogue.drinks) {
+      if (item.itemId != line.drinkItemId) continue;
+      for (final variant in item.variants) {
+        if (variant.variantId == variantId) {
+          return variant.localisedName(languageCode);
+        }
+      }
+    }
+    return null;
+  }
+
   String _ownLabel(BuildContext context) =>
       AppLocalizations.of(context).fromMyMaterials;
 }

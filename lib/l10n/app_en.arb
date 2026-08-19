@@ -52,6 +52,8 @@
     "description": "How many servings remain in the user's own jar.",
     "placeholders": { "count": { "type": "int" } }
   },
+  "noLocationGiven": "No location given",
+  "@noLocationGiven": { "description": "Shown in place of the delivery location when the order carries none — the field is optional." },
   "deliveryLocation": "Delivery location",
   "locationHint": "Choose or type a location",
   "placeOrder": "Place order",

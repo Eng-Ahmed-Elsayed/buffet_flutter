@@ -38,14 +38,27 @@ class ItemImage extends StatelessWidget {
         fit: BoxFit.cover,
         // A 404 or a dead connection is "use the fallback", not an error.
         errorBuilder: (context, error, stackTrace) => _fallback(),
+        // A NEUTRAL placeholder while loading, not the category glyph: the
+        // glyph means "this item has no picture", and showing it first made
+        // every real photograph flash a wrong answer before arriving — worse
+        // on a slow connection, where the wrong answer is what the user reads.
         loadingBuilder: (context, child, progress) =>
-            progress == null ? child : _fallback(),
+            progress == null ? child : _placeholder(),
+        // Keeps the frame from collapsing and re-expanding as images arrive.
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) =>
+            wasSynchronouslyLoaded || frame != null ? child : _placeholder(),
         // Decoding at display size keeps a long list from holding full-size
         // bitmaps in memory.
         cacheWidth: (size * MediaQuery.devicePixelRatioOf(context)).round(),
       ),
     );
   }
+
+  /// Occupies the frame while the picture loads. Deliberately says nothing
+  /// about the item — unlike [_fallback], which is a statement that there is
+  /// no picture to show.
+  Widget _placeholder() =>
+      Container(width: size, height: size, color: BrandColors.brandLight);
 
   Widget _fallback() => SizedBox(
     width: size,

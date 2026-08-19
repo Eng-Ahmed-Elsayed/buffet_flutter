@@ -161,9 +161,14 @@ class _OrderRow extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        // Isolated: the location is user- or admin-entered and
-                        // may run counter to the page direction (§2.4).
-                        Formatters.isolate(order.locationText),
+                        // locationText is optional — an order stands without
+                        // one, so an empty string is a normal state and must
+                        // read as "none given" rather than as a blank row.
+                        order.locationText.trim().isEmpty
+                            ? l10n.noLocationGiven
+                            // Isolated: user- or admin-entered, and may run
+                            // counter to the page direction (§2.4).
+                            : Formatters.isolate(order.locationText),
                         style: Theme.of(context).textTheme.titleSmall,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

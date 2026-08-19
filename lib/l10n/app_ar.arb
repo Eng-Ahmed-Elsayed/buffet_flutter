@@ -84,6 +84,8 @@
     "description": "How many servings remain in the user's own jar.",
     "placeholders": { "count": { "type": "int" } }
   },
+  "noLocationGiven": "لم يُحدَّد مكان التسليم",
+  "@noLocationGiven": { "description": "Shown in place of the delivery location when the order carries none — the field is optional." },
   "deliveryLocation": "مكان التسليم",
   "@deliveryLocation": { "description": "Label for the location combo; free text is always accepted." },
   "locationHint": "اختر أو اكتب المكان",
