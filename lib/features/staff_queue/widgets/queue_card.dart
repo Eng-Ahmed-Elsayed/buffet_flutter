@@ -74,8 +74,16 @@ class QueueCard extends StatelessWidget {
                       // (observed live: "المالية · meeting room 1"), and one
                       // isolate around the pair would still let the bidi
                       // algorithm reorder them around the separator.
-                      '${Formatters.isolate(order.department)} · '
-                      '${Formatters.isolate(order.locationText)}',
+                      //
+                      // locationText is optional, so the separator is only
+                      // drawn when there are two things to separate —
+                      // otherwise the card showed a dangling "المالية · ".
+                      [
+                        if (order.department.trim().isNotEmpty)
+                          Formatters.isolate(order.department),
+                        if (order.locationText.trim().isNotEmpty)
+                          Formatters.isolate(order.locationText),
+                      ].join(' · '),
                       style: Theme.of(context).textTheme.labelSmall,
                     ),
                   ],

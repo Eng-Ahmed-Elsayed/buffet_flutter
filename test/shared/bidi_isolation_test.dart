@@ -60,4 +60,34 @@ void main() {
       expect(text.split(pdi).length - 1, 2);
     });
   });
+
+  group('an optional half is omitted with its separator', () {
+    /// Mirrors the queue card's identity line.
+    String identityLine(String department, String location) => [
+      if (department.trim().isNotEmpty) Formatters.isolate(department),
+      if (location.trim().isNotEmpty) Formatters.isolate(location),
+    ].join(' · ');
+
+    test('both present gives one separator', () {
+      final line = identityLine('المالية', 'مكتبي');
+      expect(' · '.allMatches(line).length, 1);
+    });
+
+    test('an empty location drops the separator entirely', () {
+      // Observed live: order 43 has locationText "" because the field is
+      // optional. The card rendered "المالية · " with nothing after it,
+      // which reads as a failed load.
+      final line = identityLine('المالية', '');
+      expect(line.contains('·'), isFalse);
+      expect(line.contains('المالية'), isTrue);
+    });
+
+    test('a whitespace-only location counts as absent', () {
+      expect(identityLine('المالية', '   ').contains('·'), isFalse);
+    });
+
+    test('both empty gives an empty line, not a bare separator', () {
+      expect(identityLine('', ''), isEmpty);
+    });
+  });
 }

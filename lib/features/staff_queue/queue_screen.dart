@@ -54,6 +54,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    // The header count follows the visible tab, so it has to rebuild when the
+    // tab changes — otherwise it reports the queue while the handover list is
+    // on screen.
+    _tabController.addListener(_onTabChanged);
     WidgetsBinding.instance.addObserver(this);
     unawaited(_refresh());
     _startPolling();
@@ -69,6 +73,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     for (final timer in _pendingTimers.values) {
       timer.cancel();
     }
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -181,6 +186,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     );
   }
 
+  void _onTabChanged() {
+    if (mounted) setState(() {});
+  }
+
   /// Drops orders whose action is still inside its undo window.
   List<StaffOrderDto> _visible(List<StaffOrderDto> orders) =>
       orders.where((o) => !_pendingActions.containsKey(o.orderId)).toList();
@@ -291,10 +300,15 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
           actions: [
             Center(
               child: Text(
-                // Counts what is actually on screen. Using the unfiltered
-                // list made the header claim "one order" while the list showed
-                // its empty state, for the length of an undo window.
-                l10n.orderCount(_visible(_queue).length),
+                // Counts what is actually on screen — the VISIBLE tab's list,
+                // minus anything inside an undo window. Counting the queue
+                // unconditionally made the header read "no orders" above a
+                // handover list holding three, and counting the unfiltered
+                // list made it claim "one order" above an empty state.
+                l10n.orderCount(
+                  _visible(_tabController.index == 0 ? _queue : _handovers)
+                      .length,
+                ),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: BrandColors.surface,
                   fontFeatures: const [FontFeature.tabularFigures()],
