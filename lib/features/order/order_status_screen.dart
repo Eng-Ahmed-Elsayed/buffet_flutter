@@ -96,8 +96,10 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
         _errorMessage = null;
       });
 
-      // A completed or cancelled order will never change again.
-      if (!order.orderStatus.isLive) _pollTimer?.cancel();
+      // Only a completed or cancelled order will never change again. A READY
+      // order still moves — handover takes it to Completed — so polling must
+      // continue past Ready, or the employee never sees it collected.
+      if (order.orderStatus.isSettled) _pollTimer?.cancel();
     } on ApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
     }

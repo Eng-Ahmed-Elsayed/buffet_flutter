@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/api/api_client.dart';
+import '../../data/local/biometric_enrolment_guard.dart';
 import '../../data/local/biometric_service.dart';
 import '../../data/models/auth_models.dart';
 import '../../data/repositories/auth_repository.dart';
@@ -42,6 +43,7 @@ class AuthState {
     this.rememberedEmail,
     this.biometricsEnabled = false,
     this.offerBiometricEnrolment = false,
+    this.signedOutByEnrolmentChange = false,
   });
 
   const AuthState.restoring()
@@ -49,7 +51,8 @@ class AuthState {
       session = null,
       rememberedEmail = null,
       biometricsEnabled = false,
-      offerBiometricEnrolment = false;
+      offerBiometricEnrolment = false,
+      signedOutByEnrolmentChange = false;
 
   final AuthStage stage;
   final LoginResponse? session;
@@ -63,6 +66,11 @@ class AuthState {
   /// it offered at the moment the token is fresh, and again in settings.
   final bool offerBiometricEnrolment;
 
+  /// True when the session was cleared because the device's biometric
+  /// enrolment changed. The login screen explains it — being dropped at a
+  /// sign-in screen with no reason reads as a bug, not as a safeguard.
+  final bool signedOutByEnrolmentChange;
+
   UserRole get role =>
       session == null ? UserRole.employee : UserRole.fromWire(session!.role);
 
@@ -72,6 +80,7 @@ class AuthState {
     String? rememberedEmail,
     bool? biometricsEnabled,
     bool? offerBiometricEnrolment,
+    bool? signedOutByEnrolmentChange,
   }) => AuthState(
     stage: stage ?? this.stage,
     session: session ?? this.session,
@@ -79,12 +88,18 @@ class AuthState {
     biometricsEnabled: biometricsEnabled ?? this.biometricsEnabled,
     offerBiometricEnrolment:
         offerBiometricEnrolment ?? this.offerBiometricEnrolment,
+    signedOutByEnrolmentChange:
+        signedOutByEnrolmentChange ?? this.signedOutByEnrolmentChange,
   );
 }
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repository, this._authEvents, this._biometrics)
-    : super(const AuthState.restoring()) {
+  AuthController(
+    this._repository,
+    this._authEvents,
+    this._biometrics,
+    this._enrolmentGuard,
+  ) : super(const AuthState.restoring()) {
     unawaited(_restore());
 
     // A 401 from anywhere in the app lands here: the interceptor has already
@@ -103,6 +118,7 @@ class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _repository;
   final AuthEvents _authEvents;
   final BiometricService _biometrics;
+  final BiometricEnrolmentGuard _enrolmentGuard;
   StreamSubscription<void>? _unauthorizedSubscription;
 
   Future<void> _restore() async {
@@ -178,6 +194,8 @@ class AuthController extends StateNotifier<AuthState> {
     if (!result.succeeded) return result.failure;
 
     await _repository.setBiometricsEnabled(true);
+    // Pins the current enrolment so a later change can be detected (§6).
+    await _enrolmentGuard.arm();
     if (!mounted) return null;
     state = state.copyWith(
       biometricsEnabled: true,
@@ -191,6 +209,7 @@ class AuthController extends StateNotifier<AuthState> {
   /// a trap for anyone whose sensor has started failing.
   Future<void> disableBiometrics() async {
     await _repository.setBiometricsEnabled(false);
+    await _enrolmentGuard.disarm();
     if (!mounted) return;
     state = state.copyWith(biometricsEnabled: false);
   }
@@ -205,6 +224,18 @@ class AuthController extends StateNotifier<AuthState> {
   /// Passing does **not** make a 30-day-old token valid — the first `401`
   /// still routes to login (§6).
   Future<BiometricFailure?> unlock({required String reason}) async {
+    // Checked BEFORE the prompt, not after: if enrolment changed, a new
+    // fingerprint would satisfy the prompt perfectly well. §6 calls this the
+    // one case where being strict is right — a colleague who enrolled their
+    // own finger must not inherit the session.
+    if (await _enrolmentGuard.check() == EnrolmentState.changed) {
+      await signOut();
+      if (mounted) {
+        state = state.copyWith(signedOutByEnrolmentChange: true);
+      }
+      return null;
+    }
+
     final result = await _biometrics.authenticate(reason: reason);
 
     if (result.succeeded) {
@@ -260,8 +291,10 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> signOut() async {
     // clearAccountPreferences() drops the biometrics flag with the token: a
     // flag surviving the credential it unlocks would gate the next user of
-    // this device on the previous one's fingerprint.
+    // this device on the previous one's fingerprint. The enrolment sentinel
+    // goes with it — it pins nothing once there is no session to protect.
     await _repository.signOut();
+    await _enrolmentGuard.disarm();
     if (!mounted) return;
     state = AuthState(
       stage: AuthStage.signedOut,
@@ -281,5 +314,6 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
     ref.watch(authRepositoryProvider),
     ref.watch(authEventsProvider),
     ref.watch(biometricServiceProvider),
+    ref.watch(biometricEnrolmentGuardProvider),
   ),
 );

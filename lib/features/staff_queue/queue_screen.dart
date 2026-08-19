@@ -39,6 +39,11 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
 
   List<StaffOrderDto> _queue = [];
   List<StaffOrderDto> _handovers = [];
+
+  /// Orders whose serve is inside its undo window: hidden from the lists so
+  /// staff cannot tap the same cup twice, but not yet sent.
+  final Map<int, StaffOrderDto> _pendingActions = {};
+  final Map<int, Timer> _pendingTimers = {};
   bool _loading = true;
   String? _errorMessage;
 
@@ -58,6 +63,12 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    // Pending actions are abandoned rather than fired: leaving the screen is
+    // not a confirmation, and a timer outliving dispose would call setState
+    // on a dead State.
+    for (final timer in _pendingTimers.values) {
+      timer.cancel();
+    }
     _tabController.dispose();
     super.dispose();
   }
@@ -123,6 +134,57 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   ///
   /// A `200` carrying warnings is still success: the drink was made. The
   /// warnings are surfaced on the card and never treated as a failure.
+  /// Marks ready **after a short undo window**, not immediately.
+  ///
+  /// §8.1 wants one tap with an undo, not a confirm dialog — staff hands are
+  /// busy. The undo must happen *before* the call: `/ready` is the only path
+  /// that writes ledger rows and the API has no un-ready endpoint, so there is
+  /// no way back once it fires. Cancelling the customer's order is a different
+  /// act, not a reversal.
+  Future<void> _markReadyAfterUndoWindow(
+    StaffOrderDto order, {
+    required bool deliverNow,
+  }) async {
+    // A second tap while one is already pending would serve it twice.
+    if (_pendingActions.containsKey(order.orderId)) return;
+
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    setState(() => _pendingActions[order.orderId] = order);
+
+    final timer = Timer(ApiConfig.undoWindow, () {
+      _pendingTimers.remove(order.orderId);
+      if (!mounted) return;
+      setState(() => _pendingActions.remove(order.orderId));
+      unawaited(_markReady(order, deliverNow: deliverNow));
+    });
+    _pendingTimers[order.orderId] = timer;
+
+    messenger.showSnackBar(
+      SnackBar(
+        duration: ApiConfig.undoWindow,
+        content: Text(l10n.undoWindowMessage(order.orderId)),
+        action: SnackBarAction(
+          label: l10n.undo,
+          onPressed: () {
+            timer.cancel();
+            _pendingTimers.remove(order.orderId);
+            // Dismissing the snackbar is NOT an undo — only this is. The card
+            // comes back and nothing was sent.
+            if (mounted) {
+              setState(() => _pendingActions.remove(order.orderId));
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Drops orders whose action is still inside its undo window.
+  List<StaffOrderDto> _visible(List<StaffOrderDto> orders) =>
+      orders.where((o) => !_pendingActions.containsKey(o.orderId)).toList();
+
   Future<void> _markReady(
     StaffOrderDto order, {
     required bool deliverNow,
@@ -235,16 +297,18 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                 controller: _tabController,
                 children: [
                   _QueueList(
-                    orders: _queue,
+                    // Orders inside their undo window are hidden so staff do
+                    // not serve the same cup twice while it is pending.
+                    orders: _visible(_queue),
                     warnings: _recentWarnings,
                     emptyTitle: l10n.emptyQueueTitle,
                     emptyBody: l10n.emptyQueueBody,
                     onRefresh: _refresh,
-                    onMarkReady: _markReady,
+                    onMarkReady: _markReadyAfterUndoWindow,
                     onComplete: null,
                   ),
                   _QueueList(
-                    orders: _handovers,
+                    orders: _visible(_handovers),
                     warnings: _recentWarnings,
                     emptyTitle: l10n.noHandoversTitle,
                     emptyBody: l10n.noHandoversBody,

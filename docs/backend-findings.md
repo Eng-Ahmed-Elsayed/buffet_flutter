@@ -154,25 +154,6 @@ is a documentation gap rather than a defect.
 
 ---
 
-## Client-side gap: biometric-changed cannot be detected
-
-Not a backend issue, recorded here because §12 lists it as a definition-of-done
-item and it is **not implemented**.
-
-§6 asks that a changed biometric enrolment (a new fingerprint added) clear the
-token and force a full password sign-in — "the one case where being strict is
-right". `local_auth` 2.3.0 cannot report it: `LocalAuthPlugin` authenticates
-without a `CryptoObject`, so the Android Keystore key that would throw
-`KeyPermanentlyInvalidatedException` is never involved, and no error code for
-the condition reaches Dart.
-
-Closing it needs a biometric-bound Keystore key — a platform channel, or a
-package §10 has not agreed. **Deliberately not worked around.** The mitigations
-that do hold: the token is 30-day and cleared on any `401`, sign-out clears the
-biometric flag with it, and the lock screen always offers a password path.
-
----
-
 ## Test data left behind
 
 Exercising these rules created orders 26–40 on `sara@company.com` and `admin@company.com`, drove

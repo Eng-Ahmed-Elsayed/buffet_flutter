@@ -24,6 +24,10 @@
   "@signInWithBiometrics": { "description": "Button that starts the biometric unlock flow." },
   "adminWorkOnWeb": "إدارة المخزون والتقارير على الويب",
   "@adminWorkOnWeb": { "description": "Quiet footnote telling admins that admin screens are not in the app." },
+  "biometricsChangedTitle": "سجّل الدخول مرة أخرى",
+  "@biometricsChangedTitle": { "description": "Shown on the login screen after biometric enrolment changed and the session was cleared." },
+  "biometricsChangedBody": "تغيّرت إعدادات البصمة أو الوجه على جهازك، لذلك أنهينا الجلسة للحفاظ على أمان حسابك.",
+  "@biometricsChangedBody": { "description": "Explains why the session ended — the user did nothing wrong." },
   "sessionExpiredTitle": "انتهت الجلسة",
   "@sessionExpiredTitle": { "description": "Shown when the 30-day token has expired; there is no refresh endpoint." },
   "sessionExpiredBody": "سجّل الدخول مرة أخرى للمتابعة.",
@@ -197,6 +201,11 @@
   "@markReady": { "description": "Secondary staff action — /ready. This is what deducts stock." },
   "markDelivered": "تم التسليم",
   "@markDelivered": { "description": "Completes an order already in Ready." },
+  "undoWindowMessage": "جارٍ تجهيز الطلب رقم {orderId}…",
+  "@undoWindowMessage": {
+    "description": "Snackbar shown during the undo window, before the action is actually sent.",
+    "placeholders": { "orderId": { "type": "int" } }
+  },
   "undo": "تراجع",
   "@undo": { "description": "Undo window offered instead of a confirm dialog — staff hands are busy." },
   "orderServed": "تم تحضير الطلب",

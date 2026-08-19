@@ -12,6 +12,10 @@
   "hidePassword": "Hide password",
   "signInWithBiometrics": "Sign in with biometrics",
   "adminWorkOnWeb": "Stock and reporting are managed on the web",
+  "biometricsChangedTitle": "Sign in again",
+  "@biometricsChangedTitle": { "description": "Shown on the login screen after biometric enrolment changed and the session was cleared." },
+  "biometricsChangedBody": "Your device's fingerprint or face settings changed, so we signed you out for safety.",
+  "@biometricsChangedBody": { "description": "Explains why the session ended — the user did nothing wrong." },
   "sessionExpiredTitle": "Session expired",
   "sessionExpiredBody": "Sign in again to continue.",
 
@@ -118,6 +122,11 @@
   "readyAndDelivered": "Ready and handed over",
   "markReady": "Ready",
   "markDelivered": "Handed over",
+  "undoWindowMessage": "Serving order {orderId}…",
+  "@undoWindowMessage": {
+    "description": "Snackbar shown during the undo window, before the action is actually sent.",
+    "placeholders": { "orderId": { "type": "int" } }
+  },
   "undo": "Undo",
   "orderServed": "Drink made",
   "buffetStock": "Buffet",

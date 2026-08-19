@@ -75,12 +75,10 @@ class MyOrdersScreen extends ConsumerWidget {
           final ready = all
               .where((o) => o.orderStatus == OrderStatus.ready)
               .toList();
-          final past = all
-              .where(
-                (o) =>
-                    !o.orderStatus.isLive && o.orderStatus != OrderStatus.ready,
-              )
-              .toList();
+          // isSettled, not "everything else": only completed and cancelled
+          // orders are finished. Ready belongs above with the live ones — the
+          // drink exists but the order has not stopped moving.
+          final past = all.where((o) => o.orderStatus.isSettled).toList();
 
           // Ready first: a drink waiting on the counter is the most urgent
           // thing on this screen.

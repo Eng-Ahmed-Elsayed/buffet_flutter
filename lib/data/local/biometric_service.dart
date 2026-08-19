@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart';
 
+// Referenced from the class doc below; the guard is what actually detects a
+// changed enrolment.
+import 'biometric_enrolment_guard.dart';
+
 /// Why a biometric prompt did not succeed.
 ///
 /// Each case strands the user differently, so they are distinguished here
@@ -77,22 +81,10 @@ class PluginBiometricAuthenticator implements BiometricAuthenticator {
 
 /// Wraps `local_auth`.
 ///
-/// **Known gap — biometric-changed does not clear the token.** §12 asks for it,
-/// and §6 calls it "the one case where being strict is right", but `local_auth`
-/// 2.3.0 cannot report it: it authenticates without a `CryptoObject`, so the
-/// Keystore key that Android would invalidate on a new fingerprint is never
-/// involved and `KeyPermanentlyInvalidatedException` never reaches Dart. There
-/// is no error code for it.
-///
-/// Closing this properly needs a biometric-bound Keystore key — a platform
-/// channel or an additional package — which §10 has not agreed. It is recorded
-/// in docs/backend-findings.md rather than silently skipped. The mitigations
-/// that DO hold: the token is 30-day and cleared on any `401`, sign-out clears
-/// the flag with it, and the lock always offers a password path.
-///
-/// **Biometrics unlock a stored token; they are not a second factor.** The
-/// server knows nothing about the fingerprint, and no call here makes an
-/// expired token valid — the first `401` still routes to login (§6).
+/// **Biometric-changed is handled, but not here.** `local_auth` cannot report
+/// it — it authenticates without a `CryptoObject`, so the Keystore key Android
+/// would invalidate is never involved. [BiometricEnrolmentGuard] creates such a
+/// key deliberately and the auth controller checks it before every unlock.
 ///
 /// Exists as a seam so the auth flow can be tested without a fingerprint
 /// reader, and so the plugin's `PlatformException` codes are translated once

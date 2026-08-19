@@ -40,10 +40,21 @@ enum OrderStatus {
   /// hidden once the status leaves [pending], rather than shown disabled.
   bool get isCancellable => this == OrderStatus.pending;
 
-  /// Whether the app should keep polling. A completed or cancelled order is
-  /// finished — polling it is pure noise.
+  /// Still on its way to being made — [pending] or [inProgress].
+  ///
+  /// **Not the same as "still changing".** A [ready] order is not `isLive`
+  /// (the drink exists) but it has not finished moving: handover takes it to
+  /// [completed]. Use [isSettled] to decide whether to stop polling.
   bool get isLive =>
       this == OrderStatus.pending || this == OrderStatus.inProgress;
+
+  /// Whether this status can never change again.
+  ///
+  /// Only [completed] and [cancelled] are terminal. Polling stops here and
+  /// nowhere earlier — stopping at [ready] would leave an employee watching
+  /// "your drink is ready" forever, never seeing it turn to collected.
+  bool get isSettled =>
+      this == OrderStatus.completed || this == OrderStatus.cancelled;
 }
 
 /// Mirrors `PlaceOrderApiRequest` in ApiContracts.cs.

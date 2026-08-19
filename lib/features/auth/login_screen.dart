@@ -117,6 +117,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ),
                   const SizedBox(height: Dimens.space6),
 
+                  // The session was cleared because the device's biometric
+                  // enrolment changed. Say so: being dropped at a sign-in
+                  // screen with no explanation reads as a bug rather than as
+                  // the safeguard it is (§6).
+                  if (ref
+                      .watch(authControllerProvider)
+                      .signedOutByEnrolmentChange) ...[
+                    InlineBanner(
+                      tone: BannerTone.info,
+                      title: l10n.biometricsChangedTitle,
+                      body: l10n.biometricsChangedBody,
+                    ),
+                    const SizedBox(height: Dimens.space4),
+                  ],
+
                   if (_errorMessage != null) ...[
                     InlineBanner(
                       tone: BannerTone.danger,
