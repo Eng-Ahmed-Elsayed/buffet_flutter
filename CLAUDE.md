@@ -4,9 +4,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**No Flutter project has been scaffolded yet.** This repo currently holds only `README.md`,
-`docs/` and `assets/`. There is no `pubspec.yaml`, no `lib/`, no `android/` or `ios/`. Work here
-starts with `flutter create` and the setup in §11 of the guide, not with editing existing code.
+**Scaffolded and building.** The five screens from §1.2 exist, in both locales, on branch
+`feat/app-scaffold`. `flutter analyze` is clean and `flutter test` passes.
+
+Two things are known-incomplete and deliberately so — see
+[docs/backend-findings.md](docs/backend-findings.md):
+
+1. **`MyMaterialDto.imageUrl` is not yet returned by the API.** The Dart model already carries the
+   nullable field and the UI falls back to a category glyph, so images appear on their own when
+   the backend ships it. The change is specified in
+   [docs/backend-request-material-image.md](docs/backend-request-material-image.md).
+2. **`/auth/login` ignores `Accept-Language`** and returns Arabic either way. The client is already
+   correct per §4 — it sends the header and surfaces `ApiError.message` verbatim. Scope beyond the
+   unauthenticated surface is untested; **verifying it needs a test account**.
+
+Not built yet: biometric unlock (§6), notifications (§7.4), and a settings screen carrying the
+language switch. `LocaleController` and `PreferencesStore` already support the switch; it has no UI.
+
+**The Flutter SDK lives at `C:\src\flutter` and is not on `PATH`** — invoke it by full path
+(`C:\src\flutter\bin\flutter.bat`).
 
 ## What this repo is
 
