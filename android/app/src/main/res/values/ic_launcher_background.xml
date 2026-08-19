@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      brandDark from lib/theme/brand_colors.dart. The launcher background is a
+      flat fill (the adaptive-icon format has no gradient here), so it takes
+      the darker end of the brand pair — the mark's own navy still separates
+      from it, which a mid-brand fill did not.
+    -->
+    <color name="ic_launcher_background">#0B1E4B</color>
+</resources>
