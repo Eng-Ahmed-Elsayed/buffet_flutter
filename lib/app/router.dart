@@ -9,6 +9,7 @@ import '../features/auth/splash_screen.dart';
 import '../features/materials/my_materials_screen.dart';
 import '../features/order/composer_screen.dart';
 import '../features/order/order_status_screen.dart';
+import '../features/settings/settings_screen.dart';
 import '../features/staff_queue/queue_screen.dart';
 import 'routes.dart';
 
@@ -100,6 +101,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.queue,
         builder: (context, state) => const QueueScreen(),
+      ),
+      GoRoute(
+        path: Routes.settings,
+        builder: (context, state) => const SettingsScreen(),
       ),
     ],
   );

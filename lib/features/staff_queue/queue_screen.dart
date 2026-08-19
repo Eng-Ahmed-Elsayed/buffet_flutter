@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/locale_controller.dart';
+import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/models/staff_models.dart';
@@ -183,17 +185,19 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       appBar: AppBar(
         title: Text(l10n.queueTitle),
         actions: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(end: Dimens.space4),
-            child: Center(
-              child: Text(
-                l10n.orderCount(_queue.length),
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: BrandColors.surface,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+          Center(
+            child: Text(
+              l10n.orderCount(_queue.length),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: BrandColors.surface,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: l10n.settings,
+            onPressed: () => context.push(Routes.settings),
           ),
         ],
         bottom: TabBar(

@@ -90,6 +90,11 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
             tooltip: l10n.myMaterialsTitle,
             onPressed: () => context.push(Routes.materials),
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: l10n.settings,
+            onPressed: () => context.push(Routes.settings),
+          ),
         ],
       ),
       body: catalogue.when(
