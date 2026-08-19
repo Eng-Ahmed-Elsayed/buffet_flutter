@@ -152,6 +152,8 @@
   "@levelLow": { "description": "Stock level band." },
   "levelEmpty": "نفد",
   "@levelEmpty": { "description": "Stock level band. Does not disable anything." },
+  "overdrawnBalance": "الرصيد أقل من صفر — بانتظار تسوية المسؤول",
+  "@overdrawnBalance": { "description": "Shown when a personal balance has gone negative. Shortages never block serving, so the ledger records the overdraw for an admin to reconcile." },
   "willUseBuffetStock": "سيُستخدم مخزون البوفيه",
   "@willUseBuffetStock": { "description": "Shown when a personal material has run out — service continues." },
   "noMaterialsTitle": "لا توجد مواد مسجّلة",

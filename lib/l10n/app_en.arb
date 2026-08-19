@@ -83,6 +83,7 @@
   "levelMedium": "Medium",
   "levelLow": "Low",
   "levelEmpty": "Empty",
+  "overdrawnBalance": "Balance is below zero — awaiting admin reconciliation",
   "willUseBuffetStock": "Buffet stock will be used",
   "noMaterialsTitle": "No materials recorded",
   "noMaterialsBody": "Declare your materials after handing them to staff.",

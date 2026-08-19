@@ -112,11 +112,16 @@ class _MaterialCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
 
     final (levelColour, levelLabel, fraction) = switch (material.stockLevel) {
-      StockLevel.high => (BrandColors.ok, l10n.levelHigh, 0.85),
-      StockLevel.medium => (BrandColors.brand, l10n.levelMedium, 0.5),
+      StockLevel.ok => (BrandColors.ok, l10n.levelHigh, 0.85),
       StockLevel.low => (BrandColors.warning, l10n.levelLow, 0.22),
-      StockLevel.empty => (BrandColors.danger, l10n.levelEmpty, 0.03),
+      StockLevel.out => (BrandColors.danger, l10n.levelEmpty, 0.0),
     };
+
+    // A balance can legitimately go NEGATIVE: shortages never block serving,
+    // so the ledger records the overdraw for an admin to reconcile rather than
+    // refusing the drink. Show the real number — hiding it would misrepresent
+    // what the admin has to fix.
+    final isOverdrawn = material.quantity < 0;
 
     return Container(
       padding: const EdgeInsetsDirectional.all(Dimens.space4),
@@ -180,12 +185,24 @@ class _MaterialCard extends StatelessWidget {
           ),
           const SizedBox(height: Dimens.space1),
           Text(
-            material.stockLevel == StockLevel.empty
+            material.stockLevel == StockLevel.out
                 ? l10n.willUseBuffetStock
                 : l10n.servingsLeft(material.servingsLeft),
             style: Theme.of(context).textTheme.labelSmall
                 ?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
           ),
+          if (isOverdrawn) ...[
+            const SizedBox(height: Dimens.space1),
+            Text(
+              // Says plainly that the balance is below zero, rather than
+              // letting a bare "-6 جرام" read as a rendering glitch.
+              l10n.overdrawnBalance,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: BrandColors.warning,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ],
       ),
     );

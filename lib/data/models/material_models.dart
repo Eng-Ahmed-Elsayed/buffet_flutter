@@ -48,21 +48,27 @@ class MyMaterialDto {
 ///
 /// Colour is never the only signal: the quantity and a text label are always
 /// shown alongside it (§2.5).
+///
+/// The wire values are **observed from the running server**, not guessed:
+/// `/materials/mine` returns `"Ok"` for a healthy balance and `"Out"` for a
+/// depleted one. `Low` is included because a three-band scale is the obvious
+/// shape for this field and costs nothing to support, but it has NOT been seen
+/// on the wire — do not rely on it appearing.
 enum StockLevel {
-  high('High'),
-  medium('Medium'),
+  ok('Ok'),
   low('Low'),
-  empty('Empty');
+  out('Out');
 
   const StockLevel(this.wire);
 
   final String wire;
 
-  /// Unknown bands fall back to [medium] — a neutral reading rather than a
-  /// false alarm in either direction.
+  /// Unknown bands fall back to [ok] — a material with an unrecognised band
+  /// still has a quantity, and showing a false "empty" would be worse than
+  /// showing a neutral one. The number beside it is the real signal.
   static StockLevel fromWire(String value) => StockLevel.values.firstWhere(
     (l) => l.wire.toLowerCase() == value.toLowerCase(),
-    orElse: () => StockLevel.medium,
+    orElse: () => StockLevel.ok,
   );
 }
 
