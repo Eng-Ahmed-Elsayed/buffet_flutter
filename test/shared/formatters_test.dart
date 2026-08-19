@@ -68,4 +68,38 @@ void main() {
       expect(Formatters.minutesFromSeconds(180), 3);
     });
   });
+
+  group('a negative quantity keeps its sign on the correct side', () {
+    test('uses U+2212 MINUS SIGN, not an ASCII hyphen', () {
+      // Observed on device: with an ASCII hyphen, "-6 جرام" rendered as
+      // "6-" — the bidi algorithm treats the hyphen as neutral and moves it
+      // to the far end of an RTL run. Read as six, not minus six.
+      final text = Formatters.quantity(-6, 'جرام');
+      expect(text.contains('\u2212'), isTrue);
+      expect(text.contains('-'), isFalse);
+    });
+
+    test('the sign is isolated with its digits', () {
+      // The isolate binds sign to number so it cannot migrate regardless of
+      // what the unit does to the surrounding direction.
+      final text = Formatters.quantity(-6, 'جرام');
+      final signIndex = text.indexOf('\u2212');
+      final digitIndex = text.indexOf('6');
+      expect(signIndex, lessThan(digitIndex));
+    });
+
+    test('a positive quantity is untouched', () {
+      final text = Formatters.quantity(160, 'جرام');
+      expect(text.contains('\u2212'), isFalse);
+      expect(text.contains('160'), isTrue);
+    });
+
+    test('a negative decimal keeps its fraction', () {
+      expect(Formatters.quantity(-6.5, 'جرام'), contains('6.5'));
+    });
+
+    test('zero carries no sign', () {
+      expect(Formatters.quantity(0, 'جرام').contains('\u2212'), isFalse);
+    });
+  });
 }

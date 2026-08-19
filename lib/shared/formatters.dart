@@ -24,11 +24,35 @@ abstract final class Formatters {
   /// Call this on anything that pairs a number with an admin-entered unit,
   /// then render the result as a single `Text`.
   static String quantity(num value, String unit) =>
-      '$_fsi${_number(value)} $unit$_pdi';
+      '$_fsi${_signedNumber(value)} $unit$_pdi';
 
   /// Isolates an arbitrary string whose direction may differ from the page —
   /// an admin-entered item name, an owner's display name, a Latin wordmark.
   static String isolate(String value) => '$_fsi$value$_pdi';
+
+  /// The minus sign, as U+2212 rather than an ASCII hyphen.
+  static const _minus = '\u{2212}';
+
+  /// A number with its sign kept on the correct side.
+  ///
+  /// A balance can legitimately be **negative** — serving past an empty jar is
+  /// allowed and leaves an overdraw for an admin to reconcile. Two things go
+  /// wrong if that minus is left as a plain ASCII hyphen:
+  ///
+  /// 1. Inside a run made RTL by an Arabic unit ("جرام"), a hyphen is a
+  ///    neutral character, so the bidi algorithm places it **after** the
+  ///    digits: `-6 جرام` renders as `6-`, which reads as six rather than
+  ///    minus six. Observed on device.
+  /// 2. U+2212 is the correct character for a minus sign in any case; an
+  ///    ASCII hyphen is a hyphen.
+  ///
+  /// Isolating the signed number separately keeps the sign bound to its digits
+  /// whatever the unit does to the surrounding direction.
+  static String _signedNumber(num value) {
+    final text = _number(value);
+    if (!text.startsWith('-')) return text;
+    return '$_fsi$_minus${text.substring(1)}$_pdi';
+  }
 
   /// Trims a trailing `.0` so whole numbers do not read as decimals, while
   /// keeping real fractions intact.

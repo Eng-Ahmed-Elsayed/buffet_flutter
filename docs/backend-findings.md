@@ -154,6 +154,30 @@ is a documentation gap rather than a defect.
 
 ---
 
+## `drinkSourceOwnerName` is empty when the jar is overdrawn (CONFIRMED)
+
+`StaffOrderLineDto.DrinkSourceOwnerName` is populated when the employee's
+balance is positive and **empty when it is negative**, though both orders were
+placed with `drinkFromOwn: true`:
+
+| Order | Item | Balance | `drinkSourceOwnerName` |
+|---|---|---|---|
+| 45 | 7 — قهوة تركية بالهيل | **-6.0** | `""` ❌ |
+| 46 | 2 — نسكافيه جولد | **160.0** | `"سارة العتيبي"` ✅ |
+
+Staff are told the drink came from the buffet when it came from an employee's
+own depleted jar — precisely the case the source label exists for, since
+shortages warn but never block. `StockWarningDto.OwnerDisplayName` is empty for
+the same reason, so the shortage banner cannot name whose jar ran out either.
+
+Full write-up: [backend-request-own-source-on-overdrawn.md](backend-request-own-source-on-overdrawn.md).
+
+**No client change needed.** Verified on device: order 46 renders
+`Drink: سارة العتيبي's jar` in violet, and both the chip and the shortage banner
+already treat an empty name as buffet stock.
+
+---
+
 ## Test data left behind
 
 Exercising these rules created orders 26–40 on `sara@company.com` and `admin@company.com`, drove
