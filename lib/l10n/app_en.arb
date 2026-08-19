@@ -130,6 +130,12 @@
 
   "notifications": "Notifications",
   "noNotifications": "No notifications",
+  "exitAppTitle": "Close the app?",
+  "@exitAppTitle": { "description": "Title of the confirmation shown when back is pressed on a landing screen." },
+  "exitAppBody": "You are on the main screen. Pressing back again will close the app.",
+  "@exitAppBody": { "description": "Body of the exit confirmation. Explains why back does not simply go back here." },
+  "exitAppConfirm": "Close",
+  "@exitAppConfirm": { "description": "Confirms closing the app." },
   "settings": "Settings",
   "language": "Language",
   "languageArabic": "العربية",

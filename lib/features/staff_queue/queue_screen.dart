@@ -12,6 +12,7 @@ import '../../data/models/staff_models.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'widgets/queue_card.dart';
@@ -181,75 +182,79 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.queueTitle),
-        actions: [
-          Center(
-            child: Text(
-              l10n.orderCount(_queue.length),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: BrandColors.surface,
-                fontFeatures: const [FontFeature.tabularFigures()],
+    return ExitConfirmation(
+      // A landing screen: nothing sits beneath it in the stack, so back
+      // would otherwise close the app outright.
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.queueTitle),
+          actions: [
+            Center(
+              child: Text(
+                l10n.orderCount(_queue.length),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: BrandColors.surface,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: l10n.settings,
-            onPressed: () => context.push(Routes.settings),
-          ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          // accentBright marks position on the navy bar — non-text UI only,
-          // never carrying a label (§2.2).
-          indicatorColor: BrandColors.accentBright,
-          labelColor: BrandColors.surface,
-          unselectedLabelColor: BrandColors.accentBright,
-          tabs: [
-            Tab(text: l10n.queueTab),
-            Tab(text: l10n.handoverTab),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: l10n.settings,
+              onPressed: () => context.push(Routes.settings),
+            ),
           ],
+          bottom: TabBar(
+            controller: _tabController,
+            // accentBright marks position on the navy bar — non-text UI only,
+            // never carrying a label (§2.2).
+            indicatorColor: BrandColors.accentBright,
+            labelColor: BrandColors.surface,
+            unselectedLabelColor: BrandColors.accentBright,
+            tabs: [
+              Tab(text: l10n.queueTab),
+              Tab(text: l10n.handoverTab),
+            ],
+          ),
         ),
-      ),
 
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null && _queue.isEmpty && _handovers.isEmpty
-          ? EmptyState(
-              icon: Icons.cloud_off_outlined,
-              title: l10n.genericError,
-              body: _errorMessage!,
-              action: OutlinedButton.icon(
-                onPressed: _refresh,
-                icon: const Icon(Icons.refresh),
-                label: Text(l10n.retry),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _errorMessage != null && _queue.isEmpty && _handovers.isEmpty
+            ? EmptyState(
+                icon: Icons.cloud_off_outlined,
+                title: l10n.genericError,
+                body: _errorMessage!,
+                action: OutlinedButton.icon(
+                  onPressed: _refresh,
+                  icon: const Icon(Icons.refresh),
+                  label: Text(l10n.retry),
+                ),
+              )
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _QueueList(
+                    orders: _queue,
+                    warnings: _recentWarnings,
+                    emptyTitle: l10n.emptyQueueTitle,
+                    emptyBody: l10n.emptyQueueBody,
+                    onRefresh: _refresh,
+                    onMarkReady: _markReady,
+                    onComplete: null,
+                  ),
+                  _QueueList(
+                    orders: _handovers,
+                    warnings: _recentWarnings,
+                    emptyTitle: l10n.noHandoversTitle,
+                    emptyBody: l10n.noHandoversBody,
+                    onRefresh: _refresh,
+                    onMarkReady: null,
+                    onComplete: _complete,
+                  ),
+                ],
               ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _QueueList(
-                  orders: _queue,
-                  warnings: _recentWarnings,
-                  emptyTitle: l10n.emptyQueueTitle,
-                  emptyBody: l10n.emptyQueueBody,
-                  onRefresh: _refresh,
-                  onMarkReady: _markReady,
-                  onComplete: null,
-                ),
-                _QueueList(
-                  orders: _handovers,
-                  warnings: _recentWarnings,
-                  emptyTitle: l10n.noHandoversTitle,
-                  emptyBody: l10n.noHandoversBody,
-                  onRefresh: _refresh,
-                  onMarkReady: null,
-                  onComplete: _complete,
-                ),
-              ],
-            ),
+      ),
     );
   }
 }

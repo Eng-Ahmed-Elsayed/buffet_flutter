@@ -132,67 +132,77 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
     final l10n = AppLocalizations.of(context);
     final order = _order;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.myOrderTitle),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go(Routes.catalogue),
+    // Reached with `go`, which replaces the composer rather than stacking on
+    // it — so there is no route to pop and the system back gesture would
+    // close the app. Both the button and the gesture return to the catalogue,
+    // which is where "back" means to a user who just ordered.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) context.go(Routes.catalogue);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.myOrderTitle),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go(Routes.catalogue),
+          ),
         ),
-      ),
-      body: order == null
-          ? _errorMessage != null
-                ? EmptyState(
-                    icon: Icons.cloud_off_outlined,
-                    title: l10n.genericError,
-                    body: _errorMessage!,
-                    action: OutlinedButton.icon(
-                      onPressed: _refresh,
-                      icon: const Icon(Icons.refresh),
-                      label: Text(l10n.retry),
-                    ),
-                  )
-                : const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _refresh,
-              child: ListView(
-                padding: const EdgeInsetsDirectional.all(Dimens.space4),
-                children: [
-                  _StatusHeader(status: order.orderStatus),
-                  const SizedBox(height: Dimens.space5),
-                  _StatusTrack(status: order.orderStatus),
-                  const SizedBox(height: Dimens.space5),
-                  for (final line in order.lines) ...[
-                    _OrderLineCard(line: line, order: order),
-                    const SizedBox(height: Dimens.space3),
-                  ],
-
-                  // Cancellation is pending-only and ownership-checked. The
-                  // action is HIDDEN once the status leaves Pending, rather
-                  // than shown as a button that will 400 (§7.3).
-                  if (order.orderStatus.isCancellable) ...[
-                    const SizedBox(height: Dimens.space3),
-                    OutlinedButton(
-                      onPressed: _cancelling ? null : _cancel,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: BrandColors.danger,
-                        side: const BorderSide(color: BrandColors.danger),
+        body: order == null
+            ? _errorMessage != null
+                  ? EmptyState(
+                      icon: Icons.cloud_off_outlined,
+                      title: l10n.genericError,
+                      body: _errorMessage!,
+                      action: OutlinedButton.icon(
+                        onPressed: _refresh,
+                        icon: const Icon(Icons.refresh),
+                        label: Text(l10n.retry),
                       ),
-                      child: Text(l10n.cancelOrder),
-                    ),
-                  ],
+                    )
+                  : const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _refresh,
+                child: ListView(
+                  padding: const EdgeInsetsDirectional.all(Dimens.space4),
+                  children: [
+                    _StatusHeader(status: order.orderStatus),
+                    const SizedBox(height: Dimens.space5),
+                    _StatusTrack(status: order.orderStatus),
+                    const SizedBox(height: Dimens.space5),
+                    for (final line in order.lines) ...[
+                      _OrderLineCard(line: line, order: order),
+                      const SizedBox(height: Dimens.space3),
+                    ],
 
-                  if (order.orderStatus == OrderStatus.completed) ...[
-                    const SizedBox(height: Dimens.space3),
-                    FilledButton.icon(
-                      onPressed: () => context.go(Routes.catalogue),
-                      icon: const Icon(Icons.refresh),
-                      label: Text(l10n.orderAgain),
-                    ),
+                    // Cancellation is pending-only and ownership-checked. The
+                    // action is HIDDEN once the status leaves Pending, rather
+                    // than shown as a button that will 400 (§7.3).
+                    if (order.orderStatus.isCancellable) ...[
+                      const SizedBox(height: Dimens.space3),
+                      OutlinedButton(
+                        onPressed: _cancelling ? null : _cancel,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: BrandColors.danger,
+                          side: const BorderSide(color: BrandColors.danger),
+                        ),
+                        child: Text(l10n.cancelOrder),
+                      ),
+                    ],
+
+                    if (order.orderStatus == OrderStatus.completed) ...[
+                      const SizedBox(height: Dimens.space3),
+                      FilledButton.icon(
+                        onPressed: () => context.go(Routes.catalogue),
+                        icon: const Icon(Icons.refresh),
+                        label: Text(l10n.orderAgain),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }

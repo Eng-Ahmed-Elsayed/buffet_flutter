@@ -5,6 +5,7 @@ import '../../app/locale_controller.dart';
 import '../../data/api/api_exception.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'auth_controller.dart';
@@ -77,111 +78,119 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    return Scaffold(
-      backgroundColor: BrandColors.surface,
-      body: SafeArea(
-        child: AutofillGroup(
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsetsDirectional.symmetric(
-                horizontal: Dimens.space5,
-                vertical: Dimens.space6,
-              ),
-              children: [
-                // The lockup is Latin-only and reads left-to-right. It stays
-                // LTR inside the RTL layout rather than being mirrored (§2.1).
-                Center(
-                  child: Directionality(
-                    textDirection: TextDirection.ltr,
-                    child: Image.asset(
-                      'assets/images/logo-defi.png',
-                      width: 208,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
+    return ExitConfirmation(
+      // Nothing sits beneath the login screen, so back would close the app
+      // mid-sign-in — including on a typo the user was about to fix.
+      child: Scaffold(
+        backgroundColor: BrandColors.surface,
+        body: SafeArea(
+          child: AutofillGroup(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: Dimens.space5,
+                  vertical: Dimens.space6,
                 ),
-                const SizedBox(height: Dimens.space7),
-
-                Text(
-                  l10n.signInTitle,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                Text(
-                  l10n.appTitle,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-                const SizedBox(height: Dimens.space6),
-
-                if (_errorMessage != null) ...[
-                  InlineBanner(tone: BannerTone.danger, title: _errorMessage!),
-                  const SizedBox(height: Dimens.space4),
-                ],
-
-                TextFormField(
-                  controller: _emailController,
-                  decoration: InputDecoration(labelText: l10n.email),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.username],
-                  autocorrect: false,
-                  enabled: !_submitting,
-                  validator: (value) =>
-                      (value == null || value.trim().isEmpty) ? '' : null,
-                ),
-                const SizedBox(height: Dimens.space4),
-
-                TextFormField(
-                  controller: _passwordController,
-                  decoration: InputDecoration(
-                    labelText: l10n.password,
-                    hintText: l10n.passwordHint,
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_outlined
-                            : Icons.visibility_off_outlined,
+                children: [
+                  // The lockup is Latin-only and reads left-to-right. It stays
+                  // LTR inside the RTL layout rather than being mirrored (§2.1).
+                  Center(
+                    child: Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Image.asset(
+                        'assets/images/logo-defi.png',
+                        width: 208,
+                        fit: BoxFit.contain,
                       ),
-                      tooltip: _obscurePassword
-                          ? l10n.showPassword
-                          : l10n.hidePassword,
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
-                  obscureText: _obscurePassword,
-                  autofillHints: const [AutofillHints.password],
-                  textInputAction: TextInputAction.done,
-                  enabled: !_submitting,
-                  onFieldSubmitted: (_) => _submit(),
-                  validator: (value) =>
-                      (value == null || value.isEmpty) ? '' : null,
-                ),
-                const SizedBox(height: Dimens.space6),
+                  const SizedBox(height: Dimens.space7),
 
-                FilledButton(
-                  onPressed: _submitting ? null : _submit,
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: BrandColors.surface,
-                          ),
-                        )
-                      : Text(l10n.signIn),
-                ),
-
-                const SizedBox(height: Dimens.space7),
-                Center(
-                  child: Text(
-                    l10n.adminWorkOnWeb,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall,
+                  Text(
+                    l10n.signInTitle,
+                    style: Theme.of(context).textTheme.headlineMedium,
                   ),
-                ),
-              ],
+                  Text(
+                    l10n.appTitle,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: Dimens.space6),
+
+                  if (_errorMessage != null) ...[
+                    InlineBanner(
+                      tone: BannerTone.danger,
+                      title: _errorMessage!,
+                    ),
+                    const SizedBox(height: Dimens.space4),
+                  ],
+
+                  TextFormField(
+                    controller: _emailController,
+                    decoration: InputDecoration(labelText: l10n.email),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.username],
+                    autocorrect: false,
+                    enabled: !_submitting,
+                    validator: (value) =>
+                        (value == null || value.trim().isEmpty) ? '' : null,
+                  ),
+                  const SizedBox(height: Dimens.space4),
+
+                  TextFormField(
+                    controller: _passwordController,
+                    decoration: InputDecoration(
+                      labelText: l10n.password,
+                      hintText: l10n.passwordHint,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        tooltip: _obscurePassword
+                            ? l10n.showPassword
+                            : l10n.hidePassword,
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                      ),
+                    ),
+                    obscureText: _obscurePassword,
+                    autofillHints: const [AutofillHints.password],
+                    textInputAction: TextInputAction.done,
+                    enabled: !_submitting,
+                    onFieldSubmitted: (_) => _submit(),
+                    validator: (value) =>
+                        (value == null || value.isEmpty) ? '' : null,
+                  ),
+                  const SizedBox(height: Dimens.space6),
+
+                  FilledButton(
+                    onPressed: _submitting ? null : _submit,
+                    child: _submitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.4,
+                              color: BrandColors.surface,
+                            ),
+                          )
+                        : Text(l10n.signIn),
+                  ),
+
+                  const SizedBox(height: Dimens.space7),
+                  Center(
+                    child: Text(
+                      l10n.adminWorkOnWeb,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

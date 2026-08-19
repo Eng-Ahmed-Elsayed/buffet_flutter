@@ -9,6 +9,7 @@ import '../../data/models/catalogue_models.dart';
 import '../../data/repositories/catalogue_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'composer_controller.dart';
@@ -81,57 +82,61 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
     final catalogue = ref.watch(catalogueProvider);
     final composer = ref.watch(composerControllerProvider);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.orderTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.inventory_2_outlined),
-            tooltip: l10n.myMaterialsTitle,
-            onPressed: () => context.push(Routes.materials),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: l10n.settings,
-            onPressed: () => context.push(Routes.settings),
-          ),
-        ],
-      ),
-      body: catalogue.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-
-        error: (error, _) => EmptyState(
-          icon: Icons.cloud_off_outlined,
-          title: l10n.genericError,
-          body: error is ApiException ? error.message : l10n.networkError,
-          action: OutlinedButton.icon(
-            onPressed: () => ref.invalidate(catalogueProvider),
-            icon: const Icon(Icons.refresh),
-            label: Text(l10n.retry),
-          ),
+    return ExitConfirmation(
+      // A landing screen: nothing sits beneath it in the stack, so back
+      // would otherwise close the app outright.
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.orderTitle),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.inventory_2_outlined),
+              tooltip: l10n.myMaterialsTitle,
+              onPressed: () => context.push(Routes.materials),
+            ),
+            IconButton(
+              icon: const Icon(Icons.settings_outlined),
+              tooltip: l10n.settings,
+              onPressed: () => context.push(Routes.settings),
+            ),
+          ],
         ),
+        body: catalogue.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
 
-        data: (data) {
-          if (data.drinks.isEmpty) {
-            return EmptyState(
-              icon: Icons.no_drinks_outlined,
-              title: l10n.emptyCatalogueTitle,
-              body: l10n.emptyCatalogueBody,
-              action: OutlinedButton.icon(
-                onPressed: () => ref.invalidate(catalogueProvider),
-                icon: const Icon(Icons.refresh),
-                label: Text(l10n.refresh),
-              ),
+          error: (error, _) => EmptyState(
+            icon: Icons.cloud_off_outlined,
+            title: l10n.genericError,
+            body: error is ApiException ? error.message : l10n.networkError,
+            action: OutlinedButton.icon(
+              onPressed: () => ref.invalidate(catalogueProvider),
+              icon: const Icon(Icons.refresh),
+              label: Text(l10n.retry),
+            ),
+          ),
+
+          data: (data) {
+            if (data.drinks.isEmpty) {
+              return EmptyState(
+                icon: Icons.no_drinks_outlined,
+                title: l10n.emptyCatalogueTitle,
+                body: l10n.emptyCatalogueBody,
+                action: OutlinedButton.icon(
+                  onPressed: () => ref.invalidate(catalogueProvider),
+                  icon: const Icon(Icons.refresh),
+                  label: Text(l10n.refresh),
+                ),
+              );
+            }
+
+            return _ComposerBody(
+              catalogue: data,
+              composer: composer,
+              placing: _placing,
+              onPlaceOrder: _placeOrder,
             );
-          }
-
-          return _ComposerBody(
-            catalogue: data,
-            composer: composer,
-            placing: _placing,
-            onPlaceOrder: _placeOrder,
-          );
-        },
+          },
+        ),
       ),
     );
   }
