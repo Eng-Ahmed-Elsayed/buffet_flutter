@@ -39,7 +39,14 @@ marks. This is an Arabic-first app in which users cannot write Arabic notes.
 # Sent: "بدون حليب"  → stored and returned as "???? ????"
 ```
 
-Affects every client-written text field observed: `notes`, `locationText`, and `lineNote`.
+Affects every client-written text field observed: `notes`, `locationText`, `lineNote`, and the
+cancel `reason`.
+
+The sharpest evidence: cancelling with the Arabic reason `نفدت المادة` produced the notification
+`"تم إلغاء طلبك رقم 30. السبب: ???? ??????"` — the server’s own Arabic intact and the client’s
+destroyed, in the same string.
+
+Full write-up and suggested fix: [backend-request-arabic-encoding.md](backend-request-arabic-encoding.md).
 
 **It is a write-path problem, not a response-encoding one.** Arabic the *server* already owns comes
 back perfectly in the same responses:
