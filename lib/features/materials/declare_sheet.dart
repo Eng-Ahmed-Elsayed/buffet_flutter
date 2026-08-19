@@ -238,8 +238,13 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
                   controller: _quantityController,
                   decoration: InputDecoration(
                     labelText: l10n.quantity,
-                    // The unit is admin-entered and keeps its own language.
-                    suffixText: _selectedItem?.unit,
+                    // Isolated: the unit is admin-entered and keeps whatever
+                    // language it was typed in, so it sits beside a Latin-digit
+                    // quantity in either locale. Without the isolate the bidi
+                    // algorithm reorders the pair (§2.4).
+                    suffixText: _selectedItem == null
+                        ? null
+                        : Formatters.isolate(_selectedItem!.unit),
                   ),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,

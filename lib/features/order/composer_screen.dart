@@ -90,6 +90,14 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
         appBar: AppBar(
           title: Text(l10n.orderTitle),
           actions: [
+            // The way back to a live order. Without this the tracking screen
+            // was reachable only by placing an order — leave it and a drink
+            // still being made became untraceable.
+            IconButton(
+              icon: const Icon(Icons.receipt_long_outlined),
+              tooltip: l10n.myOrdersTitle,
+              onPressed: () => context.push(Routes.myOrders),
+            ),
             IconButton(
               icon: const Icon(Icons.inventory_2_outlined),
               tooltip: l10n.myMaterialsTitle,

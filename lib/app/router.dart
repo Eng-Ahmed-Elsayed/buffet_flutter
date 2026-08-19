@@ -9,6 +9,7 @@ import '../features/auth/login_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/materials/my_materials_screen.dart';
 import '../features/order/composer_screen.dart';
+import '../features/order/my_orders_screen.dart';
 import '../features/order/order_status_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/staff_queue/queue_screen.dart';
@@ -105,6 +106,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           if (id == null) return const ComposerScreen();
           return OrderStatusScreen(orderId: id);
         },
+      ),
+      GoRoute(
+        path: Routes.myOrders,
+        builder: (context, state) => const MyOrdersScreen(),
       ),
       GoRoute(
         path: Routes.materials,

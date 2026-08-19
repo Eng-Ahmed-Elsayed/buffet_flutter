@@ -136,8 +136,15 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
     // it — so there is no route to pop and the system back gesture would
     // close the app. Both the button and the gesture return to the catalogue,
     // which is where "back" means to a user who just ordered.
+    // This screen is reached two ways, and back means something different in
+    // each. After placing an order it arrives via `go`, which REPLACES the
+    // composer — there is nothing to pop, so back goes to the catalogue.
+    // From the orders list it arrives via `push`, and back must return to that
+    // list rather than dropping the user somewhere else.
+    final canPopToCaller = context.canPop();
+
     return PopScope(
-      canPop: false,
+      canPop: canPopToCaller,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) context.go(Routes.catalogue);
       },
@@ -146,7 +153,8 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
           title: Text(l10n.myOrderTitle),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go(Routes.catalogue),
+            onPressed: () =>
+                canPopToCaller ? context.pop() : context.go(Routes.catalogue),
           ),
         ),
         body: order == null
