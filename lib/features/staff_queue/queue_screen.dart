@@ -253,7 +253,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
           actions: [
             Center(
               child: Text(
-                l10n.orderCount(_queue.length),
+                // Counts what is actually on screen. Using the unfiltered
+                // list made the header claim "one order" while the list showed
+                // its empty state, for the length of an undo window.
+                l10n.orderCount(_visible(_queue).length),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: BrandColors.surface,
                   fontFeatures: const [FontFeature.tabularFigures()],

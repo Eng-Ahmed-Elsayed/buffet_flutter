@@ -177,4 +177,88 @@ void main() {
       },
     );
   });
+
+  group('AuthState — a session restored from storage', () {
+    test('a Staff member relaunching still lands on the queue', () {
+      // The bug: _restore() sets no session, role defaulted to employee, and
+      // the router BOUNCED staff away from /queue. Since tokens last 30 days,
+      // that happened on every launch after the first.
+      const restored = AuthState(
+        stage: AuthStage.signedIn,
+        restoredIdentity: (
+          role: 'Staff',
+          displayName: 'موظف الخدمة',
+          department: 'الخدمات',
+        ),
+      );
+
+      expect(restored.role, UserRole.staff);
+      expect(restored.role.startsOnQueue, isTrue);
+    });
+
+    test('an employee relaunching still lands on the catalogue', () {
+      const restored = AuthState(
+        stage: AuthStage.signedIn,
+        restoredIdentity: (
+          role: 'Employee',
+          displayName: 'سارة العتيبي',
+          department: 'المالية',
+        ),
+      );
+
+      expect(restored.role, UserRole.employee);
+      expect(restored.role.startsOnQueue, isFalse);
+    });
+
+    test('the account card survives a relaunch', () {
+      // Keying the card off `session != null` made the user's own name vanish
+      // on every launch after the first.
+      const restored = AuthState(
+        stage: AuthStage.signedIn,
+        restoredIdentity: (
+          role: 'Employee',
+          displayName: 'سارة العتيبي',
+          department: 'المالية',
+        ),
+      );
+
+      expect(restored.displayName, 'سارة العتيبي');
+      expect(restored.department, 'المالية');
+    });
+
+    test('a fresh login response wins over a cached identity', () {
+      // If both are present the login response is the newer truth.
+      final fresh = AuthState(
+        stage: AuthStage.signedIn,
+        session: session(mustChangePassword: false, role: 'Staff'),
+        restoredIdentity: (
+          role: 'Employee',
+          displayName: 'stale',
+          department: 'stale',
+        ),
+      );
+
+      expect(fresh.role, UserRole.staff);
+      expect(fresh.displayName, 'Someone');
+    });
+
+    test('with neither, the role is employee — the least privileged', () {
+      const none = AuthState(stage: AuthStage.signedIn);
+      expect(none.role, UserRole.employee);
+      expect(none.displayName, isNull);
+    });
+
+    test('an unrecognised cached role does not crash the router', () {
+      const odd = AuthState(
+        stage: AuthStage.signedIn,
+        restoredIdentity: (
+          role: 'SomethingNew',
+          displayName: 'x',
+          department: 'y',
+        ),
+      );
+      // fromWire falls back rather than throwing; the app still routes.
+      expect(odd.role, isNotNull);
+    });
+  });
 }

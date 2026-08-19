@@ -163,6 +163,13 @@ class _LineDetails extends StatelessWidget {
           textBaseline: TextBaseline.alphabetic,
           children: [
             Text(
+              // Arabic by contract: StaffOrderLineDto carries only *NameAr —
+              // there are no English fields on the staff wire, unlike
+              // CatalogueItemDto. Deliberately NOT joined against /catalogue
+              // to translate: staff work in Arabic, and fetching the whole
+              // employee catalogue on every queue render for a cosmetic name
+              // swap is the wrong trade. Revisit if the staff DTO gains
+              // NameEn.
               line.drinkNameAr,
               style: Theme.of(context).textTheme.titleSmall,
             ),

@@ -36,6 +36,17 @@ enum AuthStage {
   signedIn,
 }
 
+/// Who the restored session belongs to, when there is no login response.
+///
+/// A token restored from storage carries no role, display name or department —
+/// those arrive only with a login. Caching them lets a relaunched session draw
+/// the same screens as a fresh one.
+typedef RestoredIdentity = ({
+  String role,
+  String displayName,
+  String department,
+});
+
 class AuthState {
   const AuthState({
     required this.stage,
@@ -44,6 +55,7 @@ class AuthState {
     this.biometricsEnabled = false,
     this.offerBiometricEnrolment = false,
     this.signedOutByEnrolmentChange = false,
+    this.restoredIdentity,
   });
 
   const AuthState.restoring()
@@ -52,7 +64,8 @@ class AuthState {
       rememberedEmail = null,
       biometricsEnabled = false,
       offerBiometricEnrolment = false,
-      signedOutByEnrolmentChange = false;
+      signedOutByEnrolmentChange = false,
+      restoredIdentity = null;
 
   final AuthStage stage;
   final LoginResponse? session;
@@ -71,8 +84,26 @@ class AuthState {
   /// sign-in screen with no reason reads as a bug, not as a safeguard.
   final bool signedOutByEnrolmentChange;
 
-  UserRole get role =>
-      session == null ? UserRole.employee : UserRole.fromWire(session!.role);
+  /// Set when the session came from storage rather than a login. Carries the
+  /// same three fields the UI needs from [session].
+  final RestoredIdentity? restoredIdentity;
+
+  /// The caller's role.
+  ///
+  /// Falls back to [restoredIdentity] before defaulting to employee: a Staff
+  /// member relaunching the app must still land on the queue, and the router
+  /// bounces them away from it if this reports employee.
+  UserRole get role => switch ((session, restoredIdentity)) {
+    (final LoginResponse s, _) => UserRole.fromWire(s.role),
+    (_, final RestoredIdentity i) => UserRole.fromWire(i.role),
+    _ => UserRole.employee,
+  };
+
+  /// The name to show in settings, from whichever source the session has.
+  String? get displayName =>
+      session?.displayName ?? restoredIdentity?.displayName;
+
+  String? get department => session?.department ?? restoredIdentity?.department;
 
   AuthState copyWith({
     AuthStage? stage,
@@ -81,6 +112,7 @@ class AuthState {
     bool? biometricsEnabled,
     bool? offerBiometricEnrolment,
     bool? signedOutByEnrolmentChange,
+    RestoredIdentity? restoredIdentity,
   }) => AuthState(
     stage: stage ?? this.stage,
     session: session ?? this.session,
@@ -90,6 +122,7 @@ class AuthState {
         offerBiometricEnrolment ?? this.offerBiometricEnrolment,
     signedOutByEnrolmentChange:
         signedOutByEnrolmentChange ?? this.signedOutByEnrolmentChange,
+    restoredIdentity: restoredIdentity ?? this.restoredIdentity,
   );
 }
 
@@ -125,6 +158,7 @@ class AuthController extends StateNotifier<AuthState> {
     final email = await _repository.rememberedEmail();
     final hasToken = await _repository.hasValidToken();
     final enabled = hasToken && await _repository.biometricsEnabled();
+    final identity = hasToken ? await _repository.restoredIdentity() : null;
 
     if (!mounted) return;
 
@@ -143,6 +177,7 @@ class AuthController extends StateNotifier<AuthState> {
           : AuthStage.signedIn,
       rememberedEmail: email,
       biometricsEnabled: enabled,
+      restoredIdentity: identity,
     );
   }
 

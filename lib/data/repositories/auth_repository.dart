@@ -55,6 +55,14 @@ class AuthRepository {
       await _tokenStore.write(token: login.token, expiresUtc: login.expiresUtc);
       // Not a secret, and §5.1 wants the next sign-in prefilled.
       await _preferences.writeEmail(username);
+      // Cached so a session restored on the next launch can be routed by role
+      // — the login response is the only place the role arrives, and a
+      // restored token carries none.
+      await _preferences.writeIdentity(
+        role: login.role,
+        displayName: login.displayName,
+        department: login.department,
+      );
 
       return login;
     } on DioException catch (error) {
@@ -104,6 +112,10 @@ class AuthRepository {
   ///
   /// A device preference, not an account claim — the server knows nothing
   /// about it (§6).
+  /// The cached role, display name and department from the last sign-in.
+  Future<({String role, String displayName, String department})?>
+  restoredIdentity() => _preferences.readIdentity();
+
   Future<bool> biometricsEnabled() => _preferences.readBiometricsEnabled();
 
   Future<void> setBiometricsEnabled(bool enabled) =>

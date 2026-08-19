@@ -29,10 +29,14 @@ class SettingsScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsetsDirectional.all(Dimens.space4),
         children: [
-          if (auth.session != null) ...[
+          // Reads displayName/department rather than session, so the card
+          // survives a relaunch: a session restored from storage has no login
+          // response, and keying off `session != null` made the user's own
+          // name disappear on every launch after the first.
+          if (auth.displayName != null) ...[
             _AccountCard(
-              displayName: auth.session!.displayName,
-              department: auth.session!.department,
+              displayName: auth.displayName!,
+              department: auth.department ?? '',
             ),
             const SizedBox(height: Dimens.space5),
           ],

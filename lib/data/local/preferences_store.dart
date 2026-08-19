@@ -20,6 +20,9 @@ class PreferencesStore {
   final FlutterSecureStorage _storage;
 
   static const _emailKey = 'pref_email';
+  static const _roleKey = 'pref_role';
+  static const _displayNameKey = 'pref_display_name';
+  static const _departmentKey = 'pref_department';
   static const _languageKey = 'pref_language';
   static const _biometricsKey = 'pref_biometrics';
 
@@ -33,6 +36,35 @@ class PreferencesStore {
   Future<void> writeLanguageCode(String code) =>
       _storage.write(key: _languageKey, value: code);
 
+  /// The signed-in user's role, display name and department.
+  ///
+  /// **Not credentials** — the token is the credential, and the server decides
+  /// what a token may do. These are cached only so a restored session can draw
+  /// the same screens as a fresh one: without the role, a Staff member
+  /// restarting the app was routed to the employee catalogue and the router
+  /// actively bounced them away from the queue, because a session restored
+  /// from storage carries no login response to read it from.
+  Future<void> writeIdentity({
+    required String role,
+    required String displayName,
+    required String department,
+  }) async {
+    await _storage.write(key: _roleKey, value: role);
+    await _storage.write(key: _displayNameKey, value: displayName);
+    await _storage.write(key: _departmentKey, value: department);
+  }
+
+  Future<({String role, String displayName, String department})?>
+  readIdentity() async {
+    final role = await _storage.read(key: _roleKey);
+    if (role == null) return null;
+    return (
+      role: role,
+      displayName: await _storage.read(key: _displayNameKey) ?? '',
+      department: await _storage.read(key: _departmentKey) ?? '',
+    );
+  }
+
   Future<bool> readBiometricsEnabled() async =>
       await _storage.read(key: _biometricsKey) == 'true';
   Future<void> writeBiometricsEnabled(bool enabled) =>
@@ -43,8 +75,14 @@ class PreferencesStore {
   /// The language stays — it is a device preference, not an account one, and
   /// snapping the app back to Arabic because someone signed out would be a bug.
   /// The email stays too, deliberately: §5.1 wants the next sign-in prefilled.
-  Future<void> clearAccountPreferences() =>
-      _storage.delete(key: _biometricsKey);
+  Future<void> clearAccountPreferences() async {
+    await _storage.delete(key: _biometricsKey);
+    // The identity goes with the session it describes — leaving a role behind
+    // would route the NEXT user of this device by the previous one's.
+    await _storage.delete(key: _roleKey);
+    await _storage.delete(key: _displayNameKey);
+    await _storage.delete(key: _departmentKey);
+  }
 }
 
 final preferencesStoreProvider = Provider<PreferencesStore>(
