@@ -6,8 +6,11 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- Overridden per locale by ar.lproj/InfoPlist.strings and
+	     en.lproj/InfoPlist.strings. This value is the last-resort fallback for
+	     a device set to neither. -->
 	<key>CFBundleDisplayName</key>
-	<string>Buffet App</string>
+	<string>Digital Buffet</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>

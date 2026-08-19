@@ -1,0 +1,3 @@
+/* Home-screen name on a non-Arabic device. Mirrors values/strings.xml on
+   Android, where the same pair is already in place. */
+"CFBundleDisplayName" = "Digital Buffet";

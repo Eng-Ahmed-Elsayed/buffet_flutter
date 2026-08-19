@@ -1,0 +1,14 @@
+# Copy to android/key.properties on the machine that builds releases.
+#
+# key.properties, *.jks and *.keystore are gitignored: a signing key in version
+# control is a key that has to be rotated. Keep the keystore backed up
+# somewhere durable — losing it means the app can never be updated on Play
+# under the same listing.
+#
+# Generate a keystore with:
+#   keytool -genkey -v -keystore buffet-release.jks -keyalg RSA \
+#     -keysize 2048 -validity 10000 -alias buffet
+storeFile=/absolute/path/to/buffet-release.jks
+storePassword=CHANGE_ME
+keyAlias=buffet
+keyPassword=CHANGE_ME

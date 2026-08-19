@@ -1,8 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Release signing credentials, kept OUT of the repository.
+//
+// Create android/key.properties from android/key.properties.example on the
+// machine that builds releases. It is gitignored, as are *.jks and *.keystore
+// — a signing key in version control is a key that has to be rotated.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val hasReleaseKeystore = keystoreProperties.getProperty("storeFile") != null
 
 android {
     namespace = "com.defi.buffet_app"
@@ -35,11 +48,38 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signed with the real key when key.properties is present, and
+            // with the debug key otherwise so `flutter run --release` still
+            // works on a developer machine. A debug-signed build CANNOT be
+            // published — Play rejects it — so the absence is loud at upload
+            // time rather than silent.
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+
+            // R8: strips unused code and shrinks the APK. Flutter's own rules
+            // plus ours keep the reflective entry points alive.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
