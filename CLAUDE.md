@@ -25,8 +25,12 @@ Two open backend issues, neither fixable from the client:
 `MyMaterialDto.imageUrl` **has shipped** and works; the materials screen shows real uploaded
 photographs, falling back to a category glyph when the field is null or the file 404s.
 
-Not built yet: biometric unlock (§6), notifications (§7.4), and a settings screen carrying the
-language switch. `LocaleController` and `PreferencesStore` already support the switch; it has no UI.
+Since built: the settings screen with the language switch, **biometric unlock** (§6, with the
+`locked` stage in the auth machine and all four failure modes handled), and **launcher icons** from
+the brand mark (`tool/generate_launcher_icons.py` regenerates them — no `flutter_launcher_icons`
+dependency).
+
+Not built yet: notifications (§7.4). The `/notifications` endpoint works and matches the DTO.
 
 **The Flutter SDK lives at `C:\src\flutter` and is not on `PATH`** — invoke it by full path
 (`C:\src\flutter\bin\flutter.bat`).
@@ -137,6 +141,10 @@ Not a workflow — these hold on every edit, whether or not a skill was invoked.
   `dart run build_runner build --delete-conflicting-outputs`. Change the source and regenerate.
 - **Never commit or push unless asked.** Same for adding a dependency to `pubspec.yaml` — propose
   it first; §10 already settled the stack.
+- **Back must never close the app from a screen with somewhere to go.** Landing screens
+  (catalogue, queue, login, lock) confirm first via `ExitConfirmation`; pushed screens keep the
+  ordinary pop. A screen reached with `go` rather than `push` has no route beneath it — give it a
+  `PopScope` that routes somewhere sensible.
 - **Never hardcode a colour, duration, radius or spacing value.** They live in `lib/theme/`. A
   literal in a widget is a bug even when it looks right.
 - **Never write user-facing English into a widget.** Arabic is the primary locale; strings go
