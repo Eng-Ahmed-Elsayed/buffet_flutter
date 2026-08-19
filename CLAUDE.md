@@ -7,16 +7,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Scaffolded and building.** The five screens from §1.2 exist, in both locales, on branch
 `feat/app-scaffold`. `flutter analyze` is clean and `flutter test` passes.
 
-Two things are known-incomplete and deliberately so — see
-[docs/backend-findings.md](docs/backend-findings.md):
+**The domain rules are verified against the running server**, not just against the contracts — see
+the table at the top of [docs/backend-findings.md](docs/backend-findings.md). Stock deducting at
+`Ready`, shortages returning `200`-with-warnings, the `202` that creates nothing, `403` on staff
+declarations, `404` (not `403`) on another user's order, and idempotency were all exercised with
+the test accounts.
 
-1. **`MyMaterialDto.imageUrl` is not yet returned by the API.** The Dart model already carries the
-   nullable field and the UI falls back to a category glyph, so images appear on their own when
-   the backend ships it. The change is specified in
-   [docs/backend-request-material-image.md](docs/backend-request-material-image.md).
+Two open backend issues, neither fixable from the client:
+
+1. **Client-written Arabic is stored as `?`** — `notes`, `locationText`, `lineNote` and the cancel
+   reason. Specified in
+   [docs/backend-request-arabic-encoding.md](docs/backend-request-arabic-encoding.md). This is the
+   one that matters: an Arabic-first app where users cannot write Arabic.
 2. **`/auth/login` ignores `Accept-Language`** and returns Arabic either way. The client is already
-   correct per §4 — it sends the header and surfaces `ApiError.message` verbatim. Scope beyond the
-   unauthenticated surface is untested; **verifying it needs a test account**.
+   correct per §4 — it sends the header and surfaces `ApiError.message` verbatim.
+
+`MyMaterialDto.imageUrl` **has shipped** and works; the materials screen shows real uploaded
+photographs, falling back to a category glyph when the field is null or the file 404s.
 
 Not built yet: biometric unlock (§6), notifications (§7.4), and a settings screen carrying the
 language switch. `LocaleController` and `PreferencesStore` already support the switch; it has no UI.
