@@ -14,6 +14,7 @@ import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../../theme/motion.dart';
+import '../auth/auth_controller.dart';
 import 'composer_controller.dart';
 import 'widgets/drink_tile.dart';
 import 'widgets/sugar_stepper.dart';
@@ -139,6 +140,24 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
               );
             }
 
+            // The caps live on the server and are published with the
+            // catalogue, so the limit is not duplicated as a magic number
+            // here. Applied in a post-frame callback: this runs during build,
+            // and mutating a provider mid-build would be a write during a
+            // read.
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!context.mounted) return;
+              ref.read(composerControllerProvider.notifier)
+                ..applyLimits(
+                  maxLines: data.maxLines,
+                  maxBuffetDrinks: data.maxBuffetDrinks,
+                )
+                // The cap rule needs both the name and the privilege, so the
+                // model carries both rather than half the rule living in the
+                // guest field's `if`.
+                ..setCanOrderForGuests(ref.read(canOrderForGuestsProvider));
+            });
+
             return _ComposerBody(
               catalogue: data,
               composer: composer,
@@ -211,26 +230,71 @@ class _ComposerBody extends ConsumerWidget {
                     : const SizedBox.shrink(),
               ),
 
+              // Drinks already added. Absent for the ordinary one-drink
+              // order, which is unchanged.
+              if (composer.lines.isNotEmpty) ...[
+                _AddedLines(
+                  lines: composer.lines,
+                  onRemove: controller.removeLine,
+                ),
+                const SizedBox(height: Dimens.space4),
+              ],
+
+              // The buffet cap, explained where the user can act on it rather
+              // than as a 400 after the whole order is composed.
+              //
+              // A structural limit, not a stock reading: the server rejects
+              // the order outright past it. It still does not disable the
+              // order button — the user fixes it by switching a drink to
+              // their own jar or removing it.
+              // The password change worked but the token refresh did not.
+              // Shown here because this is where the user lands afterwards,
+              // and dismissed once seen.
+              if (ref.watch(sessionNotRefreshedProvider)) ...[
+                InlineBanner(
+                  tone: BannerTone.warning,
+                  title: l10n.sessionNotRefreshed,
+                ),
+                const SizedBox(height: Dimens.space4),
+              ],
+
+              // Shown for the order as it stands AND for a draft that cannot
+              // be added — the add button is disabled in the second case, and
+              // a disabled control with no reason beside it is a dead end.
+              if (composer.exceedsBuffetCap ||
+                  composer.draftWouldExceedBuffetCap) ...[
+                InlineBanner(
+                  tone: BannerTone.warning,
+                  title: l10n.buffetCapTitle,
+                  body: l10n.buffetCapBody,
+                ),
+                const SizedBox(height: Dimens.space4),
+              ],
+
+              if (!composer.canAddAnotherLine) ...[
+                InlineBanner(
+                  tone: BannerTone.warning,
+                  title: l10n.maxLinesReachedTitle,
+                  body: l10n.maxLinesReachedBody(composer.maxLines),
+                ),
+                const SizedBox(height: Dimens.space4),
+              ],
+
               Text(l10n.drink, style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: Dimens.space3),
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: Dimens.space3,
-                  crossAxisSpacing: Dimens.space3,
-                  childAspectRatio: 0.82,
-                ),
-                itemCount: catalogue.drinks.length,
-                itemBuilder: (context, index) {
-                  final drink = catalogue.drinks[index];
-                  return DrinkTile(
-                    item: drink,
-                    selected: composer.drink?.itemId == drink.itemId,
-                    onTap: () => controller.selectDrink(drink),
-                  );
-                },
+
+              // Split into "my materials" and "the buffet" so the buffet cap
+              // is legible: the user can see which drinks count against it.
+              //
+              // Grouped on `hasOwnStock`, which means the user owns *some* —
+              // it says nothing about how much. An owned item with nothing
+              // left still belongs here, with the shortage shown on the tile
+              // and NEVER hidden or disabled (§3).
+              ..._groupedDrinks(
+                context: context,
+                drinks: catalogue.drinks,
+                composer: composer,
+                controller: controller,
               ),
 
               // Shown ONLY when the selected drink has more than one way of
@@ -266,17 +330,6 @@ class _ComposerBody extends ConsumerWidget {
                 ),
               ],
 
-              // Appears only once a drink the user owns is selected — showing
-              // it always is noise for the majority who own nothing (§7.1).
-              if (composer.canUseOwnMaterials) ...[
-                const SizedBox(height: Dimens.space4),
-                _FromMyMaterialsToggle(
-                  servingsLeft: composer.drink?.ownServingsLeft ?? 0,
-                  value: composer.drinkFromOwn,
-                  onChanged: controller.setDrinkFromOwn,
-                ),
-              ],
-
               const SizedBox(height: Dimens.space5),
               Text(l10n.sugar, style: Theme.of(context).textTheme.labelLarge),
               const SizedBox(height: Dimens.space2),
@@ -285,7 +338,17 @@ class _ComposerBody extends ConsumerWidget {
                 onChanged: controller.setSugarSpoons,
               ),
 
-              if (catalogue.extras.isNotEmpty) ...[
+              // Filtered by the selected drink. A drink with no configured
+              // restriction permits everything (null); one configured to take
+              // none has an empty list and hides the row entirely rather than
+              // showing an empty section (§6).
+              //
+              // Not cosmetic: an extra the drink does not permit is dropped
+              // server-side while the order still SUCCEEDS, so offering one
+              // produces a drink that arrives wrong rather than an error.
+              if (_visibleExtras(catalogue.extras, composer.drink)
+                  case final List<CatalogueItemDto> extras
+                  when extras.isNotEmpty) ...[
                 const SizedBox(height: Dimens.space5),
                 Text(
                   l10n.extras,
@@ -296,25 +359,51 @@ class _ComposerBody extends ConsumerWidget {
                   spacing: Dimens.space2,
                   runSpacing: Dimens.space2,
                   children: [
-                    for (final extra in catalogue.extras)
-                      FilterChip(
-                        label: Text(
-                          extra.localisedName(
-                            Localizations.localeOf(context).languageCode,
-                          ),
-                        ),
+                    for (final extra in extras)
+                      _ExtraChip(
+                        extra: extra,
                         selected: composer.extraItemIds.contains(extra.itemId),
-                        onSelected: (_) => controller.toggleExtra(extra.itemId),
-                        // Violet only when it is genuinely the user's own
-                        // stock — never as a generic selected state.
-                        selectedColor: extra.hasOwnStock
-                            ? BrandColors.accentSurface
-                            : BrandColors.brandLight,
-                        checkmarkColor: extra.hasOwnStock
-                            ? BrandColors.accent
-                            : BrandColors.brand,
+                        // Follows the PREPARATION, not the drink: milk is in a
+                        // فرنساوي and not in a غامق, so the mark moves when the
+                        // user switches between them.
+                        doublesUp: composer.extraDoublesUp(extra.itemId),
+                        onTap: () => controller.toggleExtra(extra.itemId),
                       ),
                   ],
+                ),
+
+                // Shown only once such an extra is actually ticked. The
+                // doubling is correct — two pours, two deductions — but it is
+                // the kind of correct that looks like a bug on the stock
+                // report if nobody says so first.
+                //
+                // A warning, never a block: a double portion is a legitimate
+                // thing to order and the user may well mean it.
+                if (composer.doubledExtraItemIds.isNotEmpty) ...[
+                  const SizedBox(height: Dimens.space3),
+                  InlineBanner(
+                    tone: BannerTone.warning,
+                    title: l10n.extraDoublesHint,
+                  ),
+                ],
+              ],
+
+              // Commits the drink being composed and clears the controls
+              // for the next one — one screen, never a wizard (§7.1).
+              // Hidden until a drink is chosen: there is nothing to add.
+              if (composer.drink != null) ...[
+                const SizedBox(height: Dimens.space5),
+                OutlinedButton.icon(
+                  // Disabled on a structural limit the server enforces, never
+                  // on a stock reading alone: the cap counts resolved sources,
+                  // and the banner above says how to satisfy it.
+                  onPressed:
+                      composer.canAddAnotherLine &&
+                          !composer.draftWouldExceedBuffetCap
+                      ? controller.addLine
+                      : null,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: Text(l10n.addAnotherDrink),
                 ),
               ],
 
@@ -324,12 +413,262 @@ class _ComposerBody extends ConsumerWidget {
         ),
 
         _ComposerFooter(
-          locations: catalogue.locations,
           composer: composer,
           placing: placing,
           onPlaceOrder: onPlaceOrder,
         ),
       ],
+    );
+  }
+}
+
+/// The extras this drink permits, in catalogue order.
+///
+/// A null [CatalogueItemDto.allowedExtraItemIds] means unrestricted, so every
+/// extra shows; an empty list means none, and the caller hides the row. With no
+/// drink chosen yet the full list shows — there is no restriction to apply.
+List<CatalogueItemDto> _visibleExtras(
+  List<CatalogueItemDto> extras,
+  CatalogueItemDto? drink,
+) => drink == null
+    ? extras
+    : [
+        for (final e in extras)
+          if (drink.permitsExtra(e.itemId)) e,
+      ];
+
+/// The drink grid, split into "my materials" and "the buffet".
+///
+/// Owned items come first. An item can be in both — [CatalogueItemDto.hasOwnStock]
+/// means the user owns *some*, and the buffet may stock it too — so this groups
+/// by which jar is available to draw on, and the per-drink "from my jar" toggle
+/// stays the thing that actually decides.
+/// The drink grid, split into "my materials" and "the buffet".
+///
+/// **A drink the user owns appears in BOTH sections** — the same coffee
+/// available from two jars is two tiles, one per jar. Partitioning instead
+/// would take away the choice to draw an owned drink from the buffet, which is
+/// a real one: someone saving their own beans for later still wants a coffee.
+///
+/// The tile carries the source, so there is no separate "from my materials"
+/// toggle. The question is answered by which group was tapped, before the drink
+/// is chosen rather than after.
+List<Widget> _groupedDrinks({
+  required BuildContext context,
+  required List<CatalogueItemDto> drinks,
+  required ComposerState composer,
+  required ComposerController controller,
+}) {
+  final l10n = AppLocalizations.of(context);
+  final mine = [
+    for (final d in drinks)
+      if (d.hasOwnStock) d,
+  ];
+
+  Widget grid(List<CatalogueItemDto> items, {required bool fromOwn}) =>
+      GridView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          mainAxisSpacing: Dimens.space3,
+          crossAxisSpacing: Dimens.space3,
+          childAspectRatio: 0.82,
+        ),
+        itemCount: items.length,
+        itemBuilder: (context, index) {
+          final drink = items[index];
+          return DrinkTile(
+            item: drink,
+            // Both the drink AND the jar must match: the same drink is on
+            // screen twice, and lighting up both tiles would say the user had
+            // chosen two things.
+            selected:
+                composer.drink?.itemId == drink.itemId &&
+                composer.drinkFromOwn == fromOwn,
+            showOwnStock: fromOwn,
+            onTap: () => controller.selectDrink(drink, fromOwn: fromOwn),
+          );
+        },
+      );
+
+  // One flat grid when the user owns nothing — headings over a single section
+  // are noise for the majority.
+  if (mine.isEmpty) return [grid(drinks, fromOwn: false)];
+
+  return [
+    _PickerSectionHeading(
+      label: l10n.sectionMyMaterials,
+      // Violet, because this section genuinely IS the user's own jar.
+      color: BrandColors.accent,
+    ),
+    const SizedBox(height: Dimens.space2),
+    grid(mine, fromOwn: true),
+    const SizedBox(height: Dimens.space4),
+    _PickerSectionHeading(label: l10n.sectionBuffet, color: BrandColors.muted),
+    const SizedBox(height: Dimens.space2),
+    // The whole catalogue, including drinks the user also owns.
+    grid(drinks, fromOwn: false),
+  ];
+}
+
+/// An extras chip.
+///
+/// Carries two independent markings that must not be confused:
+///
+/// - **Violet** means the extra comes from the user's own jar. Never a generic
+///   selected state (rule 3).
+/// - **A warning mark** means the chosen preparation already pours this, so
+///   ticking it is a second portion. It **annotates, never filters**: an
+///   ingredient is part of the recipe and cannot be declined, which is exactly
+///   what separates it from `allowedExtraItemIds`.
+class _ExtraChip extends StatelessWidget {
+  const _ExtraChip({
+    required this.extra,
+    required this.selected,
+    required this.doublesUp,
+    required this.onTap,
+  });
+
+  final CatalogueItemDto extra;
+  final bool selected;
+  final bool doublesUp;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final name = extra.localisedName(
+      Localizations.localeOf(context).languageCode,
+    );
+
+    return Tooltip(
+      message: doublesUp ? l10n.extraAlreadyInPreparation : name,
+      child: FilterChip(
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(name),
+            if (doublesUp) ...[
+              const SizedBox(width: Dimens.space1),
+              const Icon(
+                Icons.add_circle_outline,
+                size: 14,
+                color: BrandColors.warning,
+              ),
+            ],
+          ],
+        ),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        // Violet only when it is genuinely the user's own stock — never as a
+        // generic selected state.
+        selectedColor: extra.hasOwnStock
+            ? BrandColors.accentSurface
+            : BrandColors.brandLight,
+        checkmarkColor: extra.hasOwnStock
+            ? BrandColors.accent
+            : BrandColors.brand,
+      ),
+    );
+  }
+}
+
+class _PickerSectionHeading extends StatelessWidget {
+  const _PickerSectionHeading({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(
+        width: Dimens.space1,
+        height: Dimens.space4,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(Dimens.radiusSm),
+        ),
+      ),
+      const SizedBox(width: Dimens.space2),
+      Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
+      ),
+    ],
+  );
+}
+
+/// The drinks already added to this order, each removable.
+class _AddedLines extends StatelessWidget {
+  const _AddedLines({required this.lines, required this.onRemove});
+
+  final List<ComposerLine> lines;
+  final ValueChanged<int> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final language = Localizations.localeOf(context).languageCode;
+
+    return Container(
+      padding: const EdgeInsetsDirectional.all(Dimens.space3),
+      decoration: BoxDecoration(
+        color: BrandColors.surface,
+        border: Border.all(color: BrandColors.brandLight),
+        borderRadius: BorderRadius.circular(Dimens.radiusLg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.drinksInOrder(lines.length),
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+          const SizedBox(height: Dimens.space2),
+          for (final (index, line) in lines.indexed)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(top: Dimens.space1),
+              child: Row(
+                children: [
+                  // Violet only when the drink genuinely resolves to the
+                  // user's own jar — a line that falls back to buffet stock
+                  // is not "from my jar" however it was requested.
+                  Icon(
+                    Icons.local_cafe_outlined,
+                    size: 18,
+                    color: line.resolvesToBuffet
+                        ? BrandColors.muted
+                        : BrandColors.accent,
+                  ),
+                  const SizedBox(width: Dimens.space2),
+                  Expanded(
+                    child: Text(
+                      line.drink.localisedName(language),
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                  // The shortage is shown, never used to block or remove.
+                  if (line.ownStockIsShort)
+                    const Padding(
+                      padding: EdgeInsetsDirectional.only(end: Dimens.space2),
+                      child: Icon(
+                        Icons.warning_amber_outlined,
+                        size: 18,
+                        color: BrandColors.warning,
+                      ),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 18),
+                    tooltip: l10n.removeDrink,
+                    onPressed: () => onRemove(index),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -389,84 +728,13 @@ class _UsualOrderCard extends StatelessWidget {
 }
 
 /// The violet toggle. Violet means "from my own jar" — nowhere else.
-class _FromMyMaterialsToggle extends StatelessWidget {
-  const _FromMyMaterialsToggle({
-    required this.servingsLeft,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final int servingsLeft;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final isEmpty = servingsLeft <= 0;
-
-    return Container(
-      padding: const EdgeInsetsDirectional.symmetric(
-        horizontal: Dimens.space4,
-        vertical: Dimens.space2,
-      ),
-      decoration: BoxDecoration(
-        color: BrandColors.accentSurface,
-        border: Border.all(color: BrandColors.accent),
-        borderRadius: BorderRadius.circular(Dimens.radius),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.inventory_2_outlined,
-            size: 20,
-            color: BrandColors.accent,
-          ),
-          const SizedBox(width: Dimens.space3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.fromMyMaterials,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: BrandColors.accent,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  l10n.servingsLeft(servingsLeft),
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isEmpty ? BrandColors.warning : BrandColors.muted,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Deliberately still switchable at zero: the order goes through and
-          // staff see the shortage. Never disabled on a stock reading.
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: BrandColors.surface,
-            activeTrackColor: BrandColors.accent,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _ComposerFooter extends ConsumerWidget {
   const _ComposerFooter({
-    required this.locations,
     required this.composer,
     required this.placing,
     required this.onPlaceOrder,
   });
 
-  final List<LocationDto> locations;
   final ComposerState composer;
   final bool placing;
   final Future<void> Function() onPlaceOrder;
@@ -476,12 +744,26 @@ class _ComposerFooter extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final controller = ref.read(composerControllerProvider.notifier);
 
+    // The system navigation bar draws OVER this footer. With Android's
+    // three-button navigation that is a ~48dp strip sitting on top of the
+    // order button — reachable only by the part of it still showing, and on
+    // some devices not at all.
+    //
+    // `paddingOf`, not `viewPaddingOf`: inside a Scaffold the padding a parent
+    // has already consumed is subtracted, so this is what is genuinely left to
+    // clear. viewPadding reports the raw system value and double-counts.
+    //
+    // Added to the design padding rather than replacing it, so a gesture-
+    // navigation device (inset ~0) keeps the spacing it was designed with and
+    // a three-button device gets clearance on top of it.
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
     return Container(
-      padding: const EdgeInsetsDirectional.only(
+      padding: EdgeInsetsDirectional.only(
         start: Dimens.space4,
         end: Dimens.space4,
         top: Dimens.space3,
-        bottom: Dimens.space5,
+        bottom: Dimens.space5 + bottomInset,
       ),
       decoration: const BoxDecoration(
         color: BrandColors.surface,
@@ -492,31 +774,21 @@ class _ComposerFooter extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // A combo, not a dropdown: the managed list is a *suggestion* and an
-          // unlisted place must never block an order (§7.1).
-          Autocomplete<LocationDto>(
-            optionsBuilder: (value) => value.text.isEmpty
-                ? locations
-                : locations.where((l) => l.nameAr.contains(value.text)),
-            displayStringForOption: (option) => option.nameAr,
-            onSelected: (option) =>
-                controller.setLocation(locationId: option.locationId),
-            fieldViewBuilder:
-                (context, textController, focusNode, onFieldSubmitted) {
-                  return TextField(
-                    controller: textController,
-                    focusNode: focusNode,
-                    decoration: InputDecoration(
-                      labelText: l10n.deliveryLocation,
-                      hintText: l10n.locationHint,
-                      prefixIcon: const Icon(Icons.place_outlined, size: 18),
-                    ),
-                    // Free text is sent as locationText — the order stands
-                    // even when the place is not on the managed list.
-                    onChanged: (text) =>
-                        controller.setLocation(locationText: text),
-                  );
-                },
+          // Plain text, deliberately — no suggestion list for now.
+          //
+          // The managed list was only ever a *suggestion*, and free text is the
+          // safer half of that: it always sends `locationText`, which the
+          // server accepts for any place at all. An unlisted spot could never
+          // block an order, and now nothing has to be matched against a list
+          // to get there.
+          TextField(
+            decoration: InputDecoration(
+              labelText: l10n.deliveryLocation,
+              hintText: l10n.locationHint,
+              prefixIcon: const Icon(Icons.place_outlined, size: 18),
+            ),
+            textInputAction: TextInputAction.next,
+            onChanged: (text) => controller.setLocation(locationText: text),
           ),
           const SizedBox(height: Dimens.space3),
 
@@ -536,6 +808,28 @@ class _ComposerFooter extends ConsumerWidget {
                 controller.setNotes(text.trim().isEmpty ? null : text.trim()),
           ),
           const SizedBox(height: Dimens.space3),
+
+          // Shown only when the token carries the privilege. The server reads
+          // it from the token's claims, not the body — a client cannot grant
+          // itself this, and offering the field to someone without it would
+          // produce an unexplained rejection.
+          //
+          // Naming a guest also lifts the one-buffet-drink cap server-side:
+          // an order for three visitors that had to draw two drinks from the
+          // employee's own jar would be useless for its one purpose.
+          if (ref.watch(canOrderForGuestsProvider)) ...[
+            TextField(
+              decoration: InputDecoration(
+                labelText: l10n.guestOrderLabel,
+                hintText: l10n.guestOrderHint,
+                helperText: l10n.guestOrderNote,
+                prefixIcon: const Icon(Icons.person_outline, size: 18),
+              ),
+              textInputAction: TextInputAction.done,
+              onChanged: controller.setOnBehalfOfName,
+            ),
+            const SizedBox(height: Dimens.space3),
+          ],
 
           FilledButton(
             // Disabled only when there is genuinely nothing to order.

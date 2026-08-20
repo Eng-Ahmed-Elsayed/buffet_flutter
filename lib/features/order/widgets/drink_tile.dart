@@ -21,6 +21,7 @@ class DrinkTile extends StatelessWidget {
     required this.item,
     required this.selected,
     required this.onTap,
+    this.showOwnStock = true,
     super.key,
   });
 
@@ -28,10 +29,19 @@ class DrinkTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// Whether to show the violet servings-remaining label.
+  ///
+  /// False on the buffet tile of a drink the user also owns. The same drink is
+  /// on screen twice, once per jar, and the servings count belongs to the own-
+  /// jar tile — on the buffet tile it would claim the buffet's coffee comes out
+  /// of the user's balance.
+  final bool showOwnStock;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final ownStockOut = item.hasOwnStock && item.ownServingsLeft <= 0;
+    final showsOwn = showOwnStock && item.hasOwnStock;
+    final ownStockOut = showsOwn && item.ownServingsLeft <= 0;
     // Item names are admin-entered in both languages, but nameEn is often
     // empty — localisedName falls back to Arabic rather than showing a blank.
     final name = item.localisedName(
@@ -86,7 +96,7 @@ class DrinkTile extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (item.hasOwnStock) ...[
+              if (showsOwn) ...[
                 const SizedBox(height: Dimens.space1),
                 Text(
                   l10n.servingsLeft(item.ownServingsLeft),

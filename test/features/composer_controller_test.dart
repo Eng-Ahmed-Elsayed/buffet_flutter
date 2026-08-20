@@ -18,6 +18,7 @@ CatalogueItemDto item({
   hasOwnStock: hasOwnStock,
   ownServingsLeft: ownServingsLeft,
   variants: const [],
+  allowedExtraItemIds: null,
 );
 
 void main() {
@@ -45,15 +46,14 @@ void main() {
     });
   });
 
-  group('the "from my materials" toggle', () {
-    test('is hidden until a drink the user owns is selected', () {
+  group('the source comes from the tile, not a toggle', () {
+    test('canUseOwnMaterials reports whether an own-jar tile existed', () {
       final controller = ComposerController();
       // Nothing selected yet.
       expect(controller.state.canUseOwnMaterials, isFalse);
 
       controller.selectDrink(item(hasOwnStock: false));
-      // Selected, but not owned — showing the toggle would be noise for the
-      // majority who own nothing.
+      // Selected, but not owned — this drink has no tile under «من موادي».
       expect(controller.state.canUseOwnMaterials, isFalse);
 
       controller.selectDrink(
@@ -62,15 +62,40 @@ void main() {
       expect(controller.state.canUseOwnMaterials, isTrue);
     });
 
-    test('resets when a different drink is selected', () {
+    test('tapping the own-jar tile sets the source', () {
       final controller = ComposerController()
-        ..selectDrink(item(hasOwnStock: true, ownServingsLeft: 5))
-        ..setDrinkFromOwn(true);
+        ..selectDrink(
+          item(hasOwnStock: true, ownServingsLeft: 5),
+          fromOwn: true,
+        );
+      expect(controller.state.drinkFromOwn, isTrue);
+    });
+
+    test('tapping the buffet tile of an owned drink draws on the buffet', () {
+      // The same drink is on screen twice, once per jar. Someone saving their
+      // own beans for later still wants a coffee.
+      final controller = ComposerController()
+        ..selectDrink(item(hasOwnStock: true, ownServingsLeft: 5));
+      expect(controller.state.drinkFromOwn, isFalse);
+    });
+
+    test('the source never carries over to a different drink', () {
+      final controller = ComposerController()
+        ..selectDrink(
+          item(hasOwnStock: true, ownServingsLeft: 5),
+          fromOwn: true,
+        );
       expect(controller.state.drinkFromOwn, isTrue);
 
-      // The new drink may not be owned at all, so the previous answer cannot
-      // carry over.
       controller.selectDrink(item(id: 2, hasOwnStock: false));
+      expect(controller.state.drinkFromOwn, isFalse);
+    });
+
+    test('a jar the user does not own cannot be claimed', () {
+      // Guards the replay path: the server would silently fall back to buffet
+      // stock, which then counts against the cap the client thought it had met.
+      final controller = ComposerController()
+        ..selectDrink(item(hasOwnStock: false), fromOwn: true);
       expect(controller.state.drinkFromOwn, isFalse);
     });
   });
@@ -78,8 +103,10 @@ void main() {
   group('shortages warn but never block', () {
     test('an empty personal jar still allows the order', () {
       final controller = ComposerController()
-        ..selectDrink(item(hasOwnStock: true, ownServingsLeft: 0))
-        ..setDrinkFromOwn(true);
+        ..selectDrink(
+          item(hasOwnStock: true, ownServingsLeft: 0),
+          fromOwn: true,
+        );
 
       expect(controller.state.ownStockIsShort, isTrue);
       // The warning is on; the order button is NOT off. Physical and recorded
@@ -96,7 +123,7 @@ void main() {
     test('no warning when drawing on company stock', () {
       final controller = ComposerController()
         ..selectDrink(item(hasOwnStock: true, ownServingsLeft: 0));
-      // The toggle is off, so the empty jar is irrelevant.
+      // Picked from the buffet tile, so the empty personal jar is irrelevant.
       expect(controller.state.ownStockIsShort, isFalse);
     });
   });

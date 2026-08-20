@@ -1,0 +1,467 @@
+import 'package:buffet_app/data/models/auth_models.dart';
+import 'package:buffet_app/data/models/catalogue_models.dart';
+import 'package:buffet_app/features/auth/auth_controller.dart';
+import 'package:buffet_app/features/order/composer_screen.dart';
+import 'package:buffet_app/l10n/app_localizations.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+CatalogueItemDto _item(
+  int id,
+  String nameAr,
+  String category, {
+  bool hasOwnStock = false,
+  int ownServingsLeft = 0,
+  List<int>? allowedExtraItemIds,
+  List<VariantDto> variants = const [],
+}) => CatalogueItemDto(
+  itemId: id,
+  nameAr: nameAr,
+  nameEn: '',
+  category: category,
+  unit: 'جرام',
+  imageUrl: null,
+  inStock: true,
+  hasOwnStock: hasOwnStock,
+  ownServingsLeft: ownServingsLeft,
+  variants: variants,
+  allowedExtraItemIds: allowedExtraItemIds,
+);
+
+LoginResponse _session({bool canOrderForGuests = false}) => LoginResponse(
+  token: 't',
+  expiresUtc: DateTime.utc(2030),
+  username: 'sara@company.com',
+  displayName: 'سارة',
+  role: 'Employee',
+  department: 'المالية',
+  mustChangePassword: false,
+  canOrderForGuests: canOrderForGuests,
+);
+
+Widget _app(CatalogueResponse catalogue, {bool canOrderForGuests = false}) =>
+    ProviderScope(
+      overrides: [
+        catalogueProvider.overrideWith((ref) async => catalogue),
+        canOrderForGuestsProvider.overrideWith(
+          (ref) =>
+              _session(canOrderForGuests: canOrderForGuests).canOrderForGuests,
+        ),
+      ],
+      child: const MaterialApp(
+        locale: Locale('ar'),
+        supportedLocales: [Locale('ar'), Locale('en')],
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: ComposerScreen(),
+      ),
+    );
+
+/// Lays the composer out on a tall surface.
+///
+/// A `ListView` only builds what fits, and these assertions are about grouping
+/// and filtering rather than scrolling — a phone-sized viewport would fail them
+/// for the wrong reason.
+Future<void> _pumpTall(WidgetTester tester, Widget app) async {
+  tester.view.physicalSize = const Size(1400, 4000);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(app);
+  await tester.pumpAndSettle();
+}
+
+/// The Arabic double-portion hint, as it appears in `app_ar.arb`.
+const _doublesHint =
+    'اخترت إضافة تحتوي عليها طريقة التحضير أصلًا، لذا ستُستخدم حصة مضاعفة.';
+
+void main() {
+  group('§3 — the pickers group by which jar the order draws on', () {
+    testWidgets(
+      'owned drinks sit under "my materials", buffet under "the buffet"',
+      (tester) async {
+        await _pumpTall(
+          tester,
+          _app(
+            CatalogueResponse(
+              drinks: [
+                _item(1, 'قهوة', 'Drink'),
+                _item(
+                  2,
+                  'نعناع',
+                  'Drink',
+                  hasOwnStock: true,
+                  ownServingsLeft: 4,
+                ),
+              ],
+              sugars: const [],
+              extras: const [],
+              locations: const [],
+              usual: null,
+            ),
+          ),
+        );
+
+        expect(find.text('من موادي'), findsOneWidget);
+        expect(find.text('من البوفيه'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'an owned item with NOTHING left still shows under "my materials"',
+      (tester) async {
+        // hasOwnStock says the user owns some; it says nothing about how much,
+        // and the ledger permits negative balances by design. Hiding it would be
+        // a control removed on a stock reading.
+        await _pumpTall(
+          tester,
+          _app(
+            CatalogueResponse(
+              drinks: [
+                _item(
+                  2,
+                  'نعناع',
+                  'Drink',
+                  hasOwnStock: true,
+                  ownServingsLeft: 0,
+                ),
+              ],
+              sugars: const [],
+              extras: const [],
+              locations: const [],
+              usual: null,
+            ),
+          ),
+        );
+
+        expect(find.text('من موادي'), findsOneWidget);
+        // Shown, never hidden — and once per jar as everywhere else.
+        expect(find.text('نعناع'), findsNWidgets(2));
+      },
+    );
+
+    testWidgets('no headings at all when the user owns nothing', (
+      tester,
+    ) async {
+      // Headings over a single section are noise for the majority.
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+            usual: null,
+          ),
+        ),
+      );
+
+      expect(find.text('من موادي'), findsNothing);
+      expect(find.text('من البوفيه'), findsNothing);
+      expect(find.text('قهوة'), findsOneWidget);
+    });
+  });
+
+  group('§6 — the extras row follows the selected drink', () {
+    testWidgets('every extra shows before a drink is chosen', (tester) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink')],
+            sugars: const [],
+            extras: [_item(9, 'حليب', 'Extra'), _item(10, 'قرفة', 'Extra')],
+            locations: const [],
+            usual: null,
+          ),
+        ),
+      );
+
+      expect(find.text('حليب'), findsOneWidget);
+      expect(find.text('قرفة'), findsOneWidget);
+    });
+
+    testWidgets('a restricted drink hides the extras it does not permit', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [
+              _item(1, 'قهوة', 'Drink', allowedExtraItemIds: const [9]),
+            ],
+            sugars: const [],
+            extras: [_item(9, 'حليب', 'Extra'), _item(10, 'قرفة', 'Extra')],
+            locations: const [],
+            usual: null,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('حليب'), findsOneWidget);
+      // Offering this would produce a drink that arrives wrong: the server
+      // drops it while the order still succeeds.
+      expect(find.text('قرفة'), findsNothing);
+    });
+
+    testWidgets('a drink permitting NO extras hides the whole row', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink', allowedExtraItemIds: const [])],
+            sugars: const [],
+            extras: [_item(9, 'حليب', 'Extra')],
+            locations: const [],
+            usual: null,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+
+      // An empty list means none — never conflated with null, which is
+      // unrestricted. The heading goes too, rather than sitting over nothing.
+      expect(find.text('حليب'), findsNothing);
+      expect(find.text('إضافات'), findsNothing);
+    });
+  });
+
+  group('§8 — the double-portion warning', () {
+    CatalogueResponse withRecipe() => CatalogueResponse(
+      drinks: [
+        _item(
+          1,
+          'قهوة',
+          'Drink',
+          variants: const [
+            VariantDto(
+              variantId: 71,
+              nameAr: 'فرنساوي',
+              nameEn: 'French',
+              isDefault: true,
+              ingredientItemIds: [9],
+            ),
+            VariantDto(
+              variantId: 72,
+              nameAr: 'غامق',
+              nameEn: 'Dark',
+              isDefault: false,
+              ingredientItemIds: [],
+            ),
+          ],
+        ),
+      ],
+      sugars: const [],
+      extras: [_item(9, 'حليب', 'Extra')],
+      locations: const [],
+      usual: null,
+    );
+
+    testWidgets('the hint appears only once the doubling extra is ticked', (
+      tester,
+    ) async {
+      await _pumpTall(tester, _app(withRecipe()));
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+
+      // Flagged on the chip, but nothing is doubled until it is chosen.
+      expect(find.text(_doublesHint), findsNothing);
+
+      await tester.tap(find.text('حليب'));
+      await tester.pumpAndSettle();
+      expect(find.text(_doublesHint), findsOneWidget);
+    });
+
+    testWidgets('the hint goes away when the preparation changes', (
+      tester,
+    ) async {
+      await _pumpTall(tester, _app(withRecipe()));
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('حليب'));
+      await tester.pumpAndSettle();
+      expect(find.text(_doublesHint), findsOneWidget);
+
+      // غامق pours no milk, so the same ticked extra stops doubling.
+      await tester.tap(find.text('غامق'));
+      await tester.pumpAndSettle();
+      expect(find.text(_doublesHint), findsNothing);
+    });
+
+    testWidgets('the extra stays selectable — annotate, never filter', (
+      tester,
+    ) async {
+      await _pumpTall(tester, _app(withRecipe()));
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('حليب'));
+      await tester.pumpAndSettle();
+
+      // The chip is still there and still on: an ingredient cannot be
+      // declined, and a double portion is a legitimate thing to order.
+      expect(find.text('حليب'), findsOneWidget);
+      final chip = tester.widget<FilterChip>(find.byType(FilterChip));
+      expect(chip.selected, isTrue);
+      expect(chip.onSelected, isNotNull);
+
+      // And the order button never goes off for it.
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'أرسل الطلب'),
+      );
+      expect(button.onPressed, isNotNull);
+    });
+  });
+
+  group('§2 — the guest field is gated on the token privilege', () {
+    testWidgets('hidden when the user does not hold it', (tester) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+            usual: null,
+          ),
+        ),
+      );
+
+      // Offering it would produce an unexplained rejection — the server reads
+      // the privilege from the token's claims, not the body.
+      expect(find.text('الطلب لضيف'), findsNothing);
+    });
+
+    testWidgets('shown when the user holds it', (tester) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+            usual: null,
+          ),
+          canOrderForGuests: true,
+        ),
+      );
+
+      expect(find.text('الطلب لضيف'), findsOneWidget);
+    });
+  });
+
+  group('§1 — adding a second drink', () {
+    testWidgets('the add action appears only once a drink is chosen', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink'), _item(2, 'شاي', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+            usual: null,
+          ),
+        ),
+      );
+
+      expect(find.text('أضف مشروبًا آخر'), findsNothing);
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      expect(find.text('أضف مشروبًا آخر'), findsOneWidget);
+    });
+
+    testWidgets('the buffet cap warns but leaves the order button live', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink'), _item(2, 'شاي', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+            usual: null,
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أضف مشروبًا آخر'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('شاي'));
+      await tester.pumpAndSettle();
+
+      // The second buffet drink cannot be ADDED — the add button refuses it —
+      // but it still sits in the draft, so the order carries two and the
+      // banner says why.
+      expect(find.text('مشروب واحد فقط من البوفيه'), findsOneWidget);
+
+      // The warning explains; it does not bar the door. A line counts against
+      // the cap when ownServingsLeft <= 0, which is a stock reading, and a
+      // control switched off on a stock reading is forbidden outright.
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'أرسل الطلب'),
+      );
+      expect(button.onPressed, isNotNull);
+    });
+  });
+
+  group('the system navigation bar must not cover the order button', () {
+    testWidgets('the footer clears a three-button navigation inset', (
+      tester,
+    ) async {
+      // Android's three-button navigation draws a ~48dp strip over the bottom
+      // of the app. Without clearance it sits on top of "Place order".
+      tester.view.physicalSize = const Size(1080, 2400);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = FakeViewPadding.zero;
+      tester.view.padding = const FakeViewPadding(bottom: 48);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+            usual: null,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final button = tester.getRect(
+        find.widgetWithText(FilledButton, 'أرسل الطلب'),
+      );
+      final screenBottom = tester.getRect(find.byType(Scaffold)).bottom;
+
+      // The button's bottom edge must sit above the inset, not under it.
+      expect(button.bottom, lessThanOrEqualTo(screenBottom - 48));
+    });
+  });
+}

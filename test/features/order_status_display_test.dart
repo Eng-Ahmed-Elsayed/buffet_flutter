@@ -30,6 +30,7 @@ const _catalogue = CatalogueResponse(
           isDefault: false,
         ),
       ],
+      allowedExtraItemIds: null,
     ),
   ],
   sugars: [],

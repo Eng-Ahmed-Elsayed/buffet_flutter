@@ -16,6 +16,7 @@ class CatalogueItemDto {
     required this.hasOwnStock,
     required this.ownServingsLeft,
     required this.variants,
+    required this.allowedExtraItemIds,
   });
 
   factory CatalogueItemDto.fromJson(Map<String, dynamic> json) =>
@@ -47,6 +48,31 @@ class CatalogueItemDto {
   /// when there is a choice to make.
   final List<VariantDto> variants;
 
+  /// Which extras this drink permits, or **null when it permits every extra** —
+  /// the default for a drink with no configured restriction. An empty list is
+  /// different: it means no extras at all. **Never conflate the two.**
+  ///
+  /// Always null on sugars and extras, which have no extras of their own.
+  ///
+  /// Filtering on this is not cosmetic. An extra the drink does not permit is
+  /// dropped **server-side while the order still succeeds**, so offering one
+  /// produces a drink that arrives wrong rather than an error the user can act
+  /// on.
+  final List<int>? allowedExtraItemIds;
+
+  /// Whether this drink permits [extraItemId].
+  ///
+  /// A null list means unrestricted, so everything is permitted; an empty list
+  /// permits nothing.
+  bool permitsExtra(int extraItemId) =>
+      allowedExtraItemIds?.contains(extraItemId) ?? true;
+
+  /// Whether the extras row should be shown for this drink at all.
+  ///
+  /// False only for the empty list — a drink configured to take no extras. A
+  /// null list is unrestricted and shows every extra.
+  bool get permitsAnyExtra => allowedExtraItemIds?.isNotEmpty ?? true;
+
   /// The item's name in [languageCode], falling back to Arabic.
   ///
   /// **The fallback is not optional.** `nameEn` is admin-entered and is empty
@@ -65,6 +91,7 @@ class VariantDto {
     required this.nameAr,
     required this.nameEn,
     required this.isDefault,
+    this.ingredientItemIds = const [],
   });
 
   factory VariantDto.fromJson(Map<String, dynamic> json) =>
@@ -74,6 +101,29 @@ class VariantDto {
   final String nameAr;
   final String nameEn;
   final bool isDefault;
+
+  /// What this preparation **already pours** — the milk in a قهوة فرنساوي.
+  ///
+  /// Choosing one of these as an *extra* is a second portion and a second
+  /// deduction: milk on a French coffee takes 22g for the recipe plus 30g for
+  /// the extra, 52g in total. That is correct — two pours, two deductions —
+  /// but it is the kind of correct that looks like a bug on the stock report if
+  /// nobody says so first.
+  ///
+  /// **Annotate the extras picker with this; never filter it.** An ingredient
+  /// is part of the recipe and cannot be declined, which is exactly what
+  /// separates it from [CatalogueItemDto.allowedExtraItemIds]. And a double
+  /// portion is a legitimate thing to order — warn, never block.
+  ///
+  /// Empty rather than null, unlike `allowedExtraItemIds`: there is no
+  /// "unrestricted" case here. A preparation that pours nothing extra is
+  /// completely described by `[]`. Defaulted so a server predating the field
+  /// simply warns about nothing.
+  final List<int> ingredientItemIds;
+
+  /// Whether this preparation already pours [extraItemId], making it a second
+  /// portion if also chosen as an extra.
+  bool alreadyPours(int extraItemId) => ingredientItemIds.contains(extraItemId);
 
   /// As on [CatalogueItemDto.localisedName] — Arabic is the floor.
   String localisedName(String languageCode) =>
@@ -92,6 +142,8 @@ class CatalogueResponse {
     required this.extras,
     required this.locations,
     required this.usual,
+    this.maxLines = 25,
+    this.maxBuffetDrinks = 1,
   });
 
   factory CatalogueResponse.fromJson(Map<String, dynamic> json) =>
@@ -105,6 +157,22 @@ class CatalogueResponse {
   /// The caller's last order, for a one-tap repeat. Null when they have never
   /// ordered.
   final UsualOrderDto? usual;
+
+  /// The most drinks one order may carry.
+  ///
+  /// Defaulted rather than required so a server that predates the field yields
+  /// the limit it enforced anyway (`OrderService.MaxLines`) instead of failing
+  /// to parse the whole catalogue.
+  final int maxLines;
+
+  /// How many drinks on this order may come from the buffet's own stock; the
+  /// rest must come from the caller's own materials, or the order is rejected
+  /// outright.
+  ///
+  /// **Counted on the source each line resolves to, not the one requested**:
+  /// asking for a jar the caller does not actually own falls back to buffet
+  /// stock and counts here. Defaulted for the same reason as [maxLines].
+  final int maxBuffetDrinks;
 }
 
 /// Mirrors `LocationDto` in ApiContracts.cs.

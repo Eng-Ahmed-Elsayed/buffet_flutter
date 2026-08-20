@@ -13,6 +13,7 @@ CatalogueItemDto item({required String nameAr, required String nameEn}) =>
       hasOwnStock: false,
       ownServingsLeft: 0,
       variants: const [],
+      allowedExtraItemIds: null,
     );
 
 void main() {

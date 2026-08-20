@@ -22,6 +22,7 @@ CatalogueItemDto item({
   hasOwnStock: hasOwnStock,
   ownServingsLeft: ownServingsLeft,
   variants: const [],
+  allowedExtraItemIds: null,
 );
 
 Widget wrap(Widget child, {Locale locale = const Locale('ar')}) => MaterialApp(
