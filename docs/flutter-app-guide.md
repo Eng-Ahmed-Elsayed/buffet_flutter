@@ -291,8 +291,9 @@ against a dev instance if you like, but the contracts in `ApiContracts.cs` are t
 | Method | Path | Notes |
 |---|---|---|
 | `POST` | `/auth/login` | `{username, password}` → `LoginResponse`. Anonymous. |
-| `POST` | `/auth/change-password` | `{currentPassword, newPassword}` → `204`. Min 8 chars. |
-| `GET` | `/catalogue` | Drinks, sugars, extras, locations **and the usual order** in one round trip |
+| `POST` | `/auth/set-initial-password` | `{newPassword}` → `204`. **First sign-in only**, no current password — see §5.2 |
+| `POST` | `/auth/change-password` | `{currentPassword, newPassword}` → `204`. Min 8 chars. Voluntary changes only |
+| `GET` | `/catalogue` | Drinks, sugars, extras, locations, the usual order **and the order limits** in one round trip |
 | `POST` | `/orders` | → `201 {orderId, duplicate:false}`, or `200 {duplicate:true}` |
 | `GET` | `/orders/mine?take=` | Newest first. `take` capped at 100, defaults to 20 |
 | `GET` | `/orders/{id}` | Caller's own only; **404** for anyone else's |
@@ -301,6 +302,7 @@ against a dev instance if you like, but the contracts in `ApiContracts.cs` are t
 | `POST` | `/notifications/read` | |
 | `GET` | `/materials/mine` | The caller's own balances, with a **relative** `imageUrl` |
 | `POST` | `/materials/declare` | → **`202 Accepted`**, not `201` — see §7 |
+| `POST` | `/materials/declare-new` | Same, for an item the buffet does not carry — §7.5 |
 
 `/catalogue` is bundled deliberately: a phone on office wifi should not need four requests to
 draw one screen. Cache it, and refresh on app resume.
@@ -313,11 +315,17 @@ draw one screen. Cache it, and refresh on app resume.
   "expiresUtc": "2026-09-15T08:00:00Z",
   "username": "someone@company.com",
   "displayName": "…",
-  "role": "Employee",        // "Employee" | "Staff" | "Admin"
+  "role": "Employee",         // "Employee" | "Staff" | "Admin"
   "department": "…",
-  "mustChangePassword": true // token works, but the account is on its seeded password
+  "mustChangePassword": true, // token works, but the account is on its seeded password
+  "canOrderForGuests": false  // may attach a guest's name to an order — see §7.6
 }
 ```
+
+`canOrderForGuests` is **authoritative only as of sign-in**. The server reads the privilege from
+the token's claims, and tokens last 30 days, so a privilege granted or revoked today does not reach
+an already-signed-in client until it gets a new token. Store it beside the token and re-read it on
+each sign-in; do not cache it independently of the token's lifetime.
 
 Tokens are signed HS256, `iss: BuffetApp`, `aud: BuffetApp.Mobile`, and last **30 days**
 (`Jwt:ExpiryDays`). There is **no refresh-token endpoint** — when the token expires the user signs
@@ -380,8 +388,8 @@ Three rules:
 
 1. **`mustChangePassword` is not dismissible.** The token works, so a careless client could skip
    the screen and order anyway. Block navigation until `204` comes back from
-   `/auth/change-password`. Everyone starts on the shared seeded password (`DEFI@2026`) — until
-   they change it, their account is not theirs.
+   `/auth/set-initial-password`. Everyone starts on the shared seeded password (`DEFI@2026`) —
+   until they change it, their account is not theirs.
 2. **Role decides the landing screen**, from the login response. `Staff` → queue,
    `Employee` → catalogue. An `Admin` signing in should land on the catalogue with a quiet note
    that admin work is on the web; do not build admin screens.
@@ -405,15 +413,35 @@ The friction is real: the username is a full email address and the seeded passwo
   account, so the endpoint cannot be used to discover which accounts exist. Do not try to be more
   specific in the client — you would be guessing.
 
-### 5.2 Change password
+### 5.2 Change password — two endpoints, not one
 
-Same screen serves the forced first-run case and the voluntary one from settings. Server rules:
-current password must verify, new password **minimum 8 characters**. Validate the length locally
-for instant feedback, but always surface the server's message on `400` — it is already in the
-user's language.
+One screen still serves both cases, but **which endpoint it calls depends on how the user got
+there**, and the difference is a visible one: the forced path does not ask for the current
+password at all.
 
-Require a confirm field, and offer the reveal toggle. On success, if the user has biometrics
-available, this is the natural moment to offer to enable them (§5).
+| Case | Endpoint | Body | Current-password field |
+|---|---|---|---|
+| Forced, `mustChangePassword == true` | `/auth/set-initial-password` | `{newPassword}` | **Hide it** |
+| Voluntary, from settings | `/auth/change-password` | `{currentPassword, newPassword}` | Show it |
+
+**Why the forced path omits it.** The user proved they know the password by signing in with it
+seconds earlier. Asking again is friction with no security value, and it lands hardest on exactly
+the people who hit it — someone onboarding onto a shared seeded password they were handed on a slip
+of paper. The web app was changed to match, so the two clients do not diverge on an auth rule.
+
+`/auth/set-initial-password` is guarded, not open: it requires a bearer token whose
+`must_change_password` claim is set, **and** re-checks the flag on the stored row, so a token minted
+before an admin cleared the flag cannot reset the password. Calling it as a settled user is a `400`,
+as is calling it twice. Both are correct — treat neither as retryable.
+
+Everything else is shared. New password **minimum 8 characters** on both routes; validate locally
+for instant feedback but always surface the server's message on `400`, since it is already in the
+user's language. Require a confirm field and offer the reveal toggle.
+
+After `/auth/set-initial-password` returns `204`, the token in hand still carries
+`must_change_password: true`. It is harmless — the route now refuses itself — but **sign in again
+with the new password** rather than patching local state, so the stored token reflects reality.
+That second sign-in is also the natural moment to offer biometric enrolment (§6).
 
 ---
 
@@ -478,10 +506,49 @@ coffee is worse, not better.
 - **Sugar stepper where 0 is valid and explicit.** Not a blank field — "no sugar" is a choice the
   user makes, and the server distinguishes it from "unspecified". Sugar must be named explicitly
   on the order; the service only auto-resolves it when exactly one active sugar exists.
-- **Extras as chips**, multi-select.
-- **"الطلب المعتاد" — the usual order.** `/catalogue` returns `usual` with a human-readable
-  `summary` and the full `lines`, *including which jar each component came from*. One tap fills
-  the composer. This is the single highest-value feature in the app; put it at the top.
+- **Extras as chips**, multi-select — **filtered by the selected drink.** `CatalogueItemDto`
+  carries `allowedExtraItemIds`, and the three states are different:
+
+  | Value | Meaning | Show |
+  |---|---|---|
+  | `null` | No restriction configured — every extra is allowed | All extras |
+  | `[3, 7]` | Only these | Just those two |
+  | `[]` | No extras at all | Hide the row entirely |
+
+  **This is not cosmetic.** An extra the drink does not permit is dropped server-side while the
+  order still *succeeds* — so offering one produces a drink that arrives wrong, with no error the
+  user can act on. Also clear any already-selected extra when the drink changes, or switching
+  drinks silently carries a selection that will be discarded.
+
+- **Preparation selector**, from `CatalogueItemDto.variants` — shown only when there is more than
+  one, since most drinks are made one way. Send the chosen `variantId` on the line; a drink with
+  variants defaults to the one flagged `isDefault`.
+
+  **Warn about double portions.** `VariantDto.ingredientItemIds` lists what that preparation
+  *already pours* — a قهوة فرنساوي pours milk. Choosing one of those as an **extra** is a second
+  portion and a second deduction: milk on a French coffee deducts 22 g for the recipe plus 30 g for
+  the extra, 52 g in total. That is correct — two pours, two deductions — but it is the kind of
+  correct that looks like a bug on the stock report if nobody says so first, which is why the web
+  order form marks it in two places. Mirror that:
+
+  1. Mark the affected chip while that preparation is selected. **The mark moves** when the user
+     switches from فرنساوي to غامق, since milk is in one recipe and not the other.
+  2. Show a hint under the extras row once such an extra is actually ticked.
+
+  **Annotate, never filter — and never block.** An ingredient is part of the recipe and cannot be
+  declined, which is exactly what separates it from `allowedExtraItemIds`. A double portion is a
+  legitimate thing to order and the user may well mean it, so say what will happen and let them
+  decide. The list is `[]`, not `null`, when a preparation pours nothing extra: unlike allowed
+  extras there is no "unrestricted" case to distinguish.
+- **"آخر طلب" — the last order.** `/catalogue` returns `usual` with a human-readable `summary` and
+  the full `lines`, *including which jar each component came from*. One tap fills the composer.
+  This is the single highest-value feature in the app; put it at the top.
+
+  **Label it "last order", not "الطلب المعتاد".** Despite the field name, `usual` is literally the
+  most recent non-cancelled order — no frequency, no weighting. Order something unusual once for a
+  visitor and it becomes your "usual" until you order again, so calling it a habit overpromises.
+  Saved favourites are a separate, larger change (a new table and endpoints) and are **not built
+  yet** — do not design against them.
 - **Delivery location is a combo, not a dropdown.** The managed list is a *suggestion*: an
   unlisted place must never block an order. Use an autocomplete that sends `locationId` when a
   suggestion is picked and `locationText` when the user types their own.
@@ -491,15 +558,56 @@ servings remaining (`hasOwnStock`, `ownServingsLeft`). The "from my materials" t
 **only once such a drink is selected** — showing it always is noise for the majority who own
 nothing. It maps to `drinkFromOwn` / `sugarFromOwn` / `ownExtraItemIds` per line.
 
+**Group each picker by source: «من موادي» first, then «من البوفيه».** Every item already carries
+`hasOwnStock` and `ownServingsLeft`, so this needs no extra request. Two traps:
+
+- **An item can belong in both.** `hasOwnStock` means the user owns *some*; the buffet may stock it
+  too. Group by which jar the order will draw from, and keep the per-item toggle as the thing that
+  actually decides.
+- **Owning it is not the same as having any left.** `hasOwnStock` can be `true` with
+  `ownServingsLeft` at zero or *negative* — the ledger permits negative balances by design. Show it
+  under «من موادي» with the shortage warning, and **never disable it.**
+
+Grouping also makes the buffet cap below legible: the user can see at a glance which drinks count
+against it.
+
 **Shortages warn but never block** — including for personal stock. If someone's own jar has run
 out, the order still goes through and staff see the warning. Never disable the order button on a
 stock reading; physical and recorded stock drift, and halting service is worse than a negative
 number an admin reconciles later.
 
-**Guest orders are off in the mobile client.** The server hard-codes
-`AllowMultipleBuffetDrinks = false` for API orders and reads `canOrderForGuests` from the token,
-not the request body — the client cannot grant itself the permission. Do not build a guest screen
-without a matching backend change.
+### 7.1.1 More than one drink per order
+
+`PlaceOrderApiRequest.lines` has always been a list. `/catalogue` now publishes both limits that
+apply to it, so the client never hard-codes either:
+
+```jsonc
+{ "maxLines": 25, "maxBuffetDrinks": 1 }
+```
+
+- **`maxLines`** — the most drinks one order may carry.
+- **`maxBuffetDrinks`** — how many of them may come from **buffet** stock. The rest must come from
+  the user's own materials, or the whole order is rejected with `400`.
+
+**Enforce the buffet cap in the UI, at the point of adding a drink**, not by catching the `400` —
+that error arrives after the user has composed the entire order. A line counts against the cap
+whenever `drinkFromOwn == false` **or** `ownServingsLeft <= 0`: the server counts the source each
+line actually *resolves* to, and a claim on a jar the user does not really own silently falls back
+to buffet stock. A client that counts the requested source rather than the resolved one will let
+through orders the server then refuses.
+
+### 7.1.2 Guest orders
+
+Now supported. `LoginResponse.canOrderForGuests` (§4.2) says whether this user holds the privilege:
+**show the guest-name field only when it is true**, and send the name as `onBehalfOfName`. A guest
+name from an unprivileged caller is a `400`.
+
+The privilege also **lifts the buffet cap in §7.1.1 — but only on an order that actually names a
+guest.** Serving several visitors at once is the whole purpose, and a cap of one would make it
+useless. Both halves are required, and deliberately so: the privilege alone does not lift the cap on
+an ordinary order, or a privileged employee could quietly take ten cups for themselves. So when
+`onBehalfOfName` is set and the user is privileged, relax the client-side cap to `maxLines`;
+otherwise keep it at `maxBuffetDrinks`. This matches the web app exactly.
 
 ### 7.2 Idempotency — do not skip this
 
@@ -548,6 +656,47 @@ confirmation must reflect that:
 
 Say "تم إرسال الإقرار — بانتظار تأكيد الموظف", never "تمت الإضافة". The user will otherwise
 believe they have stock they do not have, and the first order that draws on it will surprise them.
+
+#### The item the buffet does not carry
+
+An employee bringing in a brand the buffet has never stocked has nothing to pick, so the item
+picker's last entry is **«الصنف غير مدرج»**, which reveals a small form and posts to
+`POST /materials/declare-new` instead:
+
+```jsonc
+{
+  "nameAr": "بن مطحون",
+  "category": "Drink",       // "Drink" | "Sugar" | "Extra" — by NAME, never the ordinal
+  "unit": "جم",             // optional; defaults to "وحدة"
+  "unitsPerPackage": 200,    // what one packet holds, in `unit`
+  "unitsPerServing": 8,      // what one cup uses
+  "quantity": 2,             // HOW MANY PACKETS — see below
+  "note": "عبوتان"
+}
+```
+
+Returns `202 Accepted` with `{ "declarationId": 41, "itemId": 87 }`.
+
+Three traps, in the order they will bite:
+
+1. **`quantity` here is packets, not base units** — unlike `/materials/declare`, where it is
+   grams. The user has just told you what one packet holds, so asking again in grams only invites
+   the two numbers to disagree; the server multiplies. Send `2` for two 200g jars, and label the
+   field "عدد العبوات". Fractions are fine for a part-used packet. Getting this wrong is
+   silent — it declares 2g and nothing errors.
+2. **The new item will not appear in `/catalogue`.** It is created *unpublished* and stays
+   invisible even to its own owner until staff confirm the jar arrived. Refetching the catalogue
+   to show it off will show nothing; treat that as correct, not as a failed write. Same
+   "بانتظار تأكيد الموظف" wording as above.
+3. **`category` by name**, as with order status and role. `"Drink"`, not `0` — an ordinal `0`
+   is indistinguishable from an unset field, so the server rejects it with `400`.
+
+Every check runs before the item is created, so a rejected request leaves no orphan row behind:
+empty name, unknown category, and a non-positive `unitsPerPackage`, `unitsPerServing` or
+`quantity` each return `400` with an Arabic message ready to show.
+
+**No image.** That needs multipart and is not what unblocks anyone — the item falls back to the
+category glyph the client already draws. Worth raising separately if people ask for it.
 
 ---
 
