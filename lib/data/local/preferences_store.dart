@@ -23,6 +23,7 @@ class PreferencesStore {
   static const _roleKey = 'pref_role';
   static const _displayNameKey = 'pref_display_name';
   static const _departmentKey = 'pref_department';
+  static const _guestsKey = 'pref_can_order_for_guests';
   static const _languageKey = 'pref_language';
   static const _biometricsKey = 'pref_biometrics';
 
@@ -48,13 +49,22 @@ class PreferencesStore {
     required String role,
     required String displayName,
     required String department,
+    required bool canOrderForGuests,
   }) async {
     await _storage.write(key: _roleKey, value: role);
     await _storage.write(key: _displayNameKey, value: displayName);
     await _storage.write(key: _departmentKey, value: department);
+    await _storage.write(key: _guestsKey, value: '$canOrderForGuests');
   }
 
-  Future<({String role, String displayName, String department})?>
+  Future<
+    ({
+      String role,
+      String displayName,
+      String department,
+      bool canOrderForGuests,
+    })?
+  >
   readIdentity() async {
     final role = await _storage.read(key: _roleKey);
     if (role == null) return null;
@@ -62,6 +72,10 @@ class PreferencesStore {
       role: role,
       displayName: await _storage.read(key: _displayNameKey) ?? '',
       department: await _storage.read(key: _departmentKey) ?? '',
+      // Absent for an identity cached before this key existed. False is the
+      // safe reading: the guest field stays hidden until the next sign-in
+      // rather than being offered to someone the server will reject.
+      canOrderForGuests: await _storage.read(key: _guestsKey) == 'true',
     );
   }
 
@@ -82,6 +96,7 @@ class PreferencesStore {
     await _storage.delete(key: _roleKey);
     await _storage.delete(key: _displayNameKey);
     await _storage.delete(key: _departmentKey);
+    await _storage.delete(key: _guestsKey);
   }
 }
 

@@ -27,6 +27,7 @@ class LoginResponse {
     required this.role,
     required this.department,
     required this.mustChangePassword,
+    this.canOrderForGuests = false,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) =>
@@ -48,8 +49,38 @@ class LoginResponse {
 
   /// The token works even when this is true, so a careless client could skip
   /// the change screen and order anyway. Navigation must stay blocked until
-  /// `/auth/change-password` returns `204` (§5).
+  /// the password is changed (§5).
   final bool mustChangePassword;
+
+  /// Whether this user may attach a guest's name to an order.
+  ///
+  /// **Authoritative only as of sign-in.** The server reads the privilege from
+  /// the token's claims and the token lasts 30 days, so a grant or revocation
+  /// made today does not reach an already-signed-in client until it gets a new
+  /// token.
+  ///
+  /// Defaults to false so a server predating the field withholds the guest
+  /// field rather than offering one every order would be rejected for.
+  final bool canOrderForGuests;
+}
+
+/// Mirrors `SetInitialPasswordRequest` in ApiContracts.cs.
+///
+/// **Carries no current password on purpose.** The endpoint is reachable only
+/// with a token whose `must_change_password` claim is set, minted by signing in
+/// with the current password moments earlier — asking for it again is friction
+/// with no security value.
+///
+/// Kept separate from [ChangePasswordRequest] rather than making that type's
+/// current password optional, so a fault in the claim check cannot quietly turn
+/// every password change into an unauthenticated one.
+@JsonSerializable(createFactory: false)
+class SetInitialPasswordRequest {
+  const SetInitialPasswordRequest({required this.newPassword});
+
+  final String newPassword;
+
+  Map<String, dynamic> toJson() => _$SetInitialPasswordRequestToJson(this);
 }
 
 /// Mirrors `ChangePasswordRequest` in ApiContracts.cs.

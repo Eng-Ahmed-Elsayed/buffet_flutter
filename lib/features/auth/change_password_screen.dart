@@ -45,6 +45,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
+    final isForced =
+        ref.read(authStageProvider) == AuthStage.mustChangePassword;
 
     setState(() {
       _submitting = true;
@@ -52,14 +54,25 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     });
 
     try {
-      await ref
-          .read(authControllerProvider.notifier)
-          .changePassword(
-            currentPassword: _currentController.text,
-            newPassword: _newController.text,
-            languageCode: locale.languageCode,
-            networkErrorFallback: l10n.networkError,
-          );
+      final auth = ref.read(authControllerProvider.notifier);
+
+      // Two endpoints, not one call with an optional field. On the forced path
+      // the user proved the current password by signing in seconds ago, so it
+      // is neither asked for nor sent.
+      if (isForced) {
+        await auth.setInitialPassword(
+          newPassword: _newController.text,
+          languageCode: locale.languageCode,
+          networkErrorFallback: l10n.networkError,
+        );
+      } else {
+        await auth.changePassword(
+          currentPassword: _currentController.text,
+          newPassword: _newController.text,
+          languageCode: locale.languageCode,
+          networkErrorFallback: l10n.networkError,
+        );
+      }
       // Only a 204 advances the stage; the router then redirects by role.
     } on ApiException catch (error) {
       // The server's 400 message is already in the user's language.
@@ -73,7 +86,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final isForced =
-        ref.watch(authControllerProvider).stage == AuthStage.mustChangePassword;
+        ref.watch(authStageProvider) == AuthStage.mustChangePassword;
 
     return PopScope(
       // The whole point of the forced case: the system back gesture must not
@@ -110,18 +123,24 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                     const SizedBox(height: Dimens.space4),
                   ],
 
-                  TextFormField(
-                    controller: _currentController,
-                    decoration: InputDecoration(
-                      labelText: l10n.currentPassword,
+                  // Hidden on the forced path: the user typed this password
+                  // moments ago to get here, and asking again is friction with
+                  // no security value — worst for exactly the people who hit
+                  // it, onboarding from a default on a slip of paper.
+                  if (!isForced) ...[
+                    TextFormField(
+                      controller: _currentController,
+                      decoration: InputDecoration(
+                        labelText: l10n.currentPassword,
+                      ),
+                      obscureText: _obscure,
+                      textInputAction: TextInputAction.next,
+                      enabled: !_submitting,
+                      validator: (value) =>
+                          (value == null || value.isEmpty) ? '' : null,
                     ),
-                    obscureText: _obscure,
-                    textInputAction: TextInputAction.next,
-                    enabled: !_submitting,
-                    validator: (value) =>
-                        (value == null || value.isEmpty) ? '' : null,
-                  ),
-                  const SizedBox(height: Dimens.space4),
+                    const SizedBox(height: Dimens.space4),
+                  ],
 
                   TextFormField(
                     controller: _newController,

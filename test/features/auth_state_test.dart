@@ -189,6 +189,7 @@ void main() {
           role: 'Staff',
           displayName: 'موظف الخدمة',
           department: 'الخدمات',
+          canOrderForGuests: false,
         ),
       );
 
@@ -203,6 +204,7 @@ void main() {
           role: 'Employee',
           displayName: 'سارة العتيبي',
           department: 'المالية',
+          canOrderForGuests: false,
         ),
       );
 
@@ -219,6 +221,7 @@ void main() {
           role: 'Employee',
           displayName: 'سارة العتيبي',
           department: 'المالية',
+          canOrderForGuests: false,
         ),
       );
 
@@ -235,6 +238,7 @@ void main() {
           role: 'Employee',
           displayName: 'stale',
           department: 'stale',
+          canOrderForGuests: false,
         ),
       );
 
@@ -255,6 +259,7 @@ void main() {
           role: 'SomethingNew',
           displayName: 'x',
           department: 'y',
+          canOrderForGuests: false,
         ),
       );
       // fromWire falls back rather than throwing; the app still routes.

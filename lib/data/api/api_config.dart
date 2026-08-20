@@ -45,6 +45,10 @@ abstract final class ApiConfig {
   static const login = '/auth/login';
   static const changePassword = '/auth/change-password';
 
+  /// The forced first-run path, which asks for no current password: the token
+  /// reaching it was minted by signing in with that password moments earlier.
+  static const setInitialPassword = '/auth/set-initial-password';
+
   // Employee
   static const catalogue = '/catalogue';
   static const orders = '/orders';
@@ -55,6 +59,11 @@ abstract final class ApiConfig {
   static const notificationsRead = '/notifications/read';
   static const myMaterials = '/materials/mine';
   static const declareMaterial = '/materials/declare';
+
+  /// For an item the buffet does not carry: creates the private catalogue
+  /// entry and the declaration together. **`quantity` here is packages**, not
+  /// base units as on [declareMaterial].
+  static const declareNewMaterial = '/materials/declare-new';
 
   // Staff (§8). Additive — the employee endpoints above are caller-scoped and
   // cannot be reused for staff.

@@ -62,6 +62,7 @@ class AuthRepository {
         role: login.role,
         displayName: login.displayName,
         department: login.department,
+        canOrderForGuests: login.canOrderForGuests,
       );
 
       return login;
@@ -95,6 +96,33 @@ class AuthRepository {
     }
   }
 
+  /// Sets the first password, replacing the seeded default. Returns normally
+  /// on `204`.
+  ///
+  /// Asks for no current password: signing in to obtain this token proved it
+  /// seconds ago, and the users who hit this screen are exactly those onboarding
+  /// from a default handed to them on a slip of paper.
+  ///
+  /// A separate endpoint rather than a nullable field on [changePassword]: the
+  /// server gates it on the token's `must_change_password` claim, so a fault in
+  /// that check makes the route wrong for everyone rather than quietly
+  /// permissive for everyone.
+  Future<void> setInitialPassword({
+    required String newPassword,
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async {
+    try {
+      await _dio.post<void>(
+        ApiConfig.setInitialPassword,
+        data: SetInitialPasswordRequest(newPassword: newPassword).toJson(),
+        options: Options(extra: {ApiConfig.languageFlag: languageCode}),
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error, networkErrorFallback);
+    }
+  }
+
   /// Clears the token and any account-scoped preferences.
   ///
   /// The remembered email and the language survive deliberately — they make
@@ -112,8 +140,15 @@ class AuthRepository {
   ///
   /// A device preference, not an account claim — the server knows nothing
   /// about it (§6).
-  /// The cached role, display name and department from the last sign-in.
-  Future<({String role, String displayName, String department})?>
+  /// The cached identity from the last sign-in.
+  Future<
+    ({
+      String role,
+      String displayName,
+      String department,
+      bool canOrderForGuests,
+    })?
+  >
   restoredIdentity() => _preferences.readIdentity();
 
   Future<bool> biometricsEnabled() => _preferences.readBiometricsEnabled();

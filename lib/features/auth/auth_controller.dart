@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/api/api_client.dart';
+import '../../data/api/api_exception.dart';
 import '../../data/local/biometric_enrolment_guard.dart';
 import '../../data/local/biometric_service.dart';
 import '../../data/models/auth_models.dart';
@@ -45,6 +46,7 @@ typedef RestoredIdentity = ({
   String role,
   String displayName,
   String department,
+  bool canOrderForGuests,
 });
 
 class AuthState {
@@ -56,6 +58,7 @@ class AuthState {
     this.offerBiometricEnrolment = false,
     this.signedOutByEnrolmentChange = false,
     this.restoredIdentity,
+    this.reSignInAfterPasswordChangeFailed = false,
   });
 
   const AuthState.restoring()
@@ -65,7 +68,8 @@ class AuthState {
       biometricsEnabled = false,
       offerBiometricEnrolment = false,
       signedOutByEnrolmentChange = false,
-      restoredIdentity = null;
+      restoredIdentity = null,
+      reSignInAfterPasswordChangeFailed = false;
 
   final AuthStage stage;
   final LoginResponse? session;
@@ -88,6 +92,14 @@ class AuthState {
   /// same three fields the UI needs from [session].
   final RestoredIdentity? restoredIdentity;
 
+  /// The first password was set, but signing in again with it failed.
+  ///
+  /// The password change itself succeeded — only the token refresh did not, so
+  /// the stored token still claims `must_change_password`. Harmless in itself
+  /// (the route refuses itself now), but the user should be told rather than
+  /// left to wonder.
+  final bool reSignInAfterPasswordChangeFailed;
+
   /// The caller's role.
   ///
   /// Falls back to [restoredIdentity] before defaulting to employee: a Staff
@@ -105,6 +117,19 @@ class AuthState {
 
   String? get department => session?.department ?? restoredIdentity?.department;
 
+  /// Whether this user may attach a guest's name to an order.
+  ///
+  /// Falls back to the cached identity for the same reason [role] does — a
+  /// restored token carries no login response, and the privilege has to survive
+  /// a relaunch or it would silently vanish for the 30 days the token lasts.
+  ///
+  /// False when neither source has it: the guest field stays hidden rather than
+  /// being offered to someone the server will reject.
+  bool get canOrderForGuests =>
+      session?.canOrderForGuests ??
+      restoredIdentity?.canOrderForGuests ??
+      false;
+
   AuthState copyWith({
     AuthStage? stage,
     LoginResponse? session,
@@ -113,6 +138,7 @@ class AuthState {
     bool? offerBiometricEnrolment,
     bool? signedOutByEnrolmentChange,
     RestoredIdentity? restoredIdentity,
+    bool? reSignInAfterPasswordChangeFailed,
   }) => AuthState(
     stage: stage ?? this.stage,
     session: session ?? this.session,
@@ -123,6 +149,9 @@ class AuthState {
     signedOutByEnrolmentChange:
         signedOutByEnrolmentChange ?? this.signedOutByEnrolmentChange,
     restoredIdentity: restoredIdentity ?? this.restoredIdentity,
+    reSignInAfterPasswordChangeFailed:
+        reSignInAfterPasswordChangeFailed ??
+        this.reSignInAfterPasswordChangeFailed,
   );
 }
 
@@ -323,6 +352,71 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(stage: AuthStage.signedIn);
   }
 
+  /// Sets the first password on the forced path, then signs in again with it.
+  ///
+  /// Sends no current password — see [AuthRepository.setInitialPassword].
+  ///
+  /// **The second sign-in is not optional.** After the `204` the token in hand
+  /// still carries `must_change_password: true`. It is harmless — the route now
+  /// refuses itself — but patching local state would leave the stored token
+  /// disagreeing with reality for the 30 days it lasts. Signing in again makes
+  /// the stored token reflect the account, and is also the natural moment to
+  /// offer biometric enrolment (§5.2, §6).
+  ///
+  /// The username comes from the remembered email, which sign-in wrote and
+  /// which survives everything short of a reinstall. Without it there is
+  /// nothing to sign in *as*, so the block is released on the existing token
+  /// rather than stranding a user whose password has already been changed.
+  Future<void> setInitialPassword({
+    required String newPassword,
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async {
+    await _repository.setInitialPassword(
+      newPassword: newPassword,
+      languageCode: languageCode,
+      networkErrorFallback: networkErrorFallback,
+    );
+
+    final username = state.rememberedEmail ?? state.session?.username;
+    if (username == null) {
+      if (!mounted) return;
+      state = state.copyWith(stage: AuthStage.signedIn);
+      return;
+    }
+
+    // The password is already changed at this point, so a failure here must
+    // not be reported as a failed change — the user would retype a password
+    // the server has already accepted. signIn() replaces the whole state,
+    // including the biometric-enrolment offer.
+    try {
+      await signIn(
+        username: username,
+        password: newPassword,
+        languageCode: languageCode,
+        networkErrorFallback: networkErrorFallback,
+      );
+    } on ApiException {
+      if (!mounted) return;
+      // Let them through on the token they already hold: it still works, and
+      // the route now refuses itself, so nothing is unsafe. The flag records
+      // that the stored token disagrees with the account, so the UI can say
+      // the password was changed but the session was not refreshed rather
+      // than looking like nothing happened.
+      state = state.copyWith(
+        stage: AuthStage.signedIn,
+        reSignInAfterPasswordChangeFailed: true,
+      );
+    }
+  }
+
+  /// Clears the notice once the user has seen it, so it does not follow them
+  /// around the app.
+  void acknowledgeSessionNotRefreshed() {
+    if (!state.reSignInAfterPasswordChangeFailed) return;
+    state = state.copyWith(reSignInAfterPasswordChangeFailed: false);
+  }
+
   Future<void> signOut() async {
     // clearAccountPreferences() drops the biometrics flag with the token: a
     // flag surviving the credential it unlocks would gate the next user of
@@ -343,6 +437,31 @@ class AuthController extends StateNotifier<AuthState> {
     super.dispose();
   }
 }
+
+/// Whether the password was changed but the follow-up sign-in failed.
+///
+/// Read by the screen the user lands on, which is where they can act on it.
+final sessionNotRefreshedProvider = Provider<bool>(
+  (ref) => ref.watch(authControllerProvider).reSignInAfterPasswordChangeFailed,
+);
+
+/// The current stage of the auth state machine.
+///
+/// A narrow view of [authControllerProvider], for screens that only need to
+/// know *where* the user is rather than to act on the session.
+final authStageProvider = Provider<AuthStage>(
+  (ref) => ref.watch(authControllerProvider).stage,
+);
+
+/// Whether the signed-in user may attach a guest's name to an order.
+///
+/// A narrow view of [authControllerProvider] so a screen needing this one
+/// answer does not depend on the whole controller — which would mean standing
+/// up a repository, an event stream, biometrics and the enrolment guard to read
+/// a boolean.
+final canOrderForGuestsProvider = Provider<bool>(
+  (ref) => ref.watch(authControllerProvider).canOrderForGuests,
+);
 
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
   (ref) => AuthController(
