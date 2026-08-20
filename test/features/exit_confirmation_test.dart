@@ -71,4 +71,70 @@ void main() {
       expect(find.text(l10n.exitAppTitle), findsOneWidget);
     });
   });
+
+  group('confirming actually closes the app', () {
+    testWidgets('exit runs the close action', (tester) async {
+      // The bug this covers: the old code called Navigator.maybePop(), which
+      // asks THIS PopScope — refused by canPop: false — so the dialog appeared,
+      // the user tapped exit, and the app stayed open.
+      var exited = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ar'),
+          supportedLocales: const [Locale('ar'), Locale('en')],
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: ExitConfirmation(
+            onExit: () async => exited = true,
+            child: const Scaffold(body: Text('home')),
+          ),
+        ),
+      );
+
+      // The system back gesture.
+      final state = tester.state<NavigatorState>(find.byType(Navigator));
+      await state.maybePop();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('إغلاق'));
+      await tester.pumpAndSettle();
+
+      expect(exited, isTrue);
+    });
+
+    testWidgets('cancelling does NOT close the app', (tester) async {
+      var exited = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ar'),
+          supportedLocales: const [Locale('ar'), Locale('en')],
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: ExitConfirmation(
+            onExit: () async => exited = true,
+            child: const Scaffold(body: Text('home')),
+          ),
+        ),
+      );
+
+      final state = tester.state<NavigatorState>(find.byType(Navigator));
+      await state.maybePop();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('إلغاء'));
+      await tester.pumpAndSettle();
+
+      expect(exited, isFalse);
+    });
+  });
 }

@@ -76,11 +76,13 @@ class _BiometricEnrolmentSheetState
     final l10n = AppLocalizations.of(context);
 
     return Padding(
-      padding: const EdgeInsetsDirectional.only(
+      // Clears the system navigation bar, which draws over the sheet's own
+      // buttons on a three-button device.
+      padding: EdgeInsetsDirectional.only(
         start: Dimens.space4,
         end: Dimens.space4,
         top: Dimens.space3,
-        bottom: Dimens.space5,
+        bottom: Dimens.space5 + MediaQuery.paddingOf(context).bottom,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
