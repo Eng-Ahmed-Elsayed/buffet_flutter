@@ -54,6 +54,28 @@ class MaterialsRepository {
       throw ApiException.fromDio(error, networkErrorFallback);
     }
   }
+
+  /// Declares a material the buffet does not carry, creating a private
+  /// catalogue entry for it. Returns normally on `202 Accepted`.
+  ///
+  /// The item is created **unpublished** and will not appear in `/catalogue`
+  /// until staff confirm the jar arrived — so refetching the catalogue to show
+  /// it off shows nothing, and that is correct rather than a failed write.
+  Future<void> declareNew({
+    required DeclareNewMaterialRequest request,
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async {
+    try {
+      await _dio.post<void>(
+        ApiConfig.declareNewMaterial,
+        data: request.toJson(),
+        options: Options(extra: {ApiConfig.languageFlag: languageCode}),
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error, networkErrorFallback);
+    }
+  }
 }
 
 final materialsRepositoryProvider = Provider<MaterialsRepository>(

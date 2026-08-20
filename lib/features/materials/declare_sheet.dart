@@ -84,6 +84,17 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
   final _noteController = TextEditingController();
 
   DeclarableItem? _selectedItem;
+
+  /// True once «الصنف غير مدرج» is chosen. The picker holds no value in this
+  /// mode — there is no catalogue row to point at yet.
+  bool _newItem = false;
+
+  final _nameController = TextEditingController();
+  final _unitController = TextEditingController();
+  final _perPackageController = TextEditingController();
+  final _perServingController = TextEditingController();
+  String _category = 'Drink';
+
   bool _submitting = false;
   String? _errorMessage;
 
@@ -91,13 +102,16 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
   void dispose() {
     _quantityController.dispose();
     _noteController.dispose();
+    _nameController.dispose();
+    _unitController.dispose();
+    _perPackageController.dispose();
+    _perServingController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    final item = _selectedItem;
-    if (item == null) return;
+    if (!_newItem && _selectedItem == null) return;
 
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
@@ -110,19 +124,43 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
     });
 
     try {
-      await ref
-          .read(materialsRepositoryProvider)
-          .declare(
-            request: DeclareMaterialRequest(
-              itemId: item.itemId,
-              quantity: quantity,
-              note: _noteController.text.trim().isEmpty
-                  ? null
-                  : _noteController.text.trim(),
-            ),
-            languageCode: locale.languageCode,
-            networkErrorFallback: l10n.networkError,
-          );
+      final repository = ref.read(materialsRepositoryProvider);
+      final note = _noteController.text.trim().isEmpty
+          ? null
+          : _noteController.text.trim();
+
+      if (_newItem) {
+        // A different endpoint, and a different meaning for `quantity`: here
+        // it is PACKAGES, and the server multiplies by unitsPerPackage. The
+        // field is labelled accordingly — sending grams would silently declare
+        // a fraction of what the user brought.
+        final unit = _unitController.text.trim();
+        await repository.declareNew(
+          request: DeclareNewMaterialRequest(
+            nameAr: _nameController.text.trim(),
+            category: _category,
+            unit: unit.isEmpty ? null : unit,
+            unitsPerPackage:
+                num.tryParse(_perPackageController.text.trim()) ?? 0,
+            unitsPerServing:
+                num.tryParse(_perServingController.text.trim()) ?? 0,
+            quantity: quantity,
+            note: note,
+          ),
+          languageCode: locale.languageCode,
+          networkErrorFallback: l10n.networkError,
+        );
+      } else {
+        await repository.declare(
+          request: DeclareMaterialRequest(
+            itemId: _selectedItem!.itemId,
+            quantity: quantity,
+            note: note,
+          ),
+          languageCode: locale.languageCode,
+          networkErrorFallback: l10n.networkError,
+        );
+      }
 
       if (!mounted) return;
       ref.invalidate(myMaterialsProvider);
@@ -147,14 +185,18 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
     final items = itemsAsync.valueOrNull ?? const <DeclarableItem>[];
 
     return Padding(
+      // viewInsets is the KEYBOARD; padding is what is left of the system
+      // navigation bar after ancestors took their share. Two different things,
+      // and the sheet needs clearance from both — the submit button sits at
+      // the bottom edge, where three-button navigation draws over it.
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsetsDirectional.only(
+          padding: EdgeInsetsDirectional.only(
             start: Dimens.space4,
             end: Dimens.space4,
             top: Dimens.space3,
-            bottom: Dimens.space5,
+            bottom: Dimens.space5 + MediaQuery.paddingOf(context).bottom,
           ),
           child: Form(
             key: _formKey,
@@ -208,8 +250,12 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
 
                 // Every catalogue item, not only the ones already owned —
                 // otherwise a first-time declaration is impossible to make.
-                DropdownButtonFormField<DeclarableItem>(
-                  initialValue: _selectedItem,
+                // Nullable value, with null meaning «الصنف غير مدرج» — the
+                // last entry, so the common case (topping up something known)
+                // stays the default. Mirrors the web's `value="0"` sentinel
+                // without borrowing an id that means "rejected" on the wire.
+                DropdownButtonFormField<DeclarableItem?>(
+                  initialValue: _newItem ? null : _selectedItem,
                   decoration: InputDecoration(
                     labelText: l10n.item,
                     helperText: switch (itemsAsync) {
@@ -226,23 +272,55 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
                         value: item,
                         child: _ItemLabel(item: item, locale: locale),
                       ),
+                    DropdownMenuItem(
+                      value: null,
+                      child: Text(l10n.itemNotListed),
+                    ),
                   ],
-                  onChanged: _submitting || items.isEmpty
+                  onChanged: _submitting
                       ? null
-                      : (value) => setState(() => _selectedItem = value),
-                  validator: (value) => value == null ? '' : null,
+                      : (value) => setState(() {
+                          _selectedItem = value;
+                          _newItem = value == null;
+                        }),
+                  // Null is a legitimate choice here, so the picker cannot
+                  // validate on it — the new-item fields carry their own.
+                  validator: (value) => value == null && !_newItem ? '' : null,
                 ),
+
+                // Revealed only for «الصنف غير مدرج». Built rather than merely
+                // hidden, so a stale value from a previous mode can never be
+                // submitted.
+                if (_newItem) ...[
+                  const SizedBox(height: Dimens.space4),
+                  _NewItemFields(
+                    nameController: _nameController,
+                    unitController: _unitController,
+                    perPackageController: _perPackageController,
+                    perServingController: _perServingController,
+                    category: _category,
+                    enabled: !_submitting,
+                    onCategoryChanged: (value) =>
+                        setState(() => _category = value),
+                  ),
+                ],
                 const SizedBox(height: Dimens.space4),
 
+                // The SAME field means two different things, so it is
+                // labelled two different ways. On an existing item it is base
+                // units; on a new one it is PACKAGES, which the server
+                // multiplies by unitsPerPackage. Sending grams into the second
+                // is silent — it would declare 2g of a 200g jar.
                 TextFormField(
                   controller: _quantityController,
                   decoration: InputDecoration(
-                    labelText: l10n.quantity,
+                    labelText: _newItem ? l10n.packageCount : l10n.quantity,
+                    helperText: _newItem ? l10n.packageCountHint : null,
                     // Isolated: the unit is admin-entered and keeps whatever
                     // language it was typed in, so it sits beside a Latin-digit
                     // quantity in either locale. Without the isolate the bidi
                     // algorithm reorders the pair (§2.4).
-                    suffixText: _selectedItem == null
+                    suffixText: _newItem || _selectedItem == null
                         ? null
                         : Formatters.isolate(_selectedItem!.unit),
                   ),
@@ -301,6 +379,112 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
 /// Names the item, and — only when the user already holds some — the balance
 /// they are adding to. An item with no balance simply shows its name: a first
 /// declaration is the normal case, not a gap.
+/// The details for an item the buffet does not carry.
+///
+/// Shown only for «الصنف غير مدرج». Every field the server validates has a
+/// local validator too, so the common mistakes cost no round trip — but the
+/// server's `400` message still wins, since it is already localised.
+class _NewItemFields extends StatelessWidget {
+  const _NewItemFields({
+    required this.nameController,
+    required this.unitController,
+    required this.perPackageController,
+    required this.perServingController,
+    required this.category,
+    required this.enabled,
+    required this.onCategoryChanged,
+  });
+
+  final TextEditingController nameController;
+  final TextEditingController unitController;
+  final TextEditingController perPackageController;
+  final TextEditingController perServingController;
+  final String category;
+  final bool enabled;
+  final ValueChanged<String> onCategoryChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    String? positive(String? value) {
+      final parsed = num.tryParse(value?.trim() ?? '');
+      return (parsed == null || parsed <= 0) ? l10n.mustBePositive : null;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.newItemDetails,
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: Dimens.space3),
+
+        TextFormField(
+          controller: nameController,
+          decoration: InputDecoration(
+            labelText: l10n.itemName,
+            hintText: l10n.itemNamePlaceholder,
+          ),
+          maxLength: 200,
+          enabled: enabled,
+          validator: (value) => (value?.trim().isEmpty ?? true) ? '' : null,
+        ),
+        const SizedBox(height: Dimens.space3),
+
+        // Sent by NAME, never the ordinal: an ordinal 0 is indistinguishable
+        // from an unset field and the server answers 400.
+        DropdownButtonFormField<String>(
+          initialValue: category,
+          decoration: InputDecoration(labelText: l10n.itemType),
+          items: [
+            DropdownMenuItem(value: 'Drink', child: Text(l10n.categoryDrink)),
+            DropdownMenuItem(value: 'Sugar', child: Text(l10n.categorySugar)),
+            DropdownMenuItem(value: 'Extra', child: Text(l10n.categoryExtra)),
+          ],
+          onChanged: enabled
+              ? (value) => onCategoryChanged(value ?? 'Drink')
+              : null,
+        ),
+        const SizedBox(height: Dimens.space3),
+
+        // Optional — the server defaults it to وحدة.
+        TextFormField(
+          controller: unitController,
+          decoration: InputDecoration(labelText: l10n.unitOfMeasure),
+          maxLength: 50,
+          enabled: enabled,
+        ),
+        const SizedBox(height: Dimens.space3),
+
+        TextFormField(
+          controller: perPackageController,
+          decoration: InputDecoration(
+            labelText: l10n.packageContents,
+            helperText: l10n.packageContentsHint,
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          enabled: enabled,
+          validator: positive,
+        ),
+        const SizedBox(height: Dimens.space3),
+
+        TextFormField(
+          controller: perServingController,
+          decoration: InputDecoration(
+            labelText: l10n.amountPerCup,
+            helperText: l10n.amountPerCupHint,
+          ),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          enabled: enabled,
+          validator: positive,
+        ),
+      ],
+    );
+  }
+}
+
 class _ItemLabel extends StatelessWidget {
   const _ItemLabel({required this.item, required this.locale});
 

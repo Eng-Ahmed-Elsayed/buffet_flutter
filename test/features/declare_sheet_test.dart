@@ -3,6 +3,9 @@ import 'package:buffet_app/data/models/material_models.dart';
 import 'package:buffet_app/features/materials/declare_sheet.dart';
 import 'package:buffet_app/features/materials/my_materials_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
+import 'package:buffet_app/l10n/app_localizations.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -18,6 +21,7 @@ CatalogueItemDto _item(int id, String nameAr, String category) =>
       hasOwnStock: false,
       ownServingsLeft: 0,
       variants: const [],
+      allowedExtraItemIds: null,
     );
 
 MyMaterialDto _balance(int id, num quantity) => MyMaterialDto(
@@ -119,6 +123,69 @@ void main() {
       addTearDown(container.dispose);
 
       expect(await container.read(declarableItemsProvider.future), isEmpty);
+    });
+  });
+
+  group('an item the buffet does not carry', () {
+    Widget app() => UncontrolledProviderScope(
+      container: _container(),
+      child: const MaterialApp(
+        locale: Locale('ar'),
+        supportedLocales: [Locale('ar'), Locale('en')],
+        localizationsDelegates: [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        home: Scaffold(body: DeclareSheet()),
+      ),
+    );
+
+    testWidgets('the picker offers «الصنف غير مدرج» last', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DropdownButtonFormField<DeclarableItem?>));
+      await tester.pumpAndSettle();
+
+      // Present in the open menu. Two matches is normal — a dropdown renders
+      // the option in the menu and again in the closed button.
+      expect(find.text('الصنف غير مدرج'), findsWidgets);
+    });
+
+    testWidgets('choosing it reveals the new-item fields', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      // Not built until chosen, so a stale value from a previous mode can
+      // never be submitted.
+      expect(find.text('تفاصيل الصنف الجديد'), findsNothing);
+
+      await tester.tap(find.byType(DropdownButtonFormField<DeclarableItem?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('الصنف غير مدرج').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('تفاصيل الصنف الجديد'), findsOneWidget);
+      expect(find.text('اسم الصنف'), findsOneWidget);
+    });
+
+    testWidgets('the quantity field switches to PACKAGES', (tester) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      // On an existing item the quantity is in base units.
+      expect(find.text('عدد العبوات'), findsNothing);
+
+      await tester.tap(find.byType(DropdownButtonFormField<DeclarableItem?>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('الصنف غير مدرج').last);
+      await tester.pumpAndSettle();
+
+      // On a new one it is packages, and the server multiplies. Sending grams
+      // here is SILENT — it would declare 2g of a 200g jar.
+      expect(find.text('عدد العبوات'), findsOneWidget);
     });
   });
 }

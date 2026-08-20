@@ -91,3 +91,54 @@ class DeclareMaterialRequest {
 
   Map<String, dynamic> toJson() => _$DeclareMaterialRequestToJson(this);
 }
+
+/// Mirrors `DeclareNewMaterialRequest` in ApiContracts.cs.
+///
+/// For an item the buffet does not carry at all: it creates the private
+/// catalogue entry and the declaration together.
+///
+/// A separate type rather than a nullable `itemId` on [DeclareMaterialRequest],
+/// for the same reason `SetInitialPasswordRequest` is separate — a request that
+/// lost its id fails outright instead of quietly creating a duplicate item.
+@JsonSerializable(createFactory: false, includeIfNull: false)
+class DeclareNewMaterialRequest {
+  const DeclareNewMaterialRequest({
+    required this.nameAr,
+    required this.category,
+    required this.unitsPerPackage,
+    required this.unitsPerServing,
+    required this.quantity,
+    this.unit,
+    this.note,
+  });
+
+  final String nameAr;
+
+  /// `"Drink" | "Sugar" | "Extra"` — **by name, never the ordinal.** An
+  /// ordinal `0` is indistinguishable from an unset field, and the server
+  /// rejects it with `400`.
+  final String category;
+
+  /// The base unit the other two amounts are counted in. Defaults server-side
+  /// to `وحدة` when omitted.
+  final String? unit;
+
+  /// What one package holds, in [unit]. Must be positive — it is what
+  /// [quantity] is multiplied by.
+  final num unitsPerPackage;
+
+  /// What one cup uses. Must be positive; it sets the servings runway.
+  final num unitsPerServing;
+
+  /// **How many PACKAGES were brought in** — `2` for two 200g jars.
+  ///
+  /// Not base units, unlike [DeclareMaterialRequest.quantity]. The user has
+  /// just said what one package holds, so asking again in grams only invites
+  /// the two numbers to disagree; the server multiplies. Getting this wrong is
+  /// **silent** — it would declare 2g and nothing would error.
+  final num quantity;
+
+  final String? note;
+
+  Map<String, dynamic> toJson() => _$DeclareNewMaterialRequestToJson(this);
+}
