@@ -27,7 +27,7 @@ Check for `pubspec.yaml` at the repo root.
 Resolve the feature against the authoritative docs, not against intuition:
 
 - [docs/flutter-app-guide.md](../../../docs/flutter-app-guide.md) — §7 employee, §8 staff screens
-- [docs/staff-api-spec.md](../../../docs/staff-api-spec.md) — endpoints and the four deviations
+- [docs/archive/staff-api-spec.md](../../../docs/archive/staff-api-spec.md) — endpoints and the four deviations
 - [docs/contracts/](../../../docs/contracts/) — the C# wire contracts to mirror field-for-field
 
 Write down: which endpoints, which DTOs, which of the eleven domain rules apply, and **which

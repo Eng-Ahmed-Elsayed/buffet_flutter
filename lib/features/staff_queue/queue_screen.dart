@@ -14,6 +14,7 @@ import '../../data/repositories/queue_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/exit_confirmation.dart';
+import '../../shared/widgets/notification_bell.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../order/self_order_outcome.dart';
@@ -449,6 +450,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
               tooltip: l10n.orderForMyself,
               onPressed: _orderForMyself,
             ),
+            const NotificationBell(),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               tooltip: l10n.settings,

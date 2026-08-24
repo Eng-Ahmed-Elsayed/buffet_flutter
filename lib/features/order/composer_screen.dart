@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/exit_confirmation.dart';
+import '../../shared/widgets/notification_bell.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../../theme/motion.dart';
@@ -150,6 +151,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen>
               tooltip: l10n.myMaterialsTitle,
               onPressed: () => context.push(Routes.materials),
             ),
+            const NotificationBell(),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               tooltip: l10n.settings,

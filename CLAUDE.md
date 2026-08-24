@@ -30,7 +30,23 @@ Since built: the settings screen with the language switch, **biometric unlock** 
 the brand mark (`tool/generate_launcher_icons.py` regenerates them — no `flutter_launcher_icons`
 dependency).
 
-Not built yet: notifications (§7.4). The `/notifications` endpoint works and matches the DTO.
+The **in-app notification centre is built** (§7.4) — list, unread badge on both home screens, and
+mark-all-read on open. It is the reliable half of notifications: the server writes the row before it
+attempts a push, so a push that was throttled, deferred by Doze or never permitted is still
+recoverable there, and it is the only place `LowStock`, `DeclarationConfirmed` and
+`DeclarationRejected` ever surface.
+
+Not built yet: **push itself** (§7.4). It is designed and specified but blocked on a Firebase
+project — see [docs/firebase-setup-checklist.md](docs/firebase-setup-checklist.md) for what the
+owner has to provide. The plan is `~/.claude/plans/staff-view-expressive-lecun.md`.
+
+Two rules from that work that a future edit must not undo:
+
+- **The staff undo affordance lives on the card, not in a SnackBar.** `ScaffoldMessenger` *queues*
+  snackbars and their duration counts from display, not creation, so a rush showed undo buttons for
+  orders that had already been served. Do not "simplify" it back.
+- **Foreground polling stays alongside push.** Push closes the closed-app gap; polling closes the
+  foreground-freshness gap. They are not duplicates.
 
 **The Flutter SDK lives at `C:\src\flutter` and is not on `PATH`** — invoke it by full path
 (`C:\src\flutter\bin\flutter.bat`).
@@ -50,7 +66,7 @@ models (the wire is `camelCase` via System.Text.Json defaults).
 - [docs/flutter-app-guide.md](docs/flutter-app-guide.md) — the build reference. §0 (live API and
   deviations), §2 (brand tokens), §3 (architecture), §5 (auth state machine), §7–8 (screen rules),
   §12 (definition of done, usable as a review checklist).
-- [docs/staff-api-spec.md](docs/staff-api-spec.md) — staff endpoints, plus the four documented
+- [docs/archive/staff-api-spec.md](docs/archive/staff-api-spec.md) — staff endpoints, plus the four documented
   deviations at the end.
 
 These documents are authoritative for **meaning and behaviour**. A design (see below) is

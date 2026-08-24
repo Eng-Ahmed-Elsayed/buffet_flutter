@@ -2,8 +2,13 @@
 
 **Repo:** `../buffet_app` (ASP.NET Core 10)
 **Requested by:** Flutter client, for the "my materials" screen (§7.5)
-**Status:** pending — the Flutter side is built with the field present in
-[docs/contracts/ApiContracts.cs](contracts/ApiContracts.cs) and the model generated against it.
+**Status:** **Resolved** — shipped 2026-08-19 (`buffet_app` commit `466e758`). Verified live: the
+materials screen shows real uploaded photographs, falling back to a category glyph when the field
+is null or the file 404s. Kept as the record of why the field exists, and of the relative-vs-absolute
+inconsistency noted below.
+
+> This header read "pending" for five days after the feature shipped. If you resolve a request,
+> say so here — the status line is the only thing a reader checks.
 
 ---
 

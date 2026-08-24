@@ -11,8 +11,10 @@ the client, plus the reference material copied out of that repo.
 | | |
 |---|---|
 | [docs/flutter-app-guide.md](docs/flutter-app-guide.md) | **The build reference.** Brand tokens, architecture, auth and biometric flows, screen-by-screen rules, definition of done |
-| [docs/staff-api-spec.md](docs/staff-api-spec.md) | The staff endpoints, and four places the implementation differs from the original spec |
+| [docs/archive/staff-api-spec.md](docs/archive/staff-api-spec.md) | The staff endpoints, and four places the implementation differs from the original spec |
 | [docs/contracts/](docs/contracts/) | The C# wire contracts, copied verbatim — mirror these when writing the Dart models |
+| [docs/firebase-setup-checklist.md](docs/firebase-setup-checklist.md) | **Action required.** What the project owner has to create in Firebase before push notifications can be built or tested |
+| [docs/archive/](docs/archive/) | Requests whose work has shipped, kept for the reasoning |
 | [assets/images/](assets/images/) | The logo: full lockup and mark |
 
 Read §0 of the guide first. Three implementation deviations change what the staff screens can

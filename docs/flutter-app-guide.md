@@ -17,7 +17,7 @@ Both halves of this app are served today. The employee endpoints have been on `/
 mobile API landed; the **staff endpoints shipped on 2026-08-18** as
 `src/BuffetApp.Web/Api/StaffApi.cs`, covered by `tests/BuffetApp.Tests/StaffApiTests.cs`.
 
-Build against a running server for both roles. [staff-api-spec.md](staff-api-spec.md) documents the
+Build against a running server for both roles. [archive/staff-api-spec.md](archive/staff-api-spec.md) documents the
 staff surface endpoint by endpoint, including four places where the implementation deliberately
 differs from the original specification. **Three of those change what the app can render** — read
 them before designing the staff screens:
@@ -92,8 +92,11 @@ disable, an order sitting in `Ready`, an empty catalogue, an expired token.
   `403`. Confirming materials stays on the web (§8.2).
 - **A sugar name on the queue card.** `SugarNameAr` is always null — design around the spoon count
   and the source owner.
-- **A guest-order screen.** The API hard-codes `AllowMultipleBuffetDrinks = false` and reads
-  `canOrderForGuests` from the token, not the body.
+- **A separate guest-order screen.** Guest orders themselves *are* supported (§7.1.2) — this
+  bullet once said they were not, back when the API hard-coded `AllowMultipleBuffetDrinks = false`.
+  What must not be built is a second composer. The privilege is read from the token, not the body,
+  and naming a guest is itself the distinction the server acts on, so one screen with a gated field
+  is the whole feature. The web has two routes for historical reasons; the app does not need them.
 - **Any admin screen.** Import, reporting and audit stay on the web.
 
 ---
@@ -621,19 +624,66 @@ same confirmation.
 
 ### 7.3 Tracking
 
-Poll `GET /orders/{id}` while an order is live; there are no push notifications or websockets
-today. Poll on a **timer of ~15s while the screen is foregrounded**, stop on background, and
-refresh once on resume. Do not poll a completed or cancelled order.
+Poll `GET /orders/{id}` while an order is live. Poll on a **timer of ~15s while the screen is
+foregrounded**, stop on background, and refresh once on resume. Do not poll a completed or
+cancelled order.
+
+**Polling is not made redundant by push (§7.4), and must not be removed as duplication.** The two
+answer different questions: push closes the *closed-app* gap, polling closes the *foreground
+freshness* gap. This screen is open precisely because someone is watching it, and a user staring at
+a status screen that updates more slowly than their notification shade is a worse experience than
+one extra request every fifteen seconds. The same applies to the staff queue (§8.1), which is a
+shared multi-user view where polling is the only way one staff member sees another's actions.
 
 Cancellation is **pending-only** and ownership-checked. Hide the cancel action once the status
 leaves `Pending` rather than showing a button that will 400.
 
 ### 7.4 Notifications
 
-`GET /notifications` and `POST /notifications/read`. Kinds: `OrderReady`, `DeclarationConfirmed`,
-`DeclarationRejected`, among others. In-app only — **there is no SMTP and no push** in this
-system, a deliberate decision. Poll on resume and show an unread badge; do not promise the user a
-notification that arrives while the app is closed.
+`GET /notifications` and `POST /notifications/read`. Kinds: `OrderReady`, `OrderCancelled`,
+`LowStock`, `DeclarationConfirmed`, `DeclarationRejected`. Poll on resume and show an unread badge.
+
+**There is still no SMTP.** There *is* now push, for two kinds only.
+
+#### Push: `OrderReady` and `OrderCancelled`, and nothing else
+
+The problem push exists to solve is narrow and real: an employee places an order and puts the phone
+down. Android then puts the app to sleep, and **Doze does not run `JobScheduler`** — which
+`WorkManager` is built on — so no background polling will ever tell them their drink is ready. A
+high-priority FCM message is the only mechanism the platform sanctions for waking an app for a
+time-sensitive message.
+
+| Kind | Push? | Why |
+|---|---|---|
+| `OrderReady` | **Yes**, high priority | The one moment the employee is blocked. The drink is going cold. |
+| `OrderCancelled` | **Yes** | Unexpected and actionable — otherwise they wait for a drink that is never coming. |
+| Order created, `InProgress`, `Completed` | No | They pressed the button / no decision changes / they are holding the cup. |
+| `LowStock`, `Declaration*` | No | Information for next time the app opens. The notification centre carries these. |
+
+That is roughly **one push per order**. Resist adding a third kind. Over-notifying an internal tool
+people cannot uninstall is how you lose the one notification that mattered — they mute the app, and
+then miss the drink.
+
+**Staff receive no pushes at all.** The queue is already in front of them, and a counter device
+firing continuously through a morning rush is pure noise.
+
+#### Rules that are not negotiable
+
+- **Visible notifications only — never silent/background push.** iOS treats `content-available` as
+  priority 5, throttles it to a few an hour, and does not guarantee delivery at all. Android's FCM
+  **deprioritises an app instance over a rolling 7-day window** when its high-priority messages
+  fail to surface a notification, so sending silent high-priority data messages would eventually
+  degrade the two that matter.
+- **The in-app row is written first, and independently.** It is the system of record; the push is a
+  second delivery channel. That is what makes a throttled or dropped push recoverable, and it is
+  why the notification centre earns its place rather than duplicating the notification shade.
+- **A failure to notify must never roll back the order that produced it.** The sender swallows and
+  logs. Telling someone their drink is ready is worth much less than the drink being served.
+- **Unregister the device on sign-out.** A shared counter device that keeps pushing the previous
+  user's orders is a privacy failure, not an inconvenience.
+
+Setup, credentials and the physical-device verification are in
+[firebase-setup-checklist.md](firebase-setup-checklist.md).
 
 ### 7.5 My materials
 
@@ -745,8 +795,38 @@ Constraints the backend holds, and the app must not work around:
   extras, the per-line note, `waitingSeconds` as an ageing indicator, and — prominently — **which
   jar each component comes from**, in violet when it is someone's personal stock. There is no sugar
   *name* to show: `sugarNameAr` is always null.
-- **Actions are one tap with an undo window**, not a confirm dialog. Staff hands are busy. The
-  exception is **Cancel**, which takes a reason and genuinely warrants the dialog.
+- **Actions are one tap with an undo window**, not a confirm dialog. Staff hands are busy, and a
+  dialog on a routine action during a rush is the textbook habituation failure — people learn to
+  tap through it, which removes the protection *and* costs a tap on every order. No POS or kitchen
+  display system in the field does otherwise. The exception is **Cancel**, which takes a reason and
+  genuinely warrants the dialog.
+- **The undo affordance lives on the card, not in a SnackBar.** This is a correction, and the
+  reason matters: `ScaffoldMessenger` **queues** snackbars rather than replacing them, and a
+  snackbar's duration counts from when it is *displayed*, not created. Bumping five orders at once
+  therefore showed five bars one after another, the last appearing twenty seconds after its own
+  timer had already served the drink — offering an undo that silently did nothing. An in-card
+  countdown gives every pending order its own window and cannot be confused for its neighbour.
+- **Undo is a deferred send, not a reversal.** Nothing reaches the API until the window closes.
+  This is forced, not chosen: `/ready` is the only path that writes ledger rows and there is **no
+  un-ready endpoint anywhere in the backend**, so an undo that fired after the call would have
+  nothing to call. Do not add one on the assumption that a reversal exists.
+- **Flush pending actions on `dispose` and on backgrounding, never drop them.** The drink was
+  already made when the button was pressed — the tap records a physical event, and discarding it
+  leaves the ledger disagreeing with the shelf. `inactive` is excluded: it fires for a
+  notification-shade pull, with the card still on screen and seconds left on a countdown the user
+  can watch.
+- **Handover (`/complete`) is immediate — no window, no dialog.** It writes no ledger rows, so a
+  mistaken handover is a paperwork discrepancy the next person resolves by walking to the counter,
+  where a mistaken serve is a stock discrepancy an admin reconciles weeks later. Making every
+  legitimate handover slower to guard the cheaper mistake is a bad trade. It does need a
+  double-tap guard.
+- **A screen reader stretches the undo window** to ~20s, and a finger held on the card pauses it.
+  A timed affordance carrying the only way out of an action is a WCAG 2.2 SC 2.2.1 problem;
+  Flutter's own SnackBar stops timing out under TalkBack for the same reason.
+- **Show `onBehalfOfName` when it is set**, as the primary name on the card with the requester
+  beneath it. The person making the drink needs the recipient most; accountability stays with the
+  requester. Mark it with a chip — **not** in violet, which means "from my own jar" everywhere and
+  must not pick up a second meaning.
 - **`Ready` is the important button.** Make it the largest target on the card. `deliverNow` (ready
   and handed over in one motion) is the common case at the counter — offer it as the primary
   action with plain `Ready` secondary.
@@ -804,6 +884,8 @@ Office wifi drops. Assumptions worth building in:
 | Serialisation | `json_serializable` + `build_runner` | Mirror `ApiContracts.cs` |
 | Localisation | `flutter_localizations` + `intl` | `generate: true` in `pubspec.yaml` |
 | Dates | `intl` | `ar` locale; **the server sends UTC — convert for display** |
+| Push | `firebase_core` + `firebase_messaging` | §7.4. Two kinds only; visible notifications, never silent |
+| Local notifications | `flutter_local_notifications` | Android notification channels, whose behaviour is **immutable after creation** |
 
 On dates: every timestamp in the API is UTC (`createdAtUtc`, `readyAtUtc`, `expiresUtc`). The
 server reports in `Arab Standard Time`. Parse as UTC and convert to local for display; never
@@ -859,6 +941,17 @@ the exception.
 - [ ] Staff screens built against the live `/api/v1/staff/*` endpoints
 - [ ] Declarations tab shown to admins only; staff never see a control that returns 403
 - [ ] Staff endpoints never driven via the MVC screens
+- [ ] Undo lives **on the card** with a visible countdown, never in a SnackBar (§8.1)
+- [ ] Every pending action is flushed on `dispose` and on backgrounding, never dropped
+- [ ] Handover is immediate and guarded against a double tap; only Cancel gets a dialog
+- [ ] The undo window stretches under a screen reader and pauses on touch
+- [ ] `onBehalfOfName` shown on the queue card, chipped but **not** in violet
+- [ ] A staff member can reach the composer and order for themselves
+- [ ] A staff self-order does **not** open a status screen — it is already `Completed`
+- [ ] Push is sent for `OrderReady` and `OrderCancelled` only, as visible notifications (§7.4)
+- [ ] The device token is unregistered on sign-out
+- [ ] Foreground polling retained alongside push, and documented as deliberate
+- [ ] A notification tap while locked is held, then honoured after unlock
 
 ---
 
@@ -871,7 +964,7 @@ the exception.
 | Staff actions to port | `src/BuffetApp.Web/Controllers/StaffController.cs` |
 | Staff wire contracts | `src/BuffetApp.Web/Api/StaffContracts.cs` |
 | Staff endpoint behaviour | `src/BuffetApp.Web/Api/StaffApi.cs` |
-| Why the staff API is shaped as it is | [staff-api-spec.md](staff-api-spec.md) |
+| Why the staff API is shaped as it is | [archive/staff-api-spec.md](archive/staff-api-spec.md) |
 | Palette and motion tokens | `src/BuffetApp.Web/wwwroot/css/site.css` |
 | Logo assets | `src/BuffetApp.Web/wwwroot/images/` |
 | Roles and statuses | `src/BuffetApp.Core/Enums/` |

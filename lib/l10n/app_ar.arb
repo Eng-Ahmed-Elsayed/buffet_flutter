@@ -217,6 +217,10 @@
   "@markReady": { "description": "Secondary staff action — /ready. This is what deducts stock." },
   "markDelivered": "تم التسليم",
   "@markDelivered": { "description": "Completes an order already in Ready." },
+  "noNotificationsBody": "كل ما يبلغك به البوفيه يظهر هنا.",
+  "@noNotificationsBody": {
+    "description": "Empty state under the notification list."
+  },
   "dismiss": "إغلاق",
   "@dismiss": { "description": "Closes an inline banner." },
   "orderForMyself": "اطلب مشروبًا",

@@ -138,6 +138,10 @@
   "readyAndDelivered": "Ready and handed over",
   "markReady": "Ready",
   "markDelivered": "Handed over",
+  "noNotificationsBody": "Anything the buffet tells you shows up here.",
+  "@noNotificationsBody": {
+    "description": "Empty state under the notification list."
+  },
   "dismiss": "Dismiss",
   "@dismiss": { "description": "Closes an inline banner." },
   "orderForMyself": "Order a drink",

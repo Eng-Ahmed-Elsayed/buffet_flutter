@@ -8,6 +8,7 @@ import '../features/auth/lock_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/splash_screen.dart';
 import '../features/materials/my_materials_screen.dart';
+import '../features/notifications/notifications_screen.dart';
 import '../features/order/composer_screen.dart';
 import '../features/order/my_orders_screen.dart';
 import '../features/order/order_status_screen.dart';
@@ -118,6 +119,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.queue,
         builder: (context, state) => const QueueScreen(),
+      ),
+      GoRoute(
+        path: Routes.notifications,
+        builder: (context, state) => const NotificationsScreen(),
       ),
       GoRoute(
         path: Routes.settings,
