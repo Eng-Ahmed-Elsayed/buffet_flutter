@@ -1,8 +1,15 @@
 # Firebase setup — what I need from you
 
-**Status:** blocking. Nothing in the push work can be tested end to end until this is done, and it
-is the only item in the plan with an external dependency. Everything else (the notification centre,
-the doc amendments, the queue improvements) proceeds without it.
+> **Done — 2026-08-24.** Project `digital-buffet-846f0` is live, `google-services.json` is placed
+> (gitignored, with a `.example` beside it), and the service-account key is in .NET user secrets
+> under `Push:ServiceAccountJson` — outside the repository, as it should stay. Android push is
+> built and the APK compiles. **What remains is the physical-device check at the end of this file,
+> which nobody can do from a keyboard.**
+>
+> Kept as the record of what was created and why, and as the instructions for the iOS half whenever
+> an Apple Developer account exists.
+
+**Status:** done for Android; iOS deferred on cost.
 
 **Time:** about 30–45 minutes. **Android only — iOS is deferred** (see decision 3), so Part C is
 skipped entirely.

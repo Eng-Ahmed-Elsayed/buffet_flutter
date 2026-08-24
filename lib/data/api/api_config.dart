@@ -57,6 +57,14 @@ abstract final class ApiConfig {
   static String cancelOrder(int id) => '/orders/$id/cancel';
   static const notifications = '/notifications';
   static const notificationsRead = '/notifications/read';
+
+  /// Registers (POST) and unregisters (DELETE, `?token=`) this device for push.
+  ///
+  /// Register is idempotent and called on every launch; the server upserts on
+  /// the token. Unregister must run while the bearer is still valid — a shared
+  /// device that keeps receiving the previous user's orders is a privacy
+  /// failure, not an inconvenience.
+  static const registerDevice = '/notifications/device';
   static const myMaterials = '/materials/mine';
   static const declareMaterial = '/materials/declare';
 

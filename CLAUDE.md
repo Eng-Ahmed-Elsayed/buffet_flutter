@@ -36,9 +36,20 @@ attempts a push, so a push that was throttled, deferred by Doze or never permitt
 recoverable there, and it is the only place `LowStock`, `DeclarationConfirmed` and
 `DeclarationRejected` ever surface.
 
-Not built yet: **push itself** (§7.4). It is designed and specified but blocked on a Firebase
-project — see [docs/firebase-setup-checklist.md](docs/firebase-setup-checklist.md) for what the
-owner has to provide. The plan is `~/.claude/plans/staff-view-expressive-lecun.md`.
+**Push is built, Android only** (§7.4). Firebase project `digital-buffet-846f0`; the service
+account lives in .NET user secrets (`Push:ServiceAccountJson`) and never in either repository.
+`OrderReady` and `OrderCancelled` are the only two kinds that push — see §7.4 before adding a third.
+
+**iOS has no push and will not until an Apple Developer account is funded.** That is a deliberate,
+recorded gap, not an oversight: do not write untested APNs code to fill it. What both platforms do
+have is a local notification with sound when a poll sees an order turn Ready or Cancelled
+(`lib/data/local/order_alerts.dart`), which covers the app being open or backgrounded-but-alive.
+Nothing on the device can cover the process being killed.
+
+Still unverified: **push on a physical Android handset with the app force-stopped.** That is the
+case the whole feature exists for and no emulator or test exercises it — see
+[docs/firebase-setup-checklist.md](docs/firebase-setup-checklist.md). The plan is
+`~/.claude/plans/staff-view-expressive-lecun.md`.
 
 Two rules from that work that a future edit must not undo:
 

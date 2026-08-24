@@ -27,6 +27,12 @@ dependencies:
   # is funded. Android push, when it lands, reuses this for its channels.
   flutter_local_notifications: ^19.4.2
 
+  # Push, Android only for now — iOS needs a paid Apple Developer account and
+  # there is no budget for one (§7.4). The client code is platform-neutral; only
+  # the platform config files are missing for iOS.
+  firebase_core: ^4.1.1
+  firebase_messaging: ^16.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

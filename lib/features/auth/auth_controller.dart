@@ -417,7 +417,25 @@ class AuthController extends StateNotifier<AuthState> {
     state = state.copyWith(reSignInAfterPasswordChangeFailed: false);
   }
 
+  /// Runs immediately before the token is cleared, while it is still valid.
+  ///
+  /// Installed by the push controller so this device can unregister itself: a
+  /// shared counter device that keeps receiving the previous user's orders is a
+  /// privacy failure, not an inconvenience. Kept as a callback rather than a
+  /// dependency so the auth machine does not have to know push exists.
+  Future<void> Function()? onBeforeSignOut;
+
   Future<void> signOut() async {
+    // Before _repository.signOut(), which clears the bearer token — a call made
+    // after it would arrive unauthenticated and 401. Failures are swallowed: a
+    // device we could not unregister is swept server-side after a month,
+    // whereas a sign-out that could not complete strands the user.
+    try {
+      await onBeforeSignOut?.call();
+    } on Object {
+      // Deliberately ignored — see above.
+    }
+
     // clearAccountPreferences() drops the biometrics flag with the token: a
     // flag surviving the credential it unlocks would gate the next user of
     // this device on the previous one's fingerprint. The enrolment sentinel

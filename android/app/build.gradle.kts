@@ -2,6 +2,7 @@ import java.util.Properties
 
 plugins {
     id("com.android.application")
+    id("com.google.gms.google-services")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
@@ -25,6 +26,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+
+        // Required by flutter_local_notifications, which uses java.time APIs
+        // that minSdk 23 does not carry. Desugaring backports them into the
+        // APK rather than raising the floor, which would drop older handsets.
+        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -82,6 +88,11 @@ android {
             )
         }
     }
+}
+
+dependencies {
+    // Pairs with isCoreLibraryDesugaringEnabled above.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }
 
 kotlin {
