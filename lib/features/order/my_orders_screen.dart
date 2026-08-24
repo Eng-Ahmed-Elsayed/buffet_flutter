@@ -25,6 +25,25 @@ final myOrdersProvider = FutureProvider.autoDispose<List<OrderSummaryDto>>((
       );
 });
 
+/// The orders that are still owed to the user — anything not [OrderStatus]
+/// settled, most urgent first.
+///
+/// Derived from [myOrdersProvider] rather than fetching again, so the home
+/// screen and the history screen can never disagree about what is outstanding.
+///
+/// Ready leads: a drink standing on the counter needs the user more than one
+/// still being made does. Within each group the newest order comes first,
+/// matching the server's ordering.
+final outstandingOrdersProvider = Provider.autoDispose<List<OrderSummaryDto>>((
+  ref,
+) {
+  final orders = ref.watch(myOrdersProvider).valueOrNull ?? const [];
+  // Compared by name through OrderStatus — never by ordinal (rule 5).
+  final ready = orders.where((o) => o.orderStatus == OrderStatus.ready);
+  final live = orders.where((o) => o.orderStatus.isLive);
+  return [...ready, ...live];
+});
+
 /// Order history — and, more importantly, the way back to a **live** order.
 ///
 /// Without this screen the status screen was reachable only by placing an

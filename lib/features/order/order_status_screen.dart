@@ -18,6 +18,7 @@ import '../../shared/widgets/source_chip.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'composer_screen.dart';
+import 'my_orders_screen.dart';
 
 /// Live status for one order.
 ///
@@ -92,10 +93,17 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
           );
 
       if (!mounted) return;
+      final statusChanged = _order?.orderStatus != order.orderStatus;
       setState(() {
         _order = order;
         _errorMessage = null;
       });
+
+      // This screen holds the freshest truth about one order, so it is the
+      // right place to expire the cached list the home-screen card reads
+      // from. Without this, collecting a drink here would leave "your drink
+      // is ready" standing on the composer behind it.
+      if (statusChanged) ref.invalidate(myOrdersProvider);
 
       // Only a completed or cancelled order will never change again. A READY
       // order still moves — handover takes it to Completed — so polling must
