@@ -79,14 +79,32 @@ abstract final class ApiConfig {
   // cannot succeed (§8.2).
 
   /// Foreground poll interval for a live order (§7.3).
+  ///
+  /// **Not made redundant by push.** Push closes the *closed-app* gap; polling
+  /// closes the *foreground freshness* gap, and this screen is open precisely
+  /// because someone is watching it. Removing this would make the screen the
+  /// user is staring at slower than their notification shade.
   static const orderPollInterval = Duration(seconds: 15);
 
   /// Foreground poll interval for the staff queue (§8.1). Staff keep the
   /// screen open; a stale queue is worse than a slightly chatty one.
+  ///
+  /// Push does not replace this either: staff receive no pushes at all, and the
+  /// queue is a shared multi-user view where polling is the only way one staff
+  /// member sees another's actions.
   static const queuePollInterval = Duration(seconds: 10);
 
   /// How long the undo window stays open after a one-tap staff action (§8.1).
   static const undoWindow = Duration(seconds: 5);
+
+  /// The same window when a screen reader is driving.
+  ///
+  /// A timed affordance carrying the only way out of an action is a WCAG 2.2
+  /// SC 2.2.1 problem; Flutter's own SnackBar stops timing out under
+  /// TalkBack/VoiceOver for exactly this reason. Someone reading a card aloud
+  /// is not racing a clock, so the window stretches rather than the control
+  /// vanishing mid-sentence.
+  static const undoWindowAccessible = Duration(seconds: 20);
 
   /// `?take=` caps at 200 server-side.
   static const queuePageSize = 50;

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,6 +16,7 @@ import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import 'pending_action.dart';
 import 'widgets/queue_card.dart';
 
 /// The staff home screen.
@@ -40,15 +42,28 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   List<StaffOrderDto> _queue = [];
   List<StaffOrderDto> _handovers = [];
 
-  /// Orders whose serve is inside its undo window: hidden from the lists so
-  /// staff cannot tap the same cup twice, but not yet sent.
-  final Map<int, StaffOrderDto> _pendingActions = {};
+  /// Orders whose action is inside its undo window — tapped, not yet sent.
+  ///
+  /// These stay *in* the list: the card carries its own countdown and undo
+  /// button, and its actions are swapped out so the same cup cannot be tapped
+  /// twice. Hiding the card and putting the undo in a SnackBar is what made the
+  /// undo unusable under a rush.
+  final Map<int, PendingAction> _pendingActions = {};
   final Map<int, Timer> _pendingTimers = {};
+
+  /// Handovers already sent and awaiting their response, so a second tap during
+  /// the round trip cannot post twice.
+  final Set<int> _completing = {};
   bool _loading = true;
   String? _errorMessage;
 
   /// Warnings from the most recent serve, shown on the card afterwards.
   final Map<int, List<StockWarningDto>> _recentWarnings = {};
+
+  /// Held so [_flushPending] can send from `dispose`, where `ref` has already
+  /// been torn down and reading it throws.
+  QueueRepository? _repositoryForFlush;
+  String _languageForFlush = 'ar';
 
   @override
   void initState() {
@@ -59,7 +74,12 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     // on screen.
     _tabController.addListener(_onTabChanged);
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_refresh());
+    // After the first frame, not during initState: _refresh reads
+    // AppLocalizations for its network-error fallback, and an inherited widget
+    // cannot legally be looked up before initState has returned.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refresh());
+    });
     _startPolling();
   }
 
@@ -67,12 +87,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
-    // Pending actions are abandoned rather than fired: leaving the screen is
-    // not a confirmation, and a timer outliving dispose would call setState
-    // on a dead State.
-    for (final timer in _pendingTimers.values) {
-      timer.cancel();
-    }
+    _flushPending();
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
@@ -84,12 +99,68 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       case AppLifecycleState.resumed:
         unawaited(_refresh());
         _startPolling();
+
+      // Going to the background is the last moment we are guaranteed to run: a
+      // Timer is not promised to fire while backgrounded, and an app killed in
+      // Doze loses the send outright. So the window is cut short and the action
+      // goes now.
       case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
         _pollTimer?.cancel();
+        _flushPending();
+
+      // Not a backgrounding. `inactive` fires for a notification-shade pull or
+      // an incoming call, with the card still on screen and seconds left on a
+      // countdown the user can watch — sending there would contradict it.
+      case AppLifecycleState.inactive:
+        _pollTimer?.cancel();
     }
+  }
+
+  /// Sends every action still inside its undo window, right now.
+  ///
+  /// The drink was already made when the button was pressed: this tap records a
+  /// physical event, and dropping it leaves the ledger disagreeing with the
+  /// shelf. Losing a tap is not the safe outcome, it is the expensive one.
+  ///
+  /// Deliberately does not go through [_markReady] or [_complete] — those touch
+  /// `setState` and `context`, and this runs from `dispose`. Errors are
+  /// swallowed because there is no UI left to report to, and the server-side
+  /// outcome is recoverable: a failed `/ready` leaves the order Pending and it
+  /// comes back on the next fetch.
+  void _flushPending() {
+    if (_pendingActions.isEmpty) return;
+
+    // Captured rather than read: this runs from `dispose`, where `ref` has
+    // already been torn down.
+    final repository = _repositoryForFlush;
+    if (repository == null) return;
+    final language = _languageForFlush;
+
+    for (final entry in _pendingActions.entries.toList()) {
+      _pendingTimers.remove(entry.key)?.cancel();
+      final action = entry.value;
+
+      final send = switch (action.kind) {
+        PendingActionKind.ready => repository.markReady(
+          orderId: entry.key,
+          deliverNow: action.deliverNow,
+          languageCode: language,
+          networkErrorFallback: '',
+        ),
+        PendingActionKind.complete => repository.complete(
+          orderId: entry.key,
+          languageCode: language,
+          networkErrorFallback: '',
+        ),
+      };
+
+      // An unhandled Future error escaping dispose would take down the zone.
+      unawaited(send.then((_) {}, onError: (_) {}));
+    }
+
+    _pendingActions.clear();
   }
 
   /// ~10s foregrounded. Staff keep this screen open, and a stale queue is worse
@@ -106,6 +177,8 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
     final repository = ref.read(queueRepositoryProvider);
+    _repositoryForFlush = repository;
+    _languageForFlush = locale.languageCode;
 
     try {
       final results = await Future.wait([
@@ -153,35 +226,50 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     // A second tap while one is already pending would serve it twice.
     if (_pendingActions.containsKey(order.orderId)) return;
 
-    final l10n = AppLocalizations.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+    // A screen reader stretches the window rather than losing the control
+    // mid-sentence: a timed affordance carrying the only way out of an action
+    // is a WCAG 2.2 SC 2.2.1 problem, and Flutter's own SnackBar stops timing
+    // out under TalkBack for the same reason.
+    final window = MediaQuery.of(context).accessibleNavigation
+        ? ApiConfig.undoWindowAccessible
+        : ApiConfig.undoWindow;
 
-    setState(() => _pendingActions[order.orderId] = order);
+    setState(() {
+      _pendingActions[order.orderId] = PendingAction(
+        kind: PendingActionKind.ready,
+        deliverNow: deliverNow,
+        deadline: DateTime.now().add(window),
+      );
+    });
 
-    final timer = Timer(ApiConfig.undoWindow, () {
+    _pendingTimers[order.orderId] = Timer(window, () {
       _pendingTimers.remove(order.orderId);
       if (!mounted) return;
       setState(() => _pendingActions.remove(order.orderId));
       unawaited(_markReady(order, deliverNow: deliverNow));
     });
-    _pendingTimers[order.orderId] = timer;
+  }
 
-    messenger.showSnackBar(
-      SnackBar(
-        duration: ApiConfig.undoWindow,
-        content: Text(l10n.undoWindowMessage(order.orderId)),
-        action: SnackBarAction(
-          label: l10n.undo,
-          onPressed: () {
-            timer.cancel();
-            _pendingTimers.remove(order.orderId);
-            // Dismissing the snackbar is NOT an undo — only this is. The card
-            // comes back and nothing was sent.
-            if (mounted) {
-              setState(() => _pendingActions.remove(order.orderId));
-            }
-          },
-        ),
+  /// Cancels a pending action before it is sent. Nothing reaches the API.
+  void _undo(StaffOrderDto order) {
+    if (!_pendingActions.containsKey(order.orderId)) return;
+
+    _pendingTimers.remove(order.orderId)?.cancel();
+    setState(() => _pendingActions.remove(order.orderId));
+
+    _announce(AppLocalizations.of(context).undoneAnnouncement);
+  }
+
+  /// Speaks a change the screen reader would otherwise miss.
+  ///
+  /// The visible confirmation for these is the list changing, which a screen
+  /// reader does not narrate on its own.
+  void _announce(String message) {
+    unawaited(
+      SemanticsService.sendAnnouncement(
+        View.of(context),
+        message,
+        Directionality.of(context),
       ),
     );
   }
@@ -189,10 +277,6 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   void _onTabChanged() {
     if (mounted) setState(() {});
   }
-
-  /// Drops orders whose action is still inside its undo window.
-  List<StaffOrderDto> _visible(List<StaffOrderDto> orders) =>
-      orders.where((o) => !_pendingActions.containsKey(o.orderId)).toList();
 
   Future<void> _markReady(
     StaffOrderDto order, {
@@ -220,13 +304,23 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       await _refresh();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(l10n.orderServed)));
+      // No toast. The card leaving the list is the confirmation, and the user
+      // has just watched the countdown commit — a second, later signal for the
+      // same event is exactly the noise that made the old undo unreadable.
+      // Announced for screen readers, who cannot see the list change.
+      _announce(l10n.orderServed);
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      _showError(error.message);
     }
+  }
+
+  /// Errors are rare and must be seen, so a queued backlog of three identical
+  /// network failures is cleared before showing the newest.
+  void _showError(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// Cancels an order, asking for a reason first.
@@ -262,14 +356,29 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       await _refresh();
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      _showError(error.message);
     }
   }
 
+  /// Hands an order over. **Immediate, with no undo window and no dialog.**
+  ///
+  /// Unlike `/ready`, this writes no ledger rows: a mistaken handover is a
+  /// paperwork discrepancy the next person resolves by walking to the counter,
+  /// where a mistaken serve is a stock discrepancy an admin reconciles weeks
+  /// later from a report. Making every legitimate handover five seconds slower
+  /// to guard the cheaper mistake is a bad trade.
   Future<void> _complete(StaffOrderDto order) async {
+    // Without this a second tap during the round trip posts again, and the
+    // server's compare-and-swap rejects it — so the user got an error for
+    // having tapped twice.
+    if (!_completing.add(order.orderId)) return;
+
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
+
+    // Removed before the await so the row cannot be tapped again, and put back
+    // if the call fails — the order really is still awaiting handover.
+    setState(() => _handovers.removeWhere((o) => o.orderId == order.orderId));
 
     try {
       await ref
@@ -282,8 +391,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       await _refresh();
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(error.message)));
+      setState(() => _handovers = [order, ..._handovers]);
+      _showError(error.message);
+    } finally {
+      _completing.remove(order.orderId);
     }
   }
 
@@ -300,14 +411,14 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
           actions: [
             Center(
               child: Text(
-                // Counts what is actually on screen — the VISIBLE tab's list,
-                // minus anything inside an undo window. Counting the queue
-                // unconditionally made the header read "no orders" above a
-                // handover list holding three, and counting the unfiltered
-                // list made it claim "one order" above an empty state.
+                // Counts what is actually on screen — the VISIBLE tab's list.
+                // Counting the queue unconditionally made the header read "no
+                // orders" above a handover list holding three. Pending cards
+                // stay in the list now, so they stay in the count too: they are
+                // on screen, and the drink is still the staff member's to make
+                // until the window closes.
                 l10n.orderCount(
-                  _visible(_tabController.index == 0 ? _queue : _handovers)
-                      .length,
+                  (_tabController.index == 0 ? _queue : _handovers).length,
                 ),
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: BrandColors.surface,
@@ -352,9 +463,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                 controller: _tabController,
                 children: [
                   _QueueList(
-                    // Orders inside their undo window are hidden so staff do
-                    // not serve the same cup twice while it is pending.
-                    orders: _visible(_queue),
+                    orders: _queue,
+                    pending: _pendingActions,
+                    onUndo: _undo,
                     warnings: _recentWarnings,
                     emptyTitle: l10n.emptyQueueTitle,
                     emptyBody: l10n.emptyQueueBody,
@@ -364,7 +475,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                     onCancel: _cancel,
                   ),
                   _QueueList(
-                    orders: _visible(_handovers),
+                    orders: _handovers,
+                    pending: _pendingActions,
+                    onUndo: _undo,
                     warnings: _recentWarnings,
                     emptyTitle: l10n.noHandoversTitle,
                     emptyBody: l10n.noHandoversBody,
@@ -386,6 +499,8 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
 class _QueueList extends StatelessWidget {
   const _QueueList({
     required this.orders,
+    required this.pending,
+    required this.onUndo,
     required this.warnings,
     required this.emptyTitle,
     required this.emptyBody,
@@ -396,6 +511,8 @@ class _QueueList extends StatelessWidget {
   });
 
   final List<StaffOrderDto> orders;
+  final Map<int, PendingAction> pending;
+  final void Function(StaffOrderDto) onUndo;
   final Map<int, List<StockWarningDto>> warnings;
   final String emptyTitle;
   final String emptyBody;
@@ -432,8 +549,11 @@ class _QueueList extends StatelessWidget {
         itemBuilder: (context, index) {
           final order = orders[index];
           return QueueCard(
+            key: ValueKey(order.orderId),
             order: order,
             warnings: warnings[order.orderId],
+            pending: pending[order.orderId],
+            onUndo: () => onUndo(order),
             onMarkReady: onMarkReady,
             onComplete: onComplete,
             onCancel: onCancel,

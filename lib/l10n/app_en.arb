@@ -138,18 +138,44 @@
   "readyAndDelivered": "Ready and handed over",
   "markReady": "Ready",
   "markDelivered": "Handed over",
-  "undoWindowMessage": "Serving order {orderId}…",
-  "@undoWindowMessage": {
-    "description": "Snackbar shown during the undo window, before the action is actually sent.",
-    "placeholders": { "orderId": { "type": "int" } }
+  "servingOrder": "Serving…",
+  "@servingOrder": {
+    "description": "Label on the in-card pending bar, while the action waits out its undo window."
+  },
+  "handingOverOrder": "Handing over…",
+  "@handingOverOrder": {
+    "description": "Pending-bar label for a handover, which shares the bar but not the undo window."
   },
   "undo": "Undo",
+  "undoCountdown": "Undo ({seconds})",
+  "@undoCountdown": {
+    "description": "Undo button with the seconds left before the action is sent.",
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+  "undoWindowSemantics": "Order {orderId} will be served in {seconds} seconds. Activate undo to stop it.",
+  "@undoWindowSemantics": {
+    "description": "Live-region announcement on the pending bar, re-read as the count changes.",
+    "placeholders": { "orderId": { "type": "int" }, "seconds": { "type": "int" } }
+  },
+  "undoneAnnouncement": "Undone",
+  "@undoneAnnouncement": {
+    "description": "Screen-reader announcement when an action is cancelled inside its window."
+  },
   "orderServed": "Drink made",
   "buffetStock": "Buffet",
   "fromJarOf": "{owner}'s jar",
   "@fromJarOf": {
     "description": "Source label naming whose jar a component comes from. Shown in violet.",
     "placeholders": { "owner": { "type": "String" } }
+  },
+  "orderedBy": "Ordered by {name}",
+  "@orderedBy": {
+    "description": "Secondary line on a guest order — who placed it, under the guest it is for.",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "guestOrder": "Guest",
+  "@guestOrder": {
+    "description": "Chip marking an order placed on behalf of a visitor. Never violet — that is reserved for personal stock."
   },
   "shortageTitle": "Stock shortage",
   "shortageBody": "The drink was still made. An admin will reconcile it.",

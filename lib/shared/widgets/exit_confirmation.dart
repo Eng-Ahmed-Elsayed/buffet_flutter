@@ -16,6 +16,12 @@ import '../../theme/brand_colors.dart';
 /// Screens reached by `push` are deliberately **not** wrapped: they have
 /// somewhere to go back to, and asking there would be an obstacle rather than
 /// a safeguard.
+///
+/// One screen is *both*, depending on how it was reached: the composer is the
+/// employee's landing screen, but staff reach it by `push` from the queue. So
+/// the guard checks the stack at back-press time rather than trusting the
+/// wrapping — with something to pop to, it steps aside and lets the ordinary
+/// pop happen.
 class ExitConfirmation extends StatelessWidget {
   const ExitConfirmation({super.key, required this.child, this.onExit});
 
@@ -31,10 +37,17 @@ class ExitConfirmation extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // With a route beneath this one, back is an ordinary pop and there is
+    // nothing to confirm — `canPop: true` hands the gesture straight to the
+    // Navigator. Read here rather than in onPopInvoked because PopScope needs
+    // the answer before the gesture arrives.
+    final hasRouteBeneath = Navigator.of(context).canPop();
+
     return PopScope(
-      // Never pops on its own: the callback decides, so the confirmation can
-      // be shown before anything closes.
-      canPop: false,
+      // Never pops on its own when this really is a landing screen: the
+      // callback decides, so the confirmation can be shown before anything
+      // closes.
+      canPop: hasRouteBeneath,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
 

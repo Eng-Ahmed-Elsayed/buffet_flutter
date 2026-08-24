@@ -217,13 +217,30 @@
   "@markReady": { "description": "Secondary staff action — /ready. This is what deducts stock." },
   "markDelivered": "تم التسليم",
   "@markDelivered": { "description": "Completes an order already in Ready." },
-  "undoWindowMessage": "جارٍ تجهيز الطلب رقم {orderId}…",
-  "@undoWindowMessage": {
-    "description": "Snackbar shown during the undo window, before the action is actually sent.",
-    "placeholders": { "orderId": { "type": "int" } }
+  "servingOrder": "جارٍ التجهيز…",
+  "@servingOrder": {
+    "description": "Label on the in-card pending bar, while the action waits out its undo window."
+  },
+  "handingOverOrder": "جارٍ التسليم…",
+  "@handingOverOrder": {
+    "description": "Pending-bar label for a handover, which shares the bar but not the undo window."
   },
   "undo": "تراجع",
   "@undo": { "description": "Undo window offered instead of a confirm dialog — staff hands are busy." },
+  "undoCountdown": "تراجع ({seconds})",
+  "@undoCountdown": {
+    "description": "Undo button with the seconds left before the action is sent.",
+    "placeholders": { "seconds": { "type": "int" } }
+  },
+  "undoWindowSemantics": "سيُجهَّز الطلب رقم {orderId} خلال {seconds} ثانية. فعِّل التراجع لإيقافه.",
+  "@undoWindowSemantics": {
+    "description": "Live-region announcement on the pending bar, re-read as the count changes.",
+    "placeholders": { "orderId": { "type": "int" }, "seconds": { "type": "int" } }
+  },
+  "undoneAnnouncement": "تم التراجع",
+  "@undoneAnnouncement": {
+    "description": "Screen-reader announcement when an action is cancelled inside its window."
+  },
   "orderServed": "تم تحضير الطلب",
   "@orderServed": { "description": "Confirmation after a successful /ready." },
   "buffetStock": "البوفيه",
@@ -232,6 +249,15 @@
   "@fromJarOf": {
     "description": "Source label naming whose jar a component comes from. Shown in violet.",
     "placeholders": { "owner": { "type": "String" } }
+  },
+  "orderedBy": "طلبه {name}",
+  "@orderedBy": {
+    "description": "Secondary line on a guest order — who placed it, under the guest it is for.",
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "guestOrder": "ضيف",
+  "@guestOrder": {
+    "description": "Chip marking an order placed on behalf of a visitor. Never violet — that is reserved for personal stock."
   },
   "shortageTitle": "نقص في المخزون",
   "@shortageTitle": { "description": "Heading for warnings that arrive on a 200 after serving." },
