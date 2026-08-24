@@ -4,8 +4,8 @@
 is the only item in the plan with an external dependency. Everything else (the notification centre,
 the doc amendments, the queue improvements) proceeds without it.
 
-**Time:** about 30–45 minutes for Android only. Add ~30 minutes and an Apple Developer account
-(US$99/year) if iOS is in scope.
+**Time:** about 30–45 minutes. **Android only — iOS is deferred** (see decision 3), so Part C is
+skipped entirely.
 
 **What you are creating:** a Firebase project whose only purpose is Cloud Messaging — the channel
 that lets the server tell an employee their drink is ready when the app is closed. No other
@@ -46,8 +46,18 @@ company Google Workspace account, use that and add yourself as Owner.
 
 ### 3. Is iOS in scope now?
 
-Push on iPhone requires a **paid Apple Developer Program membership** (US$99/year). If the buffet
-runs on Android handsets only, skip every iOS step below and tell me — it removes real work.
+**Answered: no, deferred.** Push on iPhone requires a paid Apple Developer Program membership
+(US$99/year) and there is no budget for it at present. **Skip Part C entirely.**
+
+This is the uncomfortable part of the decision and it should be recorded honestly: the users who
+matter most are on iPhone, and they are the ones this does not reach. What they get instead is a
+local notification with sound whenever the app is open or merely backgrounded-and-alive, plus the
+notification centre and a landing-screen card that now refreshes while they watch it. What stays
+missing is the case the whole feature was for — phone asleep, app closed, drink going cold.
+
+Nothing here is wasted when the account is eventually funded. The server-side token table, the
+sender, the two-kinds rule and the client's channel ids are all platform-neutral; adding iOS later
+is Part C plus roughly half a day, not a rebuild.
 
 ---
 
@@ -84,7 +94,10 @@ com.defi.buffet_app
 
 ---
 
-## Part C — Register the iOS app *(skip if iOS is out of scope)*
+## Part C — Register the iOS app — **SKIP THIS**
+
+> Deferred: no Apple Developer account. Kept only so it is ready when one exists. **Do not do any
+> of it now.**
 
 Our bundle ID is:
 
@@ -147,10 +160,10 @@ it is not secret, and the sender needs it.
 | Item | Where from | Secret? |
 |---|---|---|
 | `google-services.json` | Part B step 5 | No, but gitignored anyway |
-| `GoogleService-Info.plist` | Part C step 3 *(iOS only)* | No, but gitignored anyway |
+| ~~`GoogleService-Info.plist`~~ | ~~Part C~~ — **skipped, iOS deferred** | — |
 | Service account `.json` | Part D step 2 | **Yes — secure channel only** |
 | Project ID | Part D | No |
-| Confirmation the APNs key is uploaded | Part C *(iOS only)* | — |
+| ~~APNs key confirmation~~ | ~~Part C~~ — **skipped, iOS deferred** | — |
 
 Plus your answers to the three decisions at the top.
 
@@ -178,7 +191,8 @@ When the code is ready I will need:
 
 - A physical **Android** device, with the app **force-stopped**, receiving an order-ready push.
   That closed-app case is the entire justification for this work.
-- The same on a physical **iPhone**, if iOS is in scope.
+- **Not** an iPhone — iOS push is deferred. Do check on an iPhone that the *local* alert fires when
+  a drink turns ready with the app open, and that nothing prompts or errors about push.
 - A sign-out check: sign out on one device, confirm it stops receiving while another still does.
 
 ---

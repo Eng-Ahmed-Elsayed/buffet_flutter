@@ -21,6 +21,12 @@ dependencies:
   json_annotation: ^4.12.0
   intl: any
 
+  # Local notifications only — no Firebase, no Apple Developer account needed.
+  # Alerts the user the moment a drink turns Ready while the app is open or
+  # merely backgrounded, which is the whole of what iOS can be given until push
+  # is funded. Android push, when it lands, reuses this for its channels.
+  flutter_local_notifications: ^19.4.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

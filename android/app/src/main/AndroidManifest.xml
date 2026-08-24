@@ -3,6 +3,12 @@
          FlutterFragmentActivity. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Android 13+. Requested at runtime once the user is signed in, never at
+         startup: a prompt shown before the app has demonstrated why it wants to
+         notify is how a permission gets denied permanently. Denial is a normal
+         outcome - the notification list and the outstanding-order card still
+         work without it. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
     <application
         android:label="@string/app_name"

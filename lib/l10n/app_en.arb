@@ -142,6 +142,32 @@
   "@noNotificationsBody": {
     "description": "Empty state under the notification list."
   },
+  "alertReadyTitle": "Your drink is ready",
+  "@alertReadyTitle": {
+    "description": "Local notification title when an order turns Ready."
+  },
+  "alertReadyBody": "Order {orderId} is waiting to be collected.",
+  "@alertReadyBody": {
+    "description": "Local notification body when an order turns Ready.",
+    "placeholders": { "orderId": { "type": "int" } }
+  },
+  "alertCancelledTitle": "Your order was cancelled",
+  "@alertCancelledTitle": {
+    "description": "Local notification title when an order is cancelled."
+  },
+  "alertCancelledBody": "Order {orderId} will not be made.",
+  "@alertCancelledBody": {
+    "description": "Local notification body when an order is cancelled.",
+    "placeholders": { "orderId": { "type": "int" } }
+  },
+  "channelReadyName": "Drink ready",
+  "@channelReadyName": { "description": "Android channel name. Frozen at first creation." },
+  "channelReadyDescription": "Tells you the moment a drink is ready to collect.",
+  "@channelReadyDescription": { "description": "Android channel description." },
+  "channelCancelledName": "Order cancelled",
+  "@channelCancelledName": { "description": "Android channel name. Frozen at first creation." },
+  "channelCancelledDescription": "Tells you if an order will not be made.",
+  "@channelCancelledDescription": { "description": "Android channel description." },
   "dismiss": "Dismiss",
   "@dismiss": { "description": "Closes an inline banner." },
   "orderForMyself": "Order a drink",

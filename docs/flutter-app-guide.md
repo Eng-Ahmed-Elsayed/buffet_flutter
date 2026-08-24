@@ -682,6 +682,28 @@ firing continuously through a morning rush is pure noise.
 - **Unregister the device on sign-out.** A shared counter device that keeps pushing the previous
   user's orders is a privacy failure, not an inconvenience.
 
+#### Android only, for now — and what iOS gets instead
+
+**Push ships on Android. iOS does not have it, and will not until an Apple
+Developer account is funded** (APNs is a paid prerequisite; there is no budget). This is a known,
+deliberate gap, not an oversight — do not "fix" it half-way by writing untested APNs code.
+
+What every platform gets in the meantime, with no Firebase and no Apple account:
+
+- **A local notification, with sound, the moment a poll sees an order turn `Ready` or `Cancelled`**
+  (`lib/data/local/order_alerts.dart`). Covers the app being open, or backgrounded and still alive.
+- **Foreground polling on the composer**, so the outstanding-order card on the landing screen moves
+  while the user watches it rather than only on resume.
+- **The notification centre**, which never depended on push at all.
+
+What that does **not** cover, on either platform, and cannot: the process being fully killed.
+Nothing running on the device can wake it, because nothing is running. On Android the server push
+closes that; on iOS it stays open until APNs exists. Say so plainly to users rather than implying
+notifications are guaranteed.
+
+The local-alert channel ids are deliberately the **same constants** the server will send with a
+push, so Android push slots in without a second set. When adding push, do not invent new ids.
+
 Setup, credentials and the physical-device verification are in
 [firebase-setup-checklist.md](firebase-setup-checklist.md).
 
@@ -885,7 +907,7 @@ Office wifi drops. Assumptions worth building in:
 | Localisation | `flutter_localizations` + `intl` | `generate: true` in `pubspec.yaml` |
 | Dates | `intl` | `ar` locale; **the server sends UTC — convert for display** |
 | Push | `firebase_core` + `firebase_messaging` | §7.4. Two kinds only; visible notifications, never silent |
-| Local notifications | `flutter_local_notifications` | Android notification channels, whose behaviour is **immutable after creation** |
+| Local notifications | `flutter_local_notifications` | Ready/cancelled alerts with **no Firebase and no Apple account**; also owns the Android channels, whose behaviour is **immutable after creation** |
 
 On dates: every timestamp in the API is UTC (`createdAtUtc`, `readyAtUtc`, `expiresUtc`). The
 server reports in `Arab Standard Time`. Parse as UTC and convert to local for display; never

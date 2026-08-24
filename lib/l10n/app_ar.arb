@@ -221,6 +221,32 @@
   "@noNotificationsBody": {
     "description": "Empty state under the notification list."
   },
+  "alertReadyTitle": "مشروبك جاهز",
+  "@alertReadyTitle": {
+    "description": "Local notification title when an order turns Ready."
+  },
+  "alertReadyBody": "الطلب رقم {orderId} بانتظار الاستلام.",
+  "@alertReadyBody": {
+    "description": "Local notification body when an order turns Ready.",
+    "placeholders": { "orderId": { "type": "int" } }
+  },
+  "alertCancelledTitle": "تم إلغاء طلبك",
+  "@alertCancelledTitle": {
+    "description": "Local notification title when an order is cancelled."
+  },
+  "alertCancelledBody": "لن يتم تجهيز الطلب رقم {orderId}.",
+  "@alertCancelledBody": {
+    "description": "Local notification body when an order is cancelled.",
+    "placeholders": { "orderId": { "type": "int" } }
+  },
+  "channelReadyName": "المشروب جاهز",
+  "@channelReadyName": { "description": "Android channel name. Frozen at first creation." },
+  "channelReadyDescription": "يبلغك لحظة جهوز مشروبك للاستلام.",
+  "@channelReadyDescription": { "description": "Android channel description." },
+  "channelCancelledName": "إلغاء الطلب",
+  "@channelCancelledName": { "description": "Android channel name. Frozen at first creation." },
+  "channelCancelledDescription": "يبلغك إذا كان الطلب لن يُجهَّز.",
+  "@channelCancelledDescription": { "description": "Android channel description." },
   "dismiss": "إغلاق",
   "@dismiss": { "description": "Closes an inline banner." },
   "orderForMyself": "اطلب مشروبًا",

@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
+import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
+import '../../data/local/order_alerts.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/repositories/catalogue_repository.dart';
 import '../../l10n/app_localizations.dart';
@@ -49,25 +53,69 @@ class ComposerScreen extends ConsumerStatefulWidget {
 class _ComposerScreenState extends ConsumerState<ComposerScreen>
     with WidgetsBindingObserver {
   bool _placing = false;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _startPolling();
+    // Channels and the permission prompt, once the user is signed in and has
+    // seen what the app does — never at startup, which is how a permission
+    // gets denied permanently.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _prepareAlerts());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _pollTimer?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // A drink can turn Ready while the app is in the background. Re-reading
-    // on resume is what makes the card honest for the user who closed the app
-    // to wait — the case this whole card is for.
-    if (state == AppLifecycleState.resumed) ref.invalidate(myOrdersProvider);
+    switch (state) {
+      // A drink can turn Ready while the app is in the background. Re-reading
+      // on resume is what makes the card honest for the user who closed the
+      // app to wait — the case this whole card is for.
+      case AppLifecycleState.resumed:
+        ref.invalidate(myOrdersProvider);
+        _startPolling();
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        _pollTimer?.cancel();
+    }
+  }
+
+  /// Keeps the outstanding-order card fresh while this screen is open.
+  ///
+  /// Without it the card only moved on resume, so a user sitting here waiting
+  /// for their drink watched a stale "still being made" indefinitely — on the
+  /// very screen they land on. Uses the order poll interval rather than the
+  /// queue's: this is one person's drink, not a shared work queue.
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(
+      ApiConfig.orderPollInterval,
+      (_) => ref.invalidate(myOrdersProvider),
+    );
+  }
+
+  Future<void> _prepareAlerts() async {
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
+
+    await ref
+        .read(orderAlertsProvider)
+        .initialise(
+          readyChannelName: l10n.channelReadyName,
+          readyChannelDescription: l10n.channelReadyDescription,
+          cancelledChannelName: l10n.channelCancelledName,
+          cancelledChannelDescription: l10n.channelCancelledDescription,
+        );
   }
 
   Future<void> _placeOrder() async {
