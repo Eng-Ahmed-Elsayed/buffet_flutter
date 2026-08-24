@@ -217,6 +217,22 @@
   "@markReady": { "description": "Secondary staff action — /ready. This is what deducts stock." },
   "markDelivered": "تم التسليم",
   "@markDelivered": { "description": "Completes an order already in Ready." },
+  "dismiss": "إغلاق",
+  "@dismiss": { "description": "Closes an inline banner." },
+  "orderForMyself": "اطلب مشروبًا",
+  "@orderForMyself": {
+    "description": "Staff opening the composer from the queue to make their own drink."
+  },
+  "selfOrderCompleted": "تم تجهيز الطلب رقم {orderId} وتسليمه.",
+  "@selfOrderCompleted": {
+    "description": "Confirmation after a staff self-order, which is served on placement.",
+    "placeholders": { "orderId": { "type": "int" } }
+  },
+  "preparedWithShortages": "تم التجهيز، لكن المخزون لم يكفِ: {names}",
+  "@preparedWithShortages": {
+    "description": "The drink was still made — a shortfall is for an admin to reconcile, not a failure.",
+    "placeholders": { "names": { "type": "String" } }
+  },
   "servingOrder": "جارٍ التجهيز…",
   "@servingOrder": {
     "description": "Label on the in-card pending bar, while the action waits out its undo window."

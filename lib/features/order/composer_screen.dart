@@ -16,7 +16,10 @@ import '../../theme/dimens.dart';
 import '../../theme/motion.dart';
 import '../auth/auth_controller.dart';
 import 'composer_controller.dart';
+import 'my_orders_screen.dart';
+import 'self_order_outcome.dart';
 import 'widgets/drink_tile.dart';
+import 'widgets/outstanding_order_card.dart';
 import 'widgets/sugar_stepper.dart';
 
 /// Fetches the catalogue in one round trip.
@@ -42,8 +45,29 @@ class ComposerScreen extends ConsumerStatefulWidget {
   ConsumerState<ComposerScreen> createState() => _ComposerScreenState();
 }
 
-class _ComposerScreenState extends ConsumerState<ComposerScreen> {
+class _ComposerScreenState extends ConsumerState<ComposerScreen>
+    with WidgetsBindingObserver {
   bool _placing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // A drink can turn Ready while the app is in the background. Re-reading
+    // on resume is what makes the card honest for the user who closed the app
+    // to wait — the case this whole card is for.
+    if (state == AppLifecycleState.resumed) ref.invalidate(myOrdersProvider);
+  }
 
   Future<void> _placeOrder() async {
     final l10n = AppLocalizations.of(context);
@@ -67,6 +91,27 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
       // 201 duplicate:false and 200 duplicate:true are both success — the
       // second means a retry matched an existing order. Same confirmation.
       ref.read(composerControllerProvider.notifier).resetAfterConfirmedOrder();
+      // The new order belongs in the outstanding list the moment it exists,
+      // so the card is already there when the user comes back here.
+      ref.invalidate(myOrdersProvider);
+
+      // A staff member's own order is already made and handed over — they were
+      // standing at the machine. Opening a status screen would poll an order
+      // that will never move, so the confirmation goes back to the queue with
+      // them instead.
+      if (result.autoServed) {
+        final outcome = SelfOrderOutcome(
+          orderId: result.orderId,
+          shortageNames: result.shortageNames,
+        );
+        if (context.canPop()) {
+          context.pop(outcome);
+        } else {
+          context.go(Routes.queue);
+        }
+        return;
+      }
+
       context.go(Routes.orderStatusFor(result.orderId));
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -188,6 +233,7 @@ class _ComposerBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final controller = ref.read(composerControllerProvider.notifier);
+    final outstanding = ref.watch(outstandingOrdersProvider);
 
     return Column(
       children: [
@@ -195,6 +241,21 @@ class _ComposerBody extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsetsDirectional.all(Dimens.space4),
             children: [
+              // Above even the usual order: a drink already owed to the user
+              // outranks placing another. This is the whole reason the card
+              // exists — closing the app while waiting is normal, and on the
+              // next launch this screen is where they land.
+              if (outstanding.isNotEmpty) ...[
+                OutstandingOrderCard(
+                  order: outstanding.first,
+                  othersCount: outstanding.length - 1,
+                  onTap: () => context.push(
+                    Routes.orderStatusFor(outstanding.first.orderId),
+                  ),
+                ),
+                const SizedBox(height: Dimens.space4),
+              ],
+
               // The usual order is the single highest-value feature in the
               // app — one tap, at the top (§7.1).
               if (catalogue.usual != null) ...[

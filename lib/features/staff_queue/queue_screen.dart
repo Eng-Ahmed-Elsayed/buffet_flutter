@@ -16,6 +16,7 @@ import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../order/self_order_outcome.dart';
 import 'pending_action.dart';
 import 'widgets/queue_card.dart';
 
@@ -59,6 +60,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
 
   /// Warnings from the most recent serve, shown on the card afterwards.
   final Map<int, List<StockWarningDto>> _recentWarnings = {};
+
+  /// The result of a self-order just placed, shown as a banner above the tabs.
+  SelfOrderOutcome? _selfOrderOutcome;
 
   /// Held so [_flushPending] can send from `dispose`, where `ref` has already
   /// been torn down and reading it throws.
@@ -398,6 +402,18 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     }
   }
 
+  /// Opens the composer so a staff member can make their own drink.
+  ///
+  /// `push`, not `go`: the queue is their home and stays beneath, so the
+  /// composer's back arrow returns them to work rather than to the catalogue.
+  Future<void> _orderForMyself() async {
+    final outcome = await context.push<SelfOrderOutcome>(Routes.catalogue);
+    if (!mounted || outcome == null) return;
+
+    setState(() => _selfOrderOutcome = outcome);
+    await _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -426,6 +442,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                 ),
               ),
             ),
+            // Staff drink too, and had no way into the composer at all — the
+            // queue is their home screen and nothing linked out of it.
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline),
+              tooltip: l10n.orderForMyself,
+              onPressed: _orderForMyself,
+            ),
             IconButton(
               icon: const Icon(Icons.settings_outlined),
               tooltip: l10n.settings,
@@ -446,53 +469,87 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
           ),
         ),
 
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _errorMessage != null && _queue.isEmpty && _handovers.isEmpty
-            ? EmptyState(
-                icon: Icons.cloud_off_outlined,
-                title: l10n.genericError,
-                body: _errorMessage!,
-                action: OutlinedButton.icon(
-                  onPressed: _refresh,
-                  icon: const Icon(Icons.refresh),
-                  label: Text(l10n.retry),
+        body: Column(
+          children: [
+            if (_selfOrderOutcome case final outcome?)
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  Dimens.space4,
+                  Dimens.space3,
+                  Dimens.space4,
+                  0,
                 ),
-              )
-            : TabBarView(
-                controller: _tabController,
-                children: [
-                  _QueueList(
-                    orders: _queue,
-                    pending: _pendingActions,
-                    onUndo: _undo,
-                    warnings: _recentWarnings,
-                    emptyTitle: l10n.emptyQueueTitle,
-                    emptyBody: l10n.emptyQueueBody,
-                    onRefresh: _refresh,
-                    onMarkReady: _markReadyAfterUndoWindow,
-                    onComplete: null,
-                    onCancel: _cancel,
+                child: InlineBanner(
+                  // Neither is dismissed on a timer. A shortage names stock
+                  // that has drifted and somebody should read it; the success
+                  // case is the only confirmation a self-order ever gets,
+                  // since there is no status screen to send them to.
+                  tone: outcome.hasShortages
+                      ? BannerTone.warning
+                      : BannerTone.info,
+                  title: outcome.hasShortages
+                      ? l10n.preparedWithShortages(outcome.shortageNames!)
+                      : l10n.selfOrderCompleted(outcome.orderId),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: l10n.dismiss,
+                    onPressed: () => setState(() => _selfOrderOutcome = null),
                   ),
-                  _QueueList(
-                    orders: _handovers,
-                    pending: _pendingActions,
-                    onUndo: _undo,
-                    warnings: _recentWarnings,
-                    emptyTitle: l10n.noHandoversTitle,
-                    emptyBody: l10n.noHandoversBody,
-                    onRefresh: _refresh,
-                    onMarkReady: null,
-                    onComplete: _complete,
-                    // Not offered on the handover list: the drink is already
-                    // made and stock already deducted, so cancelling there is
-                    // the wrong remedy.
-                    onCancel: null,
-                  ),
-                ],
+                ),
               ),
+            Expanded(child: _body(l10n)),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _body(AppLocalizations l10n) {
+    return _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _errorMessage != null && _queue.isEmpty && _handovers.isEmpty
+        ? EmptyState(
+            icon: Icons.cloud_off_outlined,
+            title: l10n.genericError,
+            body: _errorMessage!,
+            action: OutlinedButton.icon(
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh),
+              label: Text(l10n.retry),
+            ),
+          )
+        : TabBarView(
+            controller: _tabController,
+            children: [
+              _QueueList(
+                orders: _queue,
+                pending: _pendingActions,
+                onUndo: _undo,
+                warnings: _recentWarnings,
+                emptyTitle: l10n.emptyQueueTitle,
+                emptyBody: l10n.emptyQueueBody,
+                onRefresh: _refresh,
+                onMarkReady: _markReadyAfterUndoWindow,
+                onComplete: null,
+                onCancel: _cancel,
+              ),
+              _QueueList(
+                orders: _handovers,
+                pending: _pendingActions,
+                onUndo: _undo,
+                warnings: _recentWarnings,
+                emptyTitle: l10n.noHandoversTitle,
+                emptyBody: l10n.noHandoversBody,
+                onRefresh: _refresh,
+                onMarkReady: null,
+                onComplete: _complete,
+                // Not offered on the handover list: the drink is already
+                // made and stock already deducted, so cancelling there is
+                // the wrong remedy.
+                onCancel: null,
+              ),
+            ],
+          );
   }
 }
 

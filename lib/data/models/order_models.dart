@@ -96,13 +96,36 @@ class PlaceOrderApiRequest {
 /// same confirmation.
 @JsonSerializable(createToJson: false)
 class PlaceOrderResponse {
-  const PlaceOrderResponse({required this.orderId, required this.duplicate});
+  const PlaceOrderResponse({
+    required this.orderId,
+    required this.duplicate,
+    this.autoServed = false,
+    this.shortageNames,
+  });
 
   factory PlaceOrderResponse.fromJson(Map<String, dynamic> json) =>
       _$PlaceOrderResponseFromJson(json);
 
   final int orderId;
   final bool duplicate;
+
+  /// The order was made and handed over in the same call.
+  ///
+  /// True only for a staff member's own order — they are standing at the
+  /// machine, so there is no queue to wait in. The order is already
+  /// `Completed`, so **do not open a status screen to poll it**: there is
+  /// nothing left to watch.
+  ///
+  /// Defaults to false so a server that predates the field is read as no,
+  /// which is the behaviour every other role gets anyway.
+  @JsonKey(defaultValue: false)
+  final bool autoServed;
+
+  /// Items that went short while auto-serving, already joined for display.
+  ///
+  /// **Not a failure**: the drink was made and the ledger written. It means
+  /// physical and recorded stock have drifted, which an admin reconciles.
+  final String? shortageNames;
 }
 
 /// Mirrors `OrderSummaryDto` in ApiContracts.cs.
