@@ -37,6 +37,27 @@ void main() {
       expect(controller.state.idempotencyKey, key);
     });
 
+    test('losing the privilege leaves guest mode, not just the name', () {
+      final controller = ComposerController()
+        ..setCanOrderForGuests(true)
+        ..setMode(OrderMode.guest)
+        ..setOnBehalfOfName('ضيف الوزارة')
+        ..selectDrink(_item());
+
+      // Revoked mid-session — a catalogue refetch or a language switch is
+      // enough to re-read it.
+      controller.setCanOrderForGuests(false);
+
+      // Nulling the name while STAYING in guest mode was a dead end: the order
+      // could never be placed (guestNameMissing stays true) while the screen,
+      // which falls back to a self order, no longer shows the field that would
+      // clear it. The only way out was killing the app.
+      expect(controller.state.mode, OrderMode.self);
+      expect(controller.state.onBehalfOfName, isNull);
+      expect(controller.state.guestNameMissing, isFalse);
+      expect(controller.state.canPlaceOrder, isTrue);
+    });
+
     test('leaving guest mode drops the guest name', () {
       final controller = ComposerController()
         ..setCanOrderForGuests(true)

@@ -208,12 +208,17 @@ class _OrderRow extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: Dimens.space2),
-                // Colour is never the only signal: the status is spelled out
-                // in words beside it (§2.5).
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelMedium
-                      ?.copyWith(color: tone),
+                // Constrained rather than free: at a large text scale the
+                // status word alone was wider than the row and pushed the
+                // chevron off the edge. It still always shows — colour is
+                // never the only signal (§2.5) — it just wraps instead.
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.end,
+                    style: Theme.of(context).textTheme.labelMedium
+                        ?.copyWith(color: tone),
+                  ),
                 ),
                 const Icon(Icons.chevron_right, size: 18),
               ],

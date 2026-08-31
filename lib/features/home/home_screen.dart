@@ -197,39 +197,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: Dimens.space3),
               ],
 
-              GridView.count(
-                crossAxisCount: 2,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: Dimens.space3,
-                crossAxisSpacing: Dimens.space3,
-                childAspectRatio: 1.45,
-                children: [
-                  _ActionTile(
-                    icon: Icons.receipt_long_outlined,
-                    label: l10n.homeMyOrders,
-                    onTap: () => context.push(Routes.myOrders),
-                  ),
-                  _ActionTile(
-                    icon: Icons.inventory_2_outlined,
-                    label: l10n.homeMyMaterials,
-                    onTap: () => context.push(Routes.materials),
-                  ),
-                  _ActionTile(
-                    icon: Icons.notifications_none_outlined,
-                    label: l10n.homeNotifications,
-                    // The same count the bell shows, from the same provider —
-                    // two entry points that could disagree would be worse than
-                    // one.
-                    badgeCount: unread,
-                    onTap: () => context.push(Routes.notifications),
-                  ),
-                  _ActionTile(
-                    icon: Icons.settings_outlined,
-                    label: l10n.homeSettings,
-                    onTap: () => context.push(Routes.settings),
-                  ),
-                ],
+              // A LayoutBuilder-sized Wrap rather than a GridView: a grid's
+              // childAspectRatio fixes the tile HEIGHT, so a label that needs
+              // more room than the ratio allows overflows rather than growing
+              // — which it did at the DEFAULT text scale on a 320dp phone,
+              // and badly at the accessibility scales. Tiles now size to their
+              // content and simply get taller.
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final tileWidth = (constraints.maxWidth - Dimens.space3) / 2;
+                  return Wrap(
+                    spacing: Dimens.space3,
+                    runSpacing: Dimens.space3,
+                    children: [
+                      _ActionTile(
+                        width: tileWidth,
+                        icon: Icons.receipt_long_outlined,
+                        label: l10n.homeMyOrders,
+                        onTap: () => context.push(Routes.myOrders),
+                      ),
+                      _ActionTile(
+                        width: tileWidth,
+                        icon: Icons.inventory_2_outlined,
+                        label: l10n.homeMyMaterials,
+                        onTap: () => context.push(Routes.materials),
+                      ),
+                      _ActionTile(
+                        width: tileWidth,
+                        icon: Icons.notifications_none_outlined,
+                        label: l10n.homeNotifications,
+                        // The same count the bell shows, from the same
+                        // provider — two entry points that could disagree
+                        // would be worse than one.
+                        badgeCount: unread,
+                        onTap: () => context.push(Routes.notifications),
+                      ),
+                      _ActionTile(
+                        width: tileWidth,
+                        icon: Icons.settings_outlined,
+                        label: l10n.homeSettings,
+                        onTap: () => context.push(Routes.settings),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -331,11 +342,17 @@ class _PrimaryActionTile extends StatelessWidget {
 /// One square in the secondary grid.
 class _ActionTile extends StatelessWidget {
   const _ActionTile({
+    required this.width,
     required this.icon,
     required this.label,
     required this.onTap,
     this.badgeCount = 0,
   });
+
+  /// Half the row, measured by the parent. The tile sets its own height from
+  /// its content, so a long label or a large text scale makes it taller rather
+  /// than overflowing it.
+  final double width;
 
   final IconData icon;
   final String label;
@@ -355,14 +372,15 @@ class _ActionTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(Dimens.radiusLg),
         child: Container(
-          constraints: const BoxConstraints(minHeight: Dimens.minTarget),
+          width: width,
+          constraints: const BoxConstraints(minHeight: Dimens.minTarget * 1.6),
           padding: const EdgeInsetsDirectional.all(Dimens.space3),
           decoration: BoxDecoration(
             border: Border.all(color: BrandColors.brandLight),
             borderRadius: BorderRadius.circular(Dimens.radiusLg),
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Stack(

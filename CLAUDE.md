@@ -195,6 +195,12 @@ Not a workflow — these hold on every edit, whether or not a skill was invoked.
   `PopScope` that routes somewhere sensible.
 - **Never hardcode a colour, duration, radius or spacing value.** They live in `lib/theme/`. A
   literal in a widget is a bug even when it looks right.
+- **A fixed `childAspectRatio` on a grid of text is a bug.** It dictates the tile *height*, so a
+  label needing more room overflows instead of growing — this shipped twice, and overflowed at the
+  **default** text scale on a 320dp phone, not merely at the accessibility scales. Size tiles from
+  their content (`Wrap` + a measured width, or `mainAxisExtent`) and let them get taller.
+  `test/features/responsive_layout_test.dart` holds every screen to 320dp at 1x/1.5x/2x in both
+  locales; it catches this class of bug and nothing else does.
 - **Use `AppCard` and `SectionHeader`** (`lib/shared/widgets/`) rather than rebuilding the
   surface-plus-hairline-border container or a bare `labelLarge` heading. Six copies of the card had
   accumulated; they agreed by coincidence, which is how a palette edit starts missing one.

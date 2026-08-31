@@ -31,9 +31,14 @@ class UsualOrderCard extends StatelessWidget {
             children: [
               const Icon(Icons.refresh, size: 18, color: BrandColors.brand),
               const SizedBox(width: Dimens.space2),
-              Text(
-                l10n.usualOrder,
-                style: Theme.of(context).textTheme.titleSmall,
+              // Expanded so the heading wraps rather than pushing itself off
+              // the edge: at a large text scale on a narrow phone the icon
+              // plus this label was wider than the card.
+              Expanded(
+                child: Text(
+                  l10n.usualOrder,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
             ],
           ),

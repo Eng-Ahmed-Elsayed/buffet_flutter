@@ -362,7 +362,18 @@ class ComposerController extends StateNotifier<ComposerState> {
         ? state.copyWith(canOrderForGuests: true)
         // A privilege that has gone away cannot leave a guest name behind: the
         // server would reject it, and until then it would wrongly lift the cap.
-        : state.copyWith(canOrderForGuests: false, onBehalfOfName: () => null);
+        //
+        // It cannot leave the session in guest MODE either. Guest mode is
+        // unreachable without the privilege, and a session stranded in it with
+        // the name nulled can never be placed — `guestNameMissing` stays true
+        // while the screen, which has already fallen back to a self order,
+        // no longer shows the field that would clear it. That is a dead end
+        // with no way out but killing the app.
+        : state.copyWith(
+            canOrderForGuests: false,
+            onBehalfOfName: () => null,
+            mode: OrderMode.self,
+          );
   }
 
   /// Records whether this session composes for the user or for a guest.

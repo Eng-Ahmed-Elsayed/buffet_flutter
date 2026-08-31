@@ -23,6 +23,7 @@ import 'order_mode.dart';
 import 'self_order_outcome.dart';
 import 'widgets/drink_tile.dart';
 import 'widgets/sugar_stepper.dart';
+import 'widgets/usual_order_card.dart';
 
 /// Fetches the catalogue in one round trip.
 final catalogueProvider = FutureProvider.autoDispose<CatalogueResponse>((
@@ -233,6 +234,15 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
             _applySeedUsual(data);
           });
 
+          // The field is the only part of the guest name the user can see, so
+          // it must agree with the state it stands for. The state can be
+          // cleared from underneath it — a confirmed order resets it, and a
+          // revoked privilege nulls it — and a field still showing a name the
+          // order will not carry is worse than an empty one: the button goes
+          // dead with an error asking for a name that is visibly already
+          // there.
+          _syncGuestNameField(composer.onBehalfOfName);
+
           return _ComposerBody(
             catalogue: data,
             composer: composer,
@@ -250,6 +260,23 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
         },
       ),
     );
+  }
+
+  /// Keeps the guest-name field showing whatever the state actually holds.
+  ///
+  /// Only ever writes when the two have genuinely diverged, so it cannot fight
+  /// the user mid-keystroke or move their cursor while they type.
+  void _syncGuestNameField(String? name) {
+    final text = name ?? '';
+    if (_guestNameController.text == text) return;
+
+    _guestNameController.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+    // A field cleared from underneath the user has not been "touched" by them,
+    // so it must not carry a validation error into its next use.
+    if (text.isEmpty) _guestNameTouched = false;
   }
 
   /// Fills the draft from the usual order, once, when the hub asked for it.
@@ -330,6 +357,23 @@ class _ComposerBody extends ConsumerWidget {
                     textInputAction: TextInputAction.next,
                     onChanged: controller.setOnBehalfOfName,
                   ),
+                ),
+                const SizedBox(height: Dimens.space4),
+              ],
+
+              // The usual stays HERE as well as on the hub, and not as a
+              // duplicate: staff reach this screen by pushing it from the
+              // queue and never see the hub at all, so removing it from the
+              // composer took the feature away from them entirely. It is one
+              // tap from the ordering screen for both roles (§12).
+              //
+              // Hidden once anything has been composed — replacing a drink
+              // the user has already chosen is not a "repeat".
+              if (catalogue.usual case final UsualOrderDto usual
+                  when composer.allLines.isEmpty) ...[
+                UsualOrderCard(
+                  usual: usual,
+                  onApply: () => controller.applyUsual(usual, catalogue.drinks),
                 ),
                 const SizedBox(height: Dimens.space4),
               ],
@@ -587,11 +631,16 @@ List<Widget> _groupedDrinks({
       GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
+        // maxCrossAxisExtent, not a fixed count with a fixed ratio: the
+        // ratio dictated the tile HEIGHT, so a two-line drink name overflowed
+        // it — on a 320dp phone at the DEFAULT text scale, and worse at the
+        // accessibility scales. An extent keeps three columns on an ordinary
+        // phone, drops to two on a narrow one, and adds a fourth on a tablet.
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 128,
           mainAxisSpacing: Dimens.space3,
           crossAxisSpacing: Dimens.space3,
-          childAspectRatio: 0.82,
+          mainAxisExtent: 132,
         ),
         itemCount: items.length,
         itemBuilder: (context, index) {

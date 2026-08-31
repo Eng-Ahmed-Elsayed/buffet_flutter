@@ -1,6 +1,7 @@
 import 'package:buffet_app/data/models/auth_models.dart';
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
+import 'package:buffet_app/features/order/composer_controller.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
@@ -401,6 +402,95 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('اكتب اسم الضيف لإتمام الطلب.'), findsOneWidget);
+    });
+  });
+
+  group('the usual order is one tap from the ordering screen (§12)', () {
+    CatalogueResponse withUsual() => CatalogueResponse(
+      drinks: [_item(1, 'قهوة', 'Drink')],
+      sugars: const [],
+      extras: const [],
+      locations: const [],
+      usual: const UsualOrderDto(summary: 'قهوة بدون سكر', lines: []),
+    );
+
+    testWidgets('it is offered on the composer itself', (tester) async {
+      await _pumpTall(tester, _app(withUsual()));
+
+      // It lives on the hub too, but staff reach this screen by pushing it
+      // from the queue and never see the hub — so a usual that existed only
+      // there took the feature away from them entirely.
+      expect(find.text('اطلب مرة أخرى'), findsOneWidget);
+    });
+
+    testWidgets('it steps aside once a drink has been added', (tester) async {
+      await _pumpTall(tester, _app(withUsual()));
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أضف مشروبًا آخر'));
+      await tester.pumpAndSettle();
+
+      // Replacing drinks the user has already chosen is not a "repeat".
+      expect(find.text('اطلب مرة أخرى'), findsNothing);
+    });
+  });
+
+  group('the guest field shows what the order will actually carry', () {
+    testWidgets('a confirmed order clears the visible name, not just state', (
+      tester,
+    ) async {
+      late WidgetRef captured;
+
+      await _pumpTall(
+        tester,
+        ProviderScope(
+          overrides: [
+            catalogueProvider.overrideWith(
+              (ref) async => CatalogueResponse(
+                drinks: [_item(1, 'قهوة', 'Drink')],
+                sugars: const [],
+                extras: const [],
+                locations: const [],
+                usual: null,
+              ),
+            ),
+            canOrderForGuestsProvider.overrideWith((ref) => true),
+          ],
+          child: MaterialApp(
+            locale: const Locale('ar'),
+            supportedLocales: const [Locale('ar'), Locale('en')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: Consumer(
+              builder: (context, ref, _) {
+                captured = ref;
+                return const ComposerScreen(
+                  seed: ComposerSeed(mode: OrderMode.guest),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField).first, 'ضيف الوزارة');
+      await tester.pumpAndSettle();
+
+      captured
+          .read(composerControllerProvider.notifier)
+          .resetAfterConfirmedOrder();
+      await tester.pumpAndSettle();
+
+      // The field is the only part of the name the user can see. Left showing
+      // a name the order will not carry, the button goes dead with an error
+      // asking for a name that is visibly already there.
+      final field = tester.widget<TextField>(find.byType(TextField).first);
+      expect(field.controller?.text, isEmpty);
     });
   });
 
