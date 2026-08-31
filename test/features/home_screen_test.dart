@@ -95,6 +95,10 @@ void main() {
     ) async {
       await _pumpTall(tester, _app());
 
+      // Anchored on a tile that IS expected, so this cannot pass by rendering
+      // nothing at all — a findsNothing on a blank screen always succeeds.
+      expect(find.text('طلب جديد'), findsOneWidget);
+
       // Absent, not disabled: a disabled tile advertises a capability the user
       // cannot obtain from this screen, which is worse than silence.
       expect(find.text('طلب لضيف'), findsNothing);

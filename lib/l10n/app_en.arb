@@ -378,7 +378,5 @@
   "orderPlacedAt": "Placed",
   "@orderPlacedAt": { "description": "Label for the time an order was placed, on the order summary block." },
   "orderReadyAt": "Ready at",
-  "@orderReadyAt": { "description": "Label for the time an order became Ready." },
-  "declarationSentConfirmation": "Declaration sent — awaiting confirmation.",
-  "@declarationSentConfirmation": { "description": "Snackbar after a materials declaration is accepted with 202. Never says 'added' — nothing is created until an admin confirms." }
+  "@orderReadyAt": { "description": "Label for the time an order became Ready." }
 }

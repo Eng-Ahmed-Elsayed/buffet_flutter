@@ -481,7 +481,5 @@
   "orderPlacedAt": "وقت الطلب",
   "@orderPlacedAt": { "description": "Label for the time an order was placed, on the order summary block." },
   "orderReadyAt": "جاهز في",
-  "@orderReadyAt": { "description": "Label for the time an order became Ready." },
-  "declarationSentConfirmation": "تم إرسال الإقرار، في انتظار التأكيد.",
-  "@declarationSentConfirmation": { "description": "Snackbar after a materials declaration is accepted with 202. Never says 'added' — nothing is created until an admin confirms." }
+  "@orderReadyAt": { "description": "Label for the time an order became Ready." }
 }

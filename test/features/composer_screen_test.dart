@@ -347,6 +347,10 @@ void main() {
     ) async {
       await _pumpTall(tester, _app(oneDrink(), canOrderForGuests: true));
 
+      // Anchored on the drink picker, so this cannot pass by rendering
+      // nothing at all — a findsNothing on a blank screen always succeeds.
+      expect(find.text('قهوة'), findsOneWidget);
+
       // The field used to appear in the footer for anyone holding the
       // privilege, which made an ordinary order and a guest order look
       // identical. Self mode has no guest field at all — not an empty one.
@@ -372,6 +376,8 @@ void main() {
       tester,
     ) async {
       await _pumpTall(tester, _app(oneDrink(), mode: OrderMode.guest));
+
+      expect(find.text('قهوة'), findsOneWidget);
 
       // The privilege is read from the token's claims server-side, so offering
       // the field to someone without it would produce a rejection they could
