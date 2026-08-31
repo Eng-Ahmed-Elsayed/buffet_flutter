@@ -154,12 +154,22 @@ class _MaterialCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
+              const SizedBox(width: Dimens.space2),
               // Quantity and unit are bidi-isolated: the unit is admin-entered
               // and keeps whatever language it was typed in (§2.4).
-              Text(
-                Formatters.quantity(material.quantity, material.unit),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontFeatures: const [FontFeature.tabularFigures()],
+              //
+              // Flexible because the unit is admin-entered and the number can
+              // be negative and fractional, so this has no bounded width to
+              // rely on: at a large text scale it ran off the card. It wraps
+              // rather than truncating — a balance the reader cannot finish
+              // reading is worse than a taller card.
+              Flexible(
+                child: Text(
+                  Formatters.quantity(material.quantity, material.unit),
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
             ],

@@ -15,11 +15,14 @@ library;
 /// portrait, and Arabic is checked alongside English because the two wrap at
 /// different lengths.
 import 'package:buffet_app/data/models/catalogue_models.dart';
+import 'package:buffet_app/data/models/material_models.dart';
 import 'package:buffet_app/data/models/order_models.dart';
 import 'package:buffet_app/data/models/staff_models.dart';
 import 'package:buffet_app/data/repositories/order_repository.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/home/home_screen.dart';
+import 'package:buffet_app/features/materials/my_materials_screen.dart';
+import 'package:buffet_app/features/notifications/notifications_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
@@ -87,6 +90,8 @@ Widget _wrap(Widget home, double scale, Locale locale) => ProviderScope(
     catalogueProvider.overrideWith((r) async => _cat),
     canOrderForGuestsProvider.overrideWith((r) => true),
     myOrdersProvider.overrideWith((r) async => _orders),
+    myMaterialsProvider.overrideWith((r) async => _materials),
+    notificationsProvider.overrideWith((r) async => _notifications),
   ],
   child: MaterialApp(
     locale: locale,
@@ -192,6 +197,32 @@ class _RoutedStatus extends StatelessWidget {
   );
 }
 
+/// Worst-case materials: a long Arabic name beside a negative, fractional
+/// balance in an admin-entered unit. The balance is allowed to go negative —
+/// shortages never block serving — so this is a real row, not a contrived one.
+final _materials = [
+  const MyMaterialDto(
+    itemId: 1,
+    nameAr: 'قهوة تركي محوجة درجة أولى',
+    unit: 'جرام',
+    quantity: -250.5,
+    servingsLeft: 0,
+    level: 'Out',
+    imageUrl: null,
+  ),
+];
+
+final _notifications = [
+  NotificationDto(
+    notificationId: 1,
+    kind: 'OrderReady',
+    message: 'مشروبك رقم ٤١ جاهز للاستلام من البوفيه في الدور الثالث',
+    orderId: 41,
+    createdAtUtc: DateTime.utc(2026, 8, 20, 7),
+    isRead: false,
+  ),
+];
+
 void main() {
   final screens = <String, Widget>{
     'home': const HomeScreen(),
@@ -201,6 +232,8 @@ void main() {
     ),
     'my-orders': const MyOrdersScreen(),
     'settings': const SettingsScreen(),
+    'materials': const MyMaterialsScreen(),
+    'notifications': const NotificationsScreen(),
     // The busiest screen in the app, with a worst-case card: long names, a
     // guest, a note and a preparation. Its drink-name row was unbounded and
     // ran 210dp off a 320dp card at 2x.
@@ -224,7 +257,25 @@ void main() {
           t.view.devicePixelRatio = 1;
           addTearDown(t.view.reset);
           await t.pumpWidget(_wrap(entry.value, scale, locale));
-          await t.pumpAndSettle();
+          // Enough pumps for the providers to deliver and the list to build.
+          // NOT pumpAndSettle: a screen carrying an Image.network never
+          // settles under test. Two frames were not enough — the materials
+          // list had not built its rows yet, so the check passed by measuring
+          // an empty screen.
+          for (var i = 0; i < 8; i++) {
+            await t.pump(const Duration(milliseconds: 50));
+          }
+          // A screen still spinning has no layout to check, and an overflow
+          // test that measures a spinner passes for the wrong reason — which
+          // this one silently did until a provider override was found missing.
+          // Fail loudly instead.
+          expect(
+            find.byType(CircularProgressIndicator),
+            findsNothing,
+            reason:
+                '${entry.key} never finished loading, so nothing was measured',
+          );
+
           // A RenderFlex overflow surfaces as a test exception. Every one of
           // these combinations used to raise one somewhere.
           expect(
