@@ -29,7 +29,7 @@ The gaps were *behavioural*. They fall into three kinds, and the kind determines
 | 2 | No guest view | **B** | ✅ `canOrderForGuests`; cap lifts on guest orders | Guest field, gated |
 | 3 | Materials not grouped "mine" vs "buffet" | **A** | — nothing needed | Sectioned picker |
 | 4 | First login asks for the current password | **C** | ✅ `/auth/set-initial-password` (+ web fixed) | Skip field when forced |
-| 5 | "Usual" is just the last order | **C** | ⬜ **Not built** — favourites need a new table | Relabel to "آخر طلب" |
+| 5 | "Usual" is just the last order | **C** | ✅ `/favourites` + `saveAsFavourite` | Favourites strip + toggle |
 | 6 | Composer doesn't show a drink's extras | **B** | ✅ `allowedExtraItemIds` | Filter the extras row |
 | 7 | Arabic notes stored as `?` | — | ⬜ **Deployed DB schema**, not code (see §7) | None |
 | 8 | No double-portion warning | **B** | ✅ `variants[].ingredientItemIds` | Mark chip + hint |
@@ -50,8 +50,10 @@ is a breaking change** and the client can adopt them one at a time:
 | Forced change-password no longer asks for the old one | `AccountController.cs`, `ChangePassword.cshtml` |
 | `VariantDto.ingredientItemIds` | `ApiContracts.cs`, populated in `/catalogue` |
 | `POST /materials/declare-new` | `EmployeeApi.cs`, reusing `CreatePersonalItemAsync` |
+| `GET`/`POST`/`DELETE /favourites` | `EmployeeApi.cs`, `FavouriteService.cs`, three new tables |
+| `saveAsFavourite` / `fromFavouriteId` on `POST /orders` | `ApiContracts.cs`, `EmployeeApi.cs` |
 
-Covered by `EmployeeApiParityTests.cs` — 16 tests over real HTTP, including the negative cases: a
+Covered by `EmployeeApiParityTests.cs` and `FavouritesApiTests.cs` — 26 tests over real HTTP, including the negative cases: a
 settled user cannot reach the initial-password route, the route refuses a second call, and the guest
 privilege alone does not lift the cap on an ordinary order. `OrderFulfillmentServiceTests.cs` gains
 one more, pinning the double deduction that §8 exists to warn about.
@@ -229,51 +231,79 @@ the new endpoint; keep the existing screen and endpoint for voluntary changes fr
 
 ## 5. "Usual order" — and favourites
 
-**Kind C. ⬜ Not built on either side.** Favourites need a new table, so this is the one
-item deliberately left for a later pass. The guide has been relabelled in the meantime.
+**Kind C. Backend done ✅ — Flutter work remains.** Both halves now exist, and they are deliberately
+different things.
 
-The reading is correct: it is the last order, nothing more.
+The original reading was correct: `usual` is the last order, nothing more.
 
 ```csharp
 // EmployeeApi.cs
 var last = orders.FirstOrDefault(o => o.Status != OrderStatus.Cancelled && o.Lines.Count > 0);
 ```
 
-One non-cancelled order, most recent. No frequency, no weighting. Order something unusual once for a
-visitor and it becomes your "usual" until you order again.
+Order something unusual once for a visitor and it becomes your "usual" until you order again. That
+is why the label is "آخر طلب" and why favourites had to be *stated* rather than guessed.
 
-**The irony is that a real implementation already exists.** `ReportingService.EmployeePreferences`
-computes the genuine article — most-ordered drink, mean sugar rounded to one decimal, and extras
-appearing on **a third or more** of the user's drinks, suppressed entirely below
-`MinimumPreferenceSample = 3` so a single order is never mistaken for a habit. It is used for admin
-reporting only and never surfaced to the employee who generated it.
+### What shipped
 
-The instinct to prefer explicit favourites over a guess is the better product answer, and the two
-should coexist. Favourites are *stated*; the computed usual is a *suggestion* for someone who has
-never saved one. Recommendation: ship both, label them differently, and never call a computed guess
-"favourite".
+Three tables — `Favourites`, `FavouriteLines`, `FavouriteExtras` — in migration `AddFavourites`,
+plus `FavouriteService` and three endpoints:
 
-**Backend:**
+| | | |
+|---|---|---|
+| `GET` | `/favourites` | `{ favourites: [...], maxFavourites: 20 }` |
+| `POST` | `/favourites` | `{ name?, lines }` → `201` with the saved favourite |
+| `DELETE` | `/favourites/{id}` | `204`; `404` (never `403`) on someone else's |
 
-1. **Favourites** — new table `OrderFavourites` (`FavouriteId`, `Username`, `NameAr`,
-   `CreatedAtUtc`) with child lines reusing the `OrderLineDto` shape.
-   - `GET /api/v1/favourites` → `IReadOnlyList<FavouriteOrderDto>`
-   - `POST /api/v1/favourites` `{ nameAr, lines }` → `201`
-   - `DELETE /api/v1/favourites/{id}` → `204`, ownership-checked, `404` (not `403`) on someone
-     else's, matching the existing convention on orders.
-   - Add `bool SaveAsFavourite` + `string? FavouriteName` to `PlaceOrderApiRequest` (appended last)
-     so the composer's toggle saves in the same round trip.
-   - **Store item ids, not just names**, so a favourite can be re-ordered rather than only read —
-     and re-validate on replay, since an item may since have been deactivated. A favourite naming a
-     dead item should degrade to a warning, not a `500`.
-2. **Keep `Usual`, add `Favourites`.** `UsualOrderDto.Summary` is Arabic prose built for display;
-   keep it, and add `IReadOnlyList<FavouriteOrderDto> Favourites` to `CatalogueResponse` alongside it.
-3. **Optionally** promote `EmployeePreferences` into the usual computation, so `Usual` becomes the
-   real habit instead of the last order. Cheap — the algorithm is written and tested.
+And on `POST /orders`, three appended fields: `saveAsFavourite`, `favouriteName`, and
+`fromFavouriteId` — so the composer's toggle saves in the same round trip and replaying a favourite
+stamps it as used.
 
-**Flutter:** a favourites strip above the drink grid; a "احفظ كطلب مفضل" toggle in the composer with
-an optional name; long-press to delete. Keep the existing one-tap repeat for `Usual`, labelled as
-"آخر طلب" (*last order*) until the computed version ships — the current label overpromises.
+`favouriteId` comes back on `PlaceOrderResponse` when one was saved.
+
+### Four decisions worth knowing about
+
+1. **A favourite is a template, never a promise.** It stores ids, and replaying one goes through
+   `OrderService.PlaceAsync` like any other order — so the buffet cap, the allowed-extras rule and
+   every shortage check run against today's state. A favourite saved when a drink existed and
+   replayed after it was retired is a rejected order, with a reason the user can act on. This is
+   what the original request meant by "re-validate on replay", and it comes free: nothing about the
+   replay path is special.
+
+2. **Saving is validated; reading is not.** `POST /favourites` rejects an item that does not exist
+   or is the wrong category for its slot — a sugar named as the drink is something the composer
+   could never produce but a hand-written request can. `GET /favourites` does **not** filter: an
+   item retired since the favourite was saved still comes back. Hiding it would make the favourite
+   silently disappear with no explanation; showing it lets the order be the thing that fails.
+
+3. **Not bundled into `/catalogue`**, which is the one place I diverged from the original proposal.
+   The guide tells clients to cache the catalogue and refresh on resume — correct for a list of
+   drinks, wrong for a list that changes every time the user saves one. Bundling them would leave a
+   just-saved favourite invisible until the next resume. Separate endpoint, fetched with the order
+   screen.
+
+4. **`saveAsFavourite` never fails the order.** The drink is already made by the time the favourite
+   is written, so a full list or a since-retired item returns a null `favouriteId` rather than an
+   error. It is also ignored on an idempotent retry, so a client resending after a dropped response
+   does not end up with two copies of the same favourite.
+
+There is a cap of **20 per user** (`maxFavourites` on the list response, so the client can disable
+the save control rather than let someone compose one and be refused). A limit exists at all because
+this list is entirely client-driven and otherwise unbounded.
+
+### Still not done: the computed usual
+
+`ReportingService.EmployeePreferences` still computes the genuine article — most-ordered drink, mean
+sugar, extras appearing on a third or more of the user's drinks, suppressed below
+`MinimumPreferenceSample = 3` — and is still admin-reporting only.
+
+Deliberately left alone. With favourites shipped, the case for promoting a guess into the "usual"
+slot is much weaker: someone who wants a repeat order can now say so explicitly. Worth revisiting
+only if people turn out not to save any.
+
+**Flutter:** a favourites strip above the drink grid, a "احفظ كطلب مفضل" toggle with an optional
+name in the composer, and long-press to delete. Keep the one-tap repeat for `usual`, still labelled
+"آخر طلب" — it is a different thing and should keep looking like one.
 
 ---
 
@@ -344,11 +374,10 @@ The backend is no longer the blocker on anything. Remaining work, in the order t
    source is what makes the buffet cap comprehensible, so building either alone is wasted effort.
 4. **§2 — the guest field**, gated on `canOrderForGuests`, with the relaxed cap when a guest is
    named. Depends on §1 being done first.
-5. **§9 — the "الصنف غير مدرج" form.** Independent of the composer work: it lives in the 
+5. **§5 — favourites.** The strip and the composer toggle. Independent of the composer rework
+   above, since both endpoints take the line shape the client already builds.
+6. **§9 — the "الصنف غير مدرج" form.** Independent of the composer work too: it lives in the
    declare sheet, not the order screen, so it can be built at any point.
-6. **§5 — favourites.** Not started on either side. Needs a new table and endpoints before any
-   client work; until then the guide relabels "الطلب المعتاد" to "آخر طلب", which is what the field
-   actually contains.
 7. **§7 — the deployed database's collation.** Independent of all of the above, and the only one
    that blocks users outright today: Arabic free text cannot be written at all until it is fixed.
 
