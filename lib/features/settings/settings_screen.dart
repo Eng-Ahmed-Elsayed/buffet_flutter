@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/locale_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/app_card.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../auth/auth_controller.dart';
@@ -120,13 +121,7 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsetsDirectional.all(Dimens.space4),
-      decoration: BoxDecoration(
-        color: BrandColors.surface,
-        border: Border.all(color: BrandColors.brandLight),
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-      ),
+    return AppCard(
       child: Row(
         children: [
           // The mark alone: direction-neutral, unlike the Latin lockup.

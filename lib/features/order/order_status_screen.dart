@@ -14,12 +14,14 @@ import '../../data/models/order_models.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
+import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/source_chip.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'composer_screen.dart';
 import 'my_orders_screen.dart';
+import 'order_mode.dart';
 
 /// Live status for one order.
 ///
@@ -165,6 +167,33 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
 
+    // Destructive and irreversible, so it is confirmed — as the staff-side
+    // cancellation already was. The two sides of the same domain action
+    // disagreeing about that was the inconsistency, and this side was the
+    // one that was wrong.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.cancelOrderConfirmTitle),
+        content: Text(l10n.cancelOrderConfirmBody),
+        actions: [
+          // Dismissing the dialog cancels the cancellation, not the order —
+          // so the dismissive action is the one that keeps it.
+          TextButton(
+            onPressed: () => context.pop(false),
+            child: Text(l10n.keepOrder),
+          ),
+          TextButton(
+            onPressed: () => context.pop(true),
+            style: TextButton.styleFrom(foregroundColor: BrandColors.danger),
+            child: Text(l10n.cancelOrder),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
     setState(() => _cancelling = true);
     try {
       await ref
@@ -175,6 +204,16 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
             networkErrorFallback: l10n.networkError,
           );
       await _refresh();
+
+      // Say that it worked. The status header changing is easy to miss, and a
+      // destructive action that appears to do nothing invites a second tap.
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(content: Text(l10n.orderCancelledConfirmation)),
+          );
+      }
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -190,21 +229,17 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
     final l10n = AppLocalizations.of(context);
     final order = _order;
 
-    // Reached with `go`, which replaces the composer rather than stacking on
-    // it — so there is no route to pop and the system back gesture would
-    // close the app. Both the button and the gesture return to the catalogue,
-    // which is where "back" means to a user who just ordered.
-    // This screen is reached two ways, and back means something different in
-    // each. After placing an order it arrives via `go`, which REPLACES the
-    // composer — there is nothing to pop, so back goes to the catalogue.
-    // From the orders list it arrives via `push`, and back must return to that
-    // list rather than dropping the user somewhere else.
+    // Reached by `push` in both of its paths — replacing the composer after an
+    // order is placed, and stacked on the orders list — so the ordinary pop is
+    // the normal case and lands somewhere sensible either way. The fallback
+    // below is defensive: it only runs if this screen somehow has nothing
+    // beneath it, and the hub is the right place to put someone then.
     final canPopToCaller = context.canPop();
 
     return PopScope(
       canPop: canPopToCaller,
       onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) context.go(Routes.catalogue);
+        if (!didPop) context.go(Routes.home);
       },
       child: Scaffold(
         appBar: AppBar(
@@ -212,7 +247,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () =>
-                canPopToCaller ? context.pop() : context.go(Routes.catalogue),
+                canPopToCaller ? context.pop() : context.go(Routes.home),
           ),
         ),
         body: order == null
@@ -233,10 +268,20 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
                 child: ListView(
                   padding: const EdgeInsetsDirectional.all(Dimens.space4),
                   children: [
-                    _StatusHeader(status: order.orderStatus),
+                    _StatusHeader(
+                      status: order.orderStatus,
+                      guestName: order.onBehalfOfName,
+                    ),
                     const SizedBox(height: Dimens.space5),
                     _StatusTrack(status: order.orderStatus),
                     const SizedBox(height: Dimens.space5),
+
+                    // Where and when, once for the whole order. These are
+                    // properties of the ORDER, and repeating them inside every
+                    // drink card said they might differ per drink.
+                    _OrderSummary(order: order),
+                    const SizedBox(height: Dimens.space3),
+
                     for (final line in order.lines) ...[
                       _OrderLineCard(line: line, order: order),
                       const SizedBox(height: Dimens.space3),
@@ -257,10 +302,16 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
                       ),
                     ],
 
-                    if (order.orderStatus == OrderStatus.completed) ...[
+                    // Offered on a cancelled order too, not just a completed
+                    // one: having an order fall through is exactly when
+                    // somebody wants to place another.
+                    if (order.orderStatus.isSettled) ...[
                       const SizedBox(height: Dimens.space3),
                       FilledButton.icon(
-                        onPressed: () => context.go(Routes.catalogue),
+                        onPressed: () => context.pushReplacement(
+                          Routes.catalogue,
+                          extra: const ComposerSeed(),
+                        ),
                         icon: const Icon(Icons.refresh),
                         label: Text(l10n.orderAgain),
                       ),
@@ -278,9 +329,13 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
 /// `Ready` gets the loudest treatment in the app — it is the "come and collect
 /// it" moment. `Completed` is deliberately quieter (§4.3).
 class _StatusHeader extends StatelessWidget {
-  const _StatusHeader({required this.status});
+  const _StatusHeader({required this.status, this.guestName});
 
   final OrderStatus status;
+
+  /// Set when this order was placed for a visitor. Shown so an order placed
+  /// for someone else is not mistaken for one of the user's own.
+  final String? guestName;
 
   @override
   Widget build(BuildContext context) {
@@ -362,6 +417,40 @@ class _StatusHeader extends StatelessWidget {
                 ),
               ),
             ],
+            // Brand, never accent — violet means "from my own jar", which is a
+            // different question entirely from who the drink is for.
+            if (guestName case final String name
+                when name.trim().isNotEmpty) ...[
+              const SizedBox(height: Dimens.space3),
+              Container(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: Dimens.space3,
+                  vertical: Dimens.space1,
+                ),
+                decoration: BoxDecoration(
+                  color: isReady ? BrandColors.surface : BrandColors.brandLight,
+                  borderRadius: BorderRadius.circular(Dimens.radiusLg),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.person_outline,
+                      size: 14,
+                      color: BrandColors.brand,
+                    ),
+                    const SizedBox(width: Dimens.space1),
+                    Text(
+                      // User-entered, so it may run counter to the page
+                      // direction (§2.4).
+                      Formatters.isolate(name),
+                      style: Theme.of(context).textTheme.labelSmall
+                          ?.copyWith(color: BrandColors.brand),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -399,26 +488,31 @@ class _StatusTrack extends StatelessWidget {
       l10n.statusCompleted,
     ];
 
+    // Every step takes an equal share of whatever width there is, and the
+    // connectors take what is left. The four steps used to be fixed at 72dp
+    // each, which overflowed below roughly 360dp — a width plenty of phones
+    // still have.
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var i = 0; i < order.length; i++) ...[
           if (i > 0)
             Expanded(
               child: Container(
-                height: 2,
-                margin: const EdgeInsetsDirectional.only(bottom: Dimens.space5),
+                height: Dimens.borderSelected,
+                margin: const EdgeInsetsDirectional.only(top: Dimens.space2),
                 color: i <= currentIndex
                     ? (currentIndex >= 2 ? BrandColors.ok : BrandColors.brand)
                     : BrandColors.brandLight,
               ),
             ),
-          SizedBox(
-            width: 72,
+          Expanded(
+            flex: 3,
             child: Column(
               children: [
                 Container(
-                  width: i == currentIndex ? 18 : 14,
-                  height: i == currentIndex ? 18 : 14,
+                  width: i == currentIndex ? Dimens.space5 : Dimens.space4,
+                  height: i == currentIndex ? Dimens.space5 : Dimens.space4,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: i > currentIndex
@@ -432,6 +526,8 @@ class _StatusTrack extends StatelessWidget {
                 Text(
                   labels[i],
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     fontWeight: i == currentIndex
                         ? FontWeight.w700
@@ -461,7 +557,6 @@ class _OrderLineCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
-    final locale = Localizations.localeOf(context).toLanguageTag();
     final languageCode = Localizations.localeOf(context).languageCode;
 
     // The order response carries only variantId, so the name comes from the
@@ -470,13 +565,7 @@ class _OrderLineCard extends ConsumerWidget {
     final catalogue = ref.watch(catalogueProvider).valueOrNull;
     final variantName = _variantName(catalogue, languageCode);
 
-    return Container(
-      padding: const EdgeInsetsDirectional.all(Dimens.space4),
-      decoration: BoxDecoration(
-        color: BrandColors.surface,
-        border: Border.all(color: BrandColors.brandLight),
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -499,49 +588,9 @@ class _OrderLineCard extends ConsumerWidget {
                 SourceChip(label: l10n.drink, ownerName: _ownLabel(context)),
             ],
           ),
-          const SizedBox(height: Dimens.space3),
-          const Divider(),
-          const SizedBox(height: Dimens.space2),
-          Row(
-            children: [
-              const Icon(
-                Icons.place_outlined,
-                size: 16,
-                color: BrandColors.muted,
-              ),
-              const SizedBox(width: Dimens.space2),
-              Expanded(
-                child: Text(
-                  // locationText is optional — the managed list is a
-                  // suggestion and an order stands without one. An empty
-                  // string left a bare pin icon with nothing beside it,
-                  // which reads as a failed load rather than as "none given".
-                  order.locationText.trim().isEmpty
-                      ? l10n.noLocationGiven
-                      // Isolated: user-entered and may run counter to the
-                      // page direction (§2.4).
-                      : Formatters.isolate(order.locationText),
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
-            ],
-          ),
-          if (order.readyAtUtc != null) ...[
-            const SizedBox(height: Dimens.space1),
-            Row(
-              children: [
-                const Icon(Icons.schedule, size: 16, color: BrandColors.muted),
-                const SizedBox(width: Dimens.space2),
-                Text(
-                  // UTC in, local out — never render a raw ...Utc value.
-                  Formatters.timeOfDay(order.readyAtUtc!, locale),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
-            ),
-          ],
+          // Location and times used to be repeated here, once per drink. They
+          // belong to the ORDER, not to a line, and are now stated once in
+          // _OrderSummary above.
         ],
       ),
     );
@@ -579,4 +628,115 @@ class _OrderLineCard extends ConsumerWidget {
 
   String _ownLabel(BuildContext context) =>
       AppLocalizations.of(context).fromMyMaterials;
+}
+
+/// Where the order is going and when it moved — stated once, for the order.
+///
+/// These were previously drawn inside each drink card, which repeated them on
+/// a multi-drink order and quietly implied they could differ per drink. They
+/// cannot: an order has one location and one clock.
+class _OrderSummary extends StatelessWidget {
+  const _OrderSummary({required this.order});
+
+  final OrderSummaryDto order;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SummaryRow(
+            icon: Icons.place_outlined,
+            // locationText is optional — the managed list is a suggestion and
+            // an order stands without one. An empty string left a bare pin
+            // icon with nothing beside it, which reads as a failed load
+            // rather than as "none given".
+            value: order.locationText.trim().isEmpty
+                ? l10n.noLocationGiven
+                // Isolated: user-entered and may run counter to the page
+                // direction (§2.4).
+                : Formatters.isolate(order.locationText),
+          ),
+          const SizedBox(height: Dimens.space2),
+          _SummaryRow(
+            icon: Icons.schedule,
+            label: l10n.orderPlacedAt,
+            // UTC in, local out — never render a raw ...Utc value.
+            value: Formatters.timeOfDay(order.createdAtUtc, locale),
+            tabular: true,
+          ),
+          if (order.readyAtUtc case final DateTime readyAt) ...[
+            const SizedBox(height: Dimens.space2),
+            _SummaryRow(
+              icon: Icons.check_circle_outline,
+              label: l10n.orderReadyAt,
+              value: Formatters.timeOfDay(readyAt, locale),
+              tone: BrandColors.ok,
+              tabular: true,
+            ),
+          ],
+          if (order.notes.trim().isNotEmpty) ...[
+            const SizedBox(height: Dimens.space2),
+            _SummaryRow(
+              icon: Icons.notes_outlined,
+              value: Formatters.isolate(order.notes),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({
+    required this.icon,
+    required this.value,
+    this.label,
+    this.tone,
+    this.tabular = false,
+  });
+
+  final IconData icon;
+  final String value;
+  final String? label;
+  final Color? tone;
+
+  /// Times and counts line up column-wise when several are stacked.
+  final bool tabular;
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = tone ?? BrandColors.muted;
+    final text = Theme.of(context).textTheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: colour),
+        const SizedBox(width: Dimens.space2),
+        if (label case final String label) ...[
+          Text(
+            label,
+            style: text.bodySmall?.copyWith(color: BrandColors.muted),
+          ),
+          const SizedBox(width: Dimens.space2),
+        ],
+        Expanded(
+          child: Text(
+            value,
+            style: tabular
+                ? text.bodySmall?.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  )
+                : text.bodySmall,
+          ),
+        ),
+      ],
+    );
+  }
 }

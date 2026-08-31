@@ -58,9 +58,30 @@ Two rules from that work that a future edit must not undo:
   orders that had already been served. Do not "simplify" it back.
 - **Foreground polling stays alongside push.** Push closes the closed-app gap; polling closes the
   foreground-freshness gap. They are not duplicates.
+- **`prepareOrderAlerts` is called from BOTH landing screens.** It used to live on the composer,
+  which is the *employee* landing screen — so staff, who only reach the composer by pushing it from
+  the queue, had no notification channels and were never asked for permission at all. A new landing
+  screen must call it.
 
 **The Flutter SDK lives at `C:\src\flutter` and is not on `PATH`** — invoke it by full path
 (`C:\src\flutter\bin\flutter.bat`).
+
+**The employee landing screen is the home hub (`/home`)**, not the composer. It is the answer to
+"what can I do from here?": an outstanding-order card, the one-tap usual, and a permission-aware
+grid of actions. Staff still land on `/queue` and reach the composer by pushing it from there; each
+role has exactly one landing screen and the router bounces the other role off it. The composer is
+now always a **pushed** screen — it carries no `ExitConfirmation` and no app-bar action cluster.
+
+**Guest ordering is a composer *mode*, not a field.** `ComposerSeed` travels as `GoRouterState.extra`
+(never a query parameter — a URL must not be able to assert a privilege the token may not carry).
+Self mode shows no guest field at all; guest mode asks for the name first and requires it. Two rules
+a future edit must not undo:
+
+- **`setMode` never mints a new idempotency key**, and `addLine()` / `resetAfterConfirmedOrder()`
+  rebuild `ComposerState` field by field — so `mode` must stay in both constructor calls or a second
+  drink silently drops the user back into a self order. Covered by `test/features/composer_mode_test.dart`.
+- **The guest name gates the order button but never disables it.** The handler reveals the error on
+  the field instead; a disabled control with no stated reason is the dead end this codebase avoids.
 
 ## What this repo is
 
@@ -174,6 +195,9 @@ Not a workflow — these hold on every edit, whether or not a skill was invoked.
   `PopScope` that routes somewhere sensible.
 - **Never hardcode a colour, duration, radius or spacing value.** They live in `lib/theme/`. A
   literal in a widget is a bug even when it looks right.
+- **Use `AppCard` and `SectionHeader`** (`lib/shared/widgets/`) rather than rebuilding the
+  surface-plus-hairline-border container or a bare `labelLarge` heading. Six copies of the card had
+  accumulated; they agreed by coincidence, which is how a palette edit starts missing one.
 - **Never write user-facing English into a widget.** Arabic is the primary locale; strings go
   through ARB files. Surface `ApiError.message` as-is — it arrives already localised.
 - **Never log or print a token, password, or full auth header**, including while debugging.

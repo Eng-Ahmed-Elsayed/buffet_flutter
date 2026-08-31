@@ -2,6 +2,7 @@ import 'package:buffet_app/data/models/auth_models.dart';
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
+import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -41,27 +42,29 @@ LoginResponse _session({bool canOrderForGuests = false}) => LoginResponse(
   canOrderForGuests: canOrderForGuests,
 );
 
-Widget _app(CatalogueResponse catalogue, {bool canOrderForGuests = false}) =>
-    ProviderScope(
-      overrides: [
-        catalogueProvider.overrideWith((ref) async => catalogue),
-        canOrderForGuestsProvider.overrideWith(
-          (ref) =>
-              _session(canOrderForGuests: canOrderForGuests).canOrderForGuests,
-        ),
-      ],
-      child: const MaterialApp(
-        locale: Locale('ar'),
-        supportedLocales: [Locale('ar'), Locale('en')],
-        localizationsDelegates: [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        home: ComposerScreen(),
-      ),
-    );
+Widget _app(
+  CatalogueResponse catalogue, {
+  bool canOrderForGuests = false,
+  OrderMode mode = OrderMode.self,
+}) => ProviderScope(
+  overrides: [
+    catalogueProvider.overrideWith((ref) async => catalogue),
+    canOrderForGuestsProvider.overrideWith(
+      (ref) => _session(canOrderForGuests: canOrderForGuests).canOrderForGuests,
+    ),
+  ],
+  child: MaterialApp(
+    locale: const Locale('ar'),
+    supportedLocales: const [Locale('ar'), Locale('en')],
+    localizationsDelegates: const [
+      AppLocalizations.delegate,
+      GlobalMaterialLocalizations.delegate,
+      GlobalWidgetsLocalizations.delegate,
+      GlobalCupertinoLocalizations.delegate,
+    ],
+    home: ComposerScreen(seed: ComposerSeed(mode: mode)),
+  ),
+);
 
 /// Lays the composer out on a tall surface.
 ///
@@ -329,42 +332,75 @@ void main() {
     });
   });
 
-  group('§2 — the guest field is gated on the token privilege', () {
-    testWidgets('hidden when the user does not hold it', (tester) async {
-      await _pumpTall(
-        tester,
-        _app(
-          CatalogueResponse(
-            drinks: [_item(1, 'قهوة', 'Drink')],
-            sugars: const [],
-            extras: const [],
-            locations: const [],
-            usual: null,
-          ),
-        ),
-      );
+  group('§2 — who the order is for is settled before it is composed', () {
+    CatalogueResponse oneDrink() => CatalogueResponse(
+      drinks: [_item(1, 'قهوة', 'Drink')],
+      sugars: const [],
+      extras: const [],
+      locations: const [],
+      usual: null,
+    );
 
-      // Offering it would produce an unexplained rejection — the server reads
-      // the privilege from the token's claims, not the body.
+    testWidgets('a self order never asks for a guest, privilege or not', (
+      tester,
+    ) async {
+      await _pumpTall(tester, _app(oneDrink(), canOrderForGuests: true));
+
+      // The field used to appear in the footer for anyone holding the
+      // privilege, which made an ordinary order and a guest order look
+      // identical. Self mode has no guest field at all — not an empty one.
       expect(find.text('الطلب لضيف'), findsNothing);
     });
 
-    testWidgets('shown when the user holds it', (tester) async {
+    testWidgets('a guest order asks who it is for, first', (tester) async {
       await _pumpTall(
         tester,
-        _app(
-          CatalogueResponse(
-            drinks: [_item(1, 'قهوة', 'Drink')],
-            sugars: const [],
-            extras: const [],
-            locations: const [],
-            usual: null,
-          ),
-          canOrderForGuests: true,
-        ),
+        _app(oneDrink(), canOrderForGuests: true, mode: OrderMode.guest),
       );
 
-      expect(find.text('الطلب لضيف'), findsOneWidget);
+      // Both the header and the field label carry the phrase.
+      expect(find.text('الطلب لضيف'), findsWidgets);
+
+      // And it is above the drink picker rather than below the whole order.
+      final guestY = tester.getTopLeft(find.text('اسم الضيف')).dy;
+      final drinkY = tester.getTopLeft(find.text('قهوة')).dy;
+      expect(guestY, lessThan(drinkY));
+    });
+
+    testWidgets('a guest seed degrades to a self order without the privilege', (
+      tester,
+    ) async {
+      await _pumpTall(tester, _app(oneDrink(), mode: OrderMode.guest));
+
+      // The privilege is read from the token's claims server-side, so offering
+      // the field to someone without it would produce a rejection they could
+      // not act on. Falling back to a self order is the honest degradation.
+      expect(find.text('الطلب لضيف'), findsNothing);
+    });
+
+    testWidgets('the order button stays live so the error can be shown', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(oneDrink(), canOrderForGuests: true, mode: OrderMode.guest),
+      );
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+
+      // A guest order with no name cannot be sent — but the button is NOT
+      // dead. Tapping it reveals what is missing, rather than leaving the user
+      // with a control that does nothing and says nothing.
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'أرسل الطلب'),
+      );
+      expect(button.onPressed, isNotNull);
+
+      await tester.tap(find.text('أرسل الطلب'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('اكتب اسم الضيف لإتمام الطلب.'), findsOneWidget);
     });
   });
 

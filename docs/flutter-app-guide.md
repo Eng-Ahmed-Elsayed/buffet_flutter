@@ -17,7 +17,7 @@ Both halves of this app are served today. The employee endpoints have been on `/
 mobile API landed; the **staff endpoints shipped on 2026-08-18** as
 `src/BuffetApp.Web/Api/StaffApi.cs`, covered by `tests/BuffetApp.Tests/StaffApiTests.cs`.
 
-Build against a running server for both roles. [archive/staff-api-spec.md](archive/staff-api-spec.md) documents the
+Build against a running server for both roles. [staff-api-spec.md](staff-api-spec.md) documents the
 staff surface endpoint by endpoint, including four places where the implementation deliberately
 differs from the original specification. **Three of those change what the app can render** — read
 them before designing the staff screens:
@@ -76,11 +76,12 @@ When the artboards are authored against §2 from the start, three failure modes 
 Whatever tool produces the visuals, this document stays authoritative for **meaning and
 behaviour**; the design is authoritative for **layout and dimension**.
 
-### 1.2 The five screens to design first
+### 1.2 The screens to design first
 
-Login and first-run password change · the order composer with the sugar stepper, extras chips and
-the "from my materials" toggle · order status through all four states · my materials with a
-pending declaration · the staff queue card showing the source jar per line.
+The home hub with its permission-aware action grid · login and first-run password change · the
+order composer in **both** its modes, with the sugar stepper and extras chips · order status
+through all four states · my materials with a pending declaration · the staff queue card showing
+the source jar per line.
 
 They are where every rule in this document becomes visible; the rest of the app is conventional and
 can follow. Ask for the **states**, not just the happy path — a shortage warning that does not
@@ -92,11 +93,6 @@ disable, an order sitting in `Ready`, an empty catalogue, an expired token.
   `403`. Confirming materials stays on the web (§8.2).
 - **A sugar name on the queue card.** `SugarNameAr` is always null — design around the spoon count
   and the source owner.
-- **A separate guest-order screen.** Guest orders themselves *are* supported (§7.1.2) — this
-  bullet once said they were not, back when the API hard-coded `AllowMultipleBuffetDrinks = false`.
-  What must not be built is a second composer. The privilege is read from the token, not the body,
-  and naming a guest is itself the distinction the server acts on, so one screen with a gated field
-  is the whole feature. The web has two routes for historical reasons; the app does not need them.
 - **Any admin screen.** Import, reporting and audit stay on the web.
 
 ---
@@ -305,6 +301,9 @@ against a dev instance if you like, but the contracts in `ApiContracts.cs` are t
 | `POST` | `/notifications/read` | |
 | `GET` | `/materials/mine` | The caller's own balances, with a **relative** `imageUrl` |
 | `POST` | `/materials/declare` | → **`202 Accepted`**, not `201` — see §7 |
+| `GET` | `/favourites` | Saved orders + `maxFavourites` — §7.6 |
+| `POST` | `/favourites` | `{ name?, lines }` → `201` |
+| `DELETE` | `/favourites/{id}` | `204`; **404** for anyone else's |
 | `POST` | `/materials/declare-new` | Same, for an item the buffet does not carry — §7.5 |
 
 `/catalogue` is bundled deliberately: a phone on office wifi should not need four requests to
@@ -550,6 +549,10 @@ coffee is worse, not better.
   **Label it "last order", not "الطلب المعتاد".** Despite the field name, `usual` is literally the
   most recent non-cancelled order — no frequency, no weighting. Order something unusual once for a
   visitor and it becomes your "usual" until you order again, so calling it a habit overpromises.
+
+  For a repeat the user actually *chose*, use favourites (§7.6). The two are different things and
+  should look different: `usual` changes every time they order, a favourite changes only when they
+  say so.
   Saved favourites are a separate, larger change (a new table and endpoints) and are **not built
   yet** — do not design against them.
 - **Delivery location is a combo, not a dropdown.** The managed list is a *suggestion*: an
@@ -601,7 +604,11 @@ through orders the server then refuses.
 
 ### 7.1.2 Guest orders
 
-Now supported. `LoginResponse.canOrderForGuests` (§4.2) says whether this user holds the privilege:
+Now supported — this section supersedes the "no guest-order screen" line that used to sit in §1.3
+and has been struck. There is still no *separate screen*: guest ordering is a **mode** of the one
+composer, chosen on the home hub before composing rather than typed into an optional field
+afterwards. Self mode shows no guest field at all; guest mode asks for the name first and requires
+it. `LoginResponse.canOrderForGuests` (§4.2) says whether this user holds the privilege:
 **show the guest-name field only when it is true**, and send the name as `onBehalfOfName`. A guest
 name from an unprivileged caller is a `400`.
 
@@ -624,88 +631,19 @@ same confirmation.
 
 ### 7.3 Tracking
 
-Poll `GET /orders/{id}` while an order is live. Poll on a **timer of ~15s while the screen is
-foregrounded**, stop on background, and refresh once on resume. Do not poll a completed or
-cancelled order.
-
-**Polling is not made redundant by push (§7.4), and must not be removed as duplication.** The two
-answer different questions: push closes the *closed-app* gap, polling closes the *foreground
-freshness* gap. This screen is open precisely because someone is watching it, and a user staring at
-a status screen that updates more slowly than their notification shade is a worse experience than
-one extra request every fifteen seconds. The same applies to the staff queue (§8.1), which is a
-shared multi-user view where polling is the only way one staff member sees another's actions.
+Poll `GET /orders/{id}` while an order is live; there are no push notifications or websockets
+today. Poll on a **timer of ~15s while the screen is foregrounded**, stop on background, and
+refresh once on resume. Do not poll a completed or cancelled order.
 
 Cancellation is **pending-only** and ownership-checked. Hide the cancel action once the status
 leaves `Pending` rather than showing a button that will 400.
 
 ### 7.4 Notifications
 
-`GET /notifications` and `POST /notifications/read`. Kinds: `OrderReady`, `OrderCancelled`,
-`LowStock`, `DeclarationConfirmed`, `DeclarationRejected`. Poll on resume and show an unread badge.
-
-**There is still no SMTP.** There *is* now push, for two kinds only.
-
-#### Push: `OrderReady` and `OrderCancelled`, and nothing else
-
-The problem push exists to solve is narrow and real: an employee places an order and puts the phone
-down. Android then puts the app to sleep, and **Doze does not run `JobScheduler`** — which
-`WorkManager` is built on — so no background polling will ever tell them their drink is ready. A
-high-priority FCM message is the only mechanism the platform sanctions for waking an app for a
-time-sensitive message.
-
-| Kind | Push? | Why |
-|---|---|---|
-| `OrderReady` | **Yes**, high priority | The one moment the employee is blocked. The drink is going cold. |
-| `OrderCancelled` | **Yes** | Unexpected and actionable — otherwise they wait for a drink that is never coming. |
-| Order created, `InProgress`, `Completed` | No | They pressed the button / no decision changes / they are holding the cup. |
-| `LowStock`, `Declaration*` | No | Information for next time the app opens. The notification centre carries these. |
-
-That is roughly **one push per order**. Resist adding a third kind. Over-notifying an internal tool
-people cannot uninstall is how you lose the one notification that mattered — they mute the app, and
-then miss the drink.
-
-**Staff receive no pushes at all.** The queue is already in front of them, and a counter device
-firing continuously through a morning rush is pure noise.
-
-#### Rules that are not negotiable
-
-- **Visible notifications only — never silent/background push.** iOS treats `content-available` as
-  priority 5, throttles it to a few an hour, and does not guarantee delivery at all. Android's FCM
-  **deprioritises an app instance over a rolling 7-day window** when its high-priority messages
-  fail to surface a notification, so sending silent high-priority data messages would eventually
-  degrade the two that matter.
-- **The in-app row is written first, and independently.** It is the system of record; the push is a
-  second delivery channel. That is what makes a throttled or dropped push recoverable, and it is
-  why the notification centre earns its place rather than duplicating the notification shade.
-- **A failure to notify must never roll back the order that produced it.** The sender swallows and
-  logs. Telling someone their drink is ready is worth much less than the drink being served.
-- **Unregister the device on sign-out.** A shared counter device that keeps pushing the previous
-  user's orders is a privacy failure, not an inconvenience.
-
-#### Android only, for now — and what iOS gets instead
-
-**Push ships on Android. iOS does not have it, and will not until an Apple
-Developer account is funded** (APNs is a paid prerequisite; there is no budget). This is a known,
-deliberate gap, not an oversight — do not "fix" it half-way by writing untested APNs code.
-
-What every platform gets in the meantime, with no Firebase and no Apple account:
-
-- **A local notification, with sound, the moment a poll sees an order turn `Ready` or `Cancelled`**
-  (`lib/data/local/order_alerts.dart`). Covers the app being open, or backgrounded and still alive.
-- **Foreground polling on the composer**, so the outstanding-order card on the landing screen moves
-  while the user watches it rather than only on resume.
-- **The notification centre**, which never depended on push at all.
-
-What that does **not** cover, on either platform, and cannot: the process being fully killed.
-Nothing running on the device can wake it, because nothing is running. On Android the server push
-closes that; on iOS it stays open until APNs exists. Say so plainly to users rather than implying
-notifications are guaranteed.
-
-The local-alert channel ids are deliberately the **same constants** the server will send with a
-push, so Android push slots in without a second set. When adding push, do not invent new ids.
-
-Setup, credentials and the physical-device verification are in
-[firebase-setup-checklist.md](firebase-setup-checklist.md).
+`GET /notifications` and `POST /notifications/read`. Kinds: `OrderReady`, `DeclarationConfirmed`,
+`DeclarationRejected`, among others. In-app only — **there is no SMTP and no push** in this
+system, a deliberate decision. Poll on resume and show an unread badge; do not promise the user a
+notification that arrives while the app is closed.
 
 ### 7.5 My materials
 
@@ -772,6 +710,65 @@ category glyph the client already draws. Worth raising separately if people ask 
 
 ---
 
+### 7.6 Favourites
+
+A saved order the employee replays in one tap. `GET /favourites` returns them newest first:
+
+```jsonc
+{
+  "favourites": [
+    {
+      "favouriteId": 12,
+      "name": "قهوتي",              // never blank — see below
+      "createdAtUtc": "2026-08-24T09:12:00Z",
+      "lastUsedAtUtc": null,        // null until it has been ordered once
+      "lines": [ /* OrderLineDto, exactly as POST /orders takes them */ ]
+    }
+  ],
+  "maxFavourites": 20
+}
+```
+
+**`lines` is the order shape.** Replaying a favourite is a straight repost of that array to
+`POST /orders` — no translation, no lookup. That is the whole reason the endpoint returns lines
+rather than a summary.
+
+Saving is a `POST /favourites` with `{ name?, lines }`, taking the same lines the composer already
+builds. Leave `name` out and the server names it after the drinks — "قهوة (2 سكر) + حليب" — so a
+list never has a blank row. Deleting is `DELETE /favourites/{id}`, `204` on success and **`404`**
+for someone else's, the same convention as `GET /orders/{id}`.
+
+**Save while ordering, in one round trip.** `POST /orders` takes three more fields:
+
+| Field | Meaning |
+|---|---|
+| `saveAsFavourite` | Save these lines as a favourite too |
+| `favouriteName` | What to call it; blank means "name it after the drinks" |
+| `fromFavouriteId` | The favourite this order came from — stamps it as recently used |
+
+`favouriteId` comes back on the response when one was saved.
+
+Four things to build against:
+
+1. **`favouriteId` null is not an error.** Saving is best-effort — the drink is already made by
+   then, so a full list or a since-retired item returns null rather than failing the order. Say
+   nothing, or say it quietly; never interrupt a successful order over it.
+2. **A favourite can fail when ordered, and that is correct.** It stores ids, not a reservation.
+   An item retired since it was saved still appears in the list, and the order that replays it is
+   rejected with a reason worth showing. Do not pre-filter the list — a favourite that silently
+   vanishes is worse than one that explains itself.
+3. **`maxFavourites` is published so you can disable the save control at the limit**, rather than
+   letting someone name a favourite and then be refused. Twenty per user.
+4. **Don't cache it with the catalogue.** `/catalogue` is cached and refreshed on resume; this list
+   changes the moment the user saves one. Fetch it with the order screen and refresh it after any
+   save or delete.
+
+**"آخر طلب" is not a favourite.** Keep both: `usual` is the last order and moves on its own, a
+favourite is stated and does not. Labelling them the same way is the one thing that makes both
+confusing.
+
+---
+
 ## 8. The staff view
 
 These endpoints are **live**, in `src/BuffetApp.Web/Api/StaffApi.cs`. Model the DTOs from
@@ -817,38 +814,8 @@ Constraints the backend holds, and the app must not work around:
   extras, the per-line note, `waitingSeconds` as an ageing indicator, and — prominently — **which
   jar each component comes from**, in violet when it is someone's personal stock. There is no sugar
   *name* to show: `sugarNameAr` is always null.
-- **Actions are one tap with an undo window**, not a confirm dialog. Staff hands are busy, and a
-  dialog on a routine action during a rush is the textbook habituation failure — people learn to
-  tap through it, which removes the protection *and* costs a tap on every order. No POS or kitchen
-  display system in the field does otherwise. The exception is **Cancel**, which takes a reason and
-  genuinely warrants the dialog.
-- **The undo affordance lives on the card, not in a SnackBar.** This is a correction, and the
-  reason matters: `ScaffoldMessenger` **queues** snackbars rather than replacing them, and a
-  snackbar's duration counts from when it is *displayed*, not created. Bumping five orders at once
-  therefore showed five bars one after another, the last appearing twenty seconds after its own
-  timer had already served the drink — offering an undo that silently did nothing. An in-card
-  countdown gives every pending order its own window and cannot be confused for its neighbour.
-- **Undo is a deferred send, not a reversal.** Nothing reaches the API until the window closes.
-  This is forced, not chosen: `/ready` is the only path that writes ledger rows and there is **no
-  un-ready endpoint anywhere in the backend**, so an undo that fired after the call would have
-  nothing to call. Do not add one on the assumption that a reversal exists.
-- **Flush pending actions on `dispose` and on backgrounding, never drop them.** The drink was
-  already made when the button was pressed — the tap records a physical event, and discarding it
-  leaves the ledger disagreeing with the shelf. `inactive` is excluded: it fires for a
-  notification-shade pull, with the card still on screen and seconds left on a countdown the user
-  can watch.
-- **Handover (`/complete`) is immediate — no window, no dialog.** It writes no ledger rows, so a
-  mistaken handover is a paperwork discrepancy the next person resolves by walking to the counter,
-  where a mistaken serve is a stock discrepancy an admin reconciles weeks later. Making every
-  legitimate handover slower to guard the cheaper mistake is a bad trade. It does need a
-  double-tap guard.
-- **A screen reader stretches the undo window** to ~20s, and a finger held on the card pauses it.
-  A timed affordance carrying the only way out of an action is a WCAG 2.2 SC 2.2.1 problem;
-  Flutter's own SnackBar stops timing out under TalkBack for the same reason.
-- **Show `onBehalfOfName` when it is set**, as the primary name on the card with the requester
-  beneath it. The person making the drink needs the recipient most; accountability stays with the
-  requester. Mark it with a chip — **not** in violet, which means "from my own jar" everywhere and
-  must not pick up a second meaning.
+- **Actions are one tap with an undo window**, not a confirm dialog. Staff hands are busy. The
+  exception is **Cancel**, which takes a reason and genuinely warrants the dialog.
 - **`Ready` is the important button.** Make it the largest target on the card. `deliverNow` (ready
   and handed over in one motion) is the common case at the counter — offer it as the primary
   action with plain `Ready` secondary.
@@ -906,8 +873,6 @@ Office wifi drops. Assumptions worth building in:
 | Serialisation | `json_serializable` + `build_runner` | Mirror `ApiContracts.cs` |
 | Localisation | `flutter_localizations` + `intl` | `generate: true` in `pubspec.yaml` |
 | Dates | `intl` | `ar` locale; **the server sends UTC — convert for display** |
-| Push | `firebase_core` + `firebase_messaging` | §7.4. Two kinds only; visible notifications, never silent |
-| Local notifications | `flutter_local_notifications` | Ready/cancelled alerts with **no Firebase and no Apple account**; also owns the Android channels, whose behaviour is **immutable after creation** |
 
 On dates: every timestamp in the API is UTC (`createdAtUtc`, `readyAtUtc`, `expiresUtc`). The
 server reports in `Arab Standard Time`. Parse as UTC and convert to local for display; never
@@ -950,6 +915,7 @@ the exception.
 - [ ] Biometric-changed clears the token
 - [ ] Idempotency key generated per composer session and reused on retry
 - [ ] "Usual order" is one tap from the catalogue screen
+- [ ] Favourites strip; save toggle in the composer; long-press to delete
 - [ ] Sugar stepper allows explicit 0
 - [ ] Location accepts free text
 - [ ] Personal materials in violet; toggle appears only when relevant
@@ -963,17 +929,6 @@ the exception.
 - [ ] Staff screens built against the live `/api/v1/staff/*` endpoints
 - [ ] Declarations tab shown to admins only; staff never see a control that returns 403
 - [ ] Staff endpoints never driven via the MVC screens
-- [ ] Undo lives **on the card** with a visible countdown, never in a SnackBar (§8.1)
-- [ ] Every pending action is flushed on `dispose` and on backgrounding, never dropped
-- [ ] Handover is immediate and guarded against a double tap; only Cancel gets a dialog
-- [ ] The undo window stretches under a screen reader and pauses on touch
-- [ ] `onBehalfOfName` shown on the queue card, chipped but **not** in violet
-- [ ] A staff member can reach the composer and order for themselves
-- [ ] A staff self-order does **not** open a status screen — it is already `Completed`
-- [ ] Push is sent for `OrderReady` and `OrderCancelled` only, as visible notifications (§7.4)
-- [ ] The device token is unregistered on sign-out
-- [ ] Foreground polling retained alongside push, and documented as deliberate
-- [ ] A notification tap while locked is held, then honoured after unlock
 
 ---
 
@@ -986,7 +941,7 @@ the exception.
 | Staff actions to port | `src/BuffetApp.Web/Controllers/StaffController.cs` |
 | Staff wire contracts | `src/BuffetApp.Web/Api/StaffContracts.cs` |
 | Staff endpoint behaviour | `src/BuffetApp.Web/Api/StaffApi.cs` |
-| Why the staff API is shaped as it is | [archive/staff-api-spec.md](archive/staff-api-spec.md) |
+| Why the staff API is shaped as it is | [staff-api-spec.md](staff-api-spec.md) |
 | Palette and motion tokens | `src/BuffetApp.Web/wwwroot/css/site.css` |
 | Logo assets | `src/BuffetApp.Web/wwwroot/images/` |
 | Roles and statuses | `src/BuffetApp.Core/Enums/` |

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/catalogue_models.dart';
 import '../../data/models/order_models.dart';
+import 'order_mode.dart';
 
 /// One drink already added to the order, with the jar each part draws on.
 ///
@@ -83,6 +84,7 @@ class ComposerState {
     this.notes,
     this.onBehalfOfName,
     this.canOrderForGuests = false,
+    this.mode = OrderMode.self,
     this.maxLines = 25,
     this.maxBuffetDrinks = 1,
   });
@@ -121,6 +123,13 @@ class ComposerState {
   /// Held here so the cap rule is one expression in the model rather than half
   /// a rule in the model and half in a widget's `if`.
   final bool canOrderForGuests;
+
+  /// Whether this session is composing for the user or for a guest.
+  ///
+  /// A property of how the composer was **opened**, not a control inside it.
+  /// Defaults to [OrderMode.self] so every existing caller — the staff
+  /// "order for myself" push above all — keeps its meaning without saying so.
+  final OrderMode mode;
 
   /// Server-published caps, defaulted so a stale catalogue still enforces the
   /// limits the server applies anyway.
@@ -199,7 +208,19 @@ class ComposerState {
   /// the user meet a `400` they cannot interpret.
   bool get exceedsLineCap => allLines.length > maxLines;
 
-  bool get canPlaceOrder => allLines.isNotEmpty;
+  /// Whether a guest order is still missing the one thing it needs.
+  ///
+  /// Only ever true in [OrderMode.guest]: a self order has no guest to name.
+  bool get guestNameMissing =>
+      mode == OrderMode.guest && (onBehalfOfName ?? '').trim().isEmpty;
+
+  /// Whether the order can be sent.
+  ///
+  /// Gated on the guest name in guest mode — which is a **validation** gate on
+  /// a required field, the same kind as [canAddAnotherLine], and categorically
+  /// not a stock reading. The screen pairs it with a visible error message, so
+  /// the disabled button is never a dead end.
+  bool get canPlaceOrder => allLines.isNotEmpty && !guestNameMissing;
 
   /// How many drinks on this order will draw on buffet stock.
   int get buffetDrinkCount => allLines.where((l) => l.resolvesToBuffet).length;
@@ -268,6 +289,7 @@ class ComposerState {
     String? Function()? notes,
     String? Function()? onBehalfOfName,
     bool? canOrderForGuests,
+    OrderMode? mode,
     int? maxLines,
     int? maxBuffetDrinks,
   }) => ComposerState(
@@ -288,6 +310,7 @@ class ComposerState {
         ? onBehalfOfName()
         : this.onBehalfOfName,
     canOrderForGuests: canOrderForGuests ?? this.canOrderForGuests,
+    mode: mode ?? this.mode,
     maxLines: maxLines ?? this.maxLines,
     maxBuffetDrinks: maxBuffetDrinks ?? this.maxBuffetDrinks,
   );
@@ -340,6 +363,24 @@ class ComposerController extends StateNotifier<ComposerState> {
         // A privilege that has gone away cannot leave a guest name behind: the
         // server would reject it, and until then it would wrongly lift the cap.
         : state.copyWith(canOrderForGuests: false, onBehalfOfName: () => null);
+  }
+
+  /// Records whether this session composes for the user or for a guest.
+  ///
+  /// Called by the screen from the seed it was opened with, never by a user
+  /// control — the mode is a property of how the composer was **opened**.
+  ///
+  /// **Never mints a new idempotency key.** This is the same composer session
+  /// the key was created for, and a key that changed when the mode was applied
+  /// would turn a retry into a second drink (§7.2).
+  ///
+  /// Leaving guest mode drops the guest name: a self order that still carried
+  /// one would wrongly lift the buffet cap, and the server would reject it.
+  void setMode(OrderMode mode) {
+    if (state.mode == mode) return;
+    state = mode == OrderMode.guest
+        ? state.copyWith(mode: mode)
+        : state.copyWith(mode: mode, onBehalfOfName: () => null);
   }
 
   void applyLimits({required int maxLines, required int maxBuffetDrinks}) {
@@ -460,6 +501,10 @@ class ComposerController extends StateNotifier<ComposerState> {
       notes: state.notes,
       onBehalfOfName: state.onBehalfOfName,
       canOrderForGuests: state.canOrderForGuests,
+      // Carried deliberately. This constructor rebuilds field by field, so a
+      // mode left out here would drop the user back into self mode — and null
+      // the guest name with it — the moment they added a second drink.
+      mode: state.mode,
       maxLines: state.maxLines,
       maxBuffetDrinks: state.maxBuffetDrinks,
     );
@@ -504,6 +549,9 @@ class ComposerController extends StateNotifier<ComposerState> {
   void resetAfterConfirmedOrder() => state = ComposerState(
     idempotencyKey: _newKey(),
     canOrderForGuests: state.canOrderForGuests,
+    // The mode survives — it is still the same screen, opened the same way.
+    // The guest name does NOT: the next guest is a different guest.
+    mode: state.mode,
     maxLines: state.maxLines,
     maxBuffetDrinks: state.maxBuffetDrinks,
   );

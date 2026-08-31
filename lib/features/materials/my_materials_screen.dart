@@ -8,7 +8,9 @@ import '../../data/models/material_models.dart';
 import '../../data/repositories/materials_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
+import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../order/widgets/item_image.dart';
@@ -57,10 +59,21 @@ class MyMaterialsScreen extends ConsumerWidget {
         ),
 
         data: (items) => items.isEmpty
-            ? EmptyState(
-                icon: Icons.inventory_2_outlined,
-                title: l10n.noMaterialsTitle,
-                body: l10n.noMaterialsBody,
+            // Stacked over an empty ListView so pull-to-refresh survives —
+            // it matters most here, where the user is waiting for an admin to
+            // confirm a declaration that will make this list non-empty.
+            ? RefreshIndicator(
+                onRefresh: () async => ref.invalidate(myMaterialsProvider),
+                child: Stack(
+                  children: [
+                    ListView(),
+                    EmptyState(
+                      icon: Icons.inventory_2_outlined,
+                      title: l10n.noMaterialsTitle,
+                      body: l10n.noMaterialsBody,
+                    ),
+                  ],
+                ),
               )
             : RefreshIndicator(
                 onRefresh: () async => ref.invalidate(myMaterialsProvider),
@@ -75,10 +88,7 @@ class MyMaterialsScreen extends ConsumerWidget {
                         padding: const EdgeInsetsDirectional.only(
                           bottom: Dimens.space1,
                         ),
-                        child: Text(
-                          l10n.confirmedBalance,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
+                        child: SectionHeader(label: l10n.confirmedBalance),
                       );
                     }
                     return _MaterialCard(material: items[index - 1]);
@@ -123,13 +133,7 @@ class _MaterialCard extends StatelessWidget {
     // what the admin has to fix.
     final isOverdrawn = material.quantity < 0;
 
-    return Container(
-      padding: const EdgeInsetsDirectional.all(Dimens.space4),
-      decoration: BoxDecoration(
-        color: BrandColors.surface,
-        border: Border.all(color: BrandColors.brandLight),
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-      ),
+    return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

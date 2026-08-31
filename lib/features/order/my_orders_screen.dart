@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
+import '../../data/api/api_exception.dart';
 import '../../data/models/order_models.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 
@@ -73,18 +75,33 @@ class MyOrdersScreen extends ConsumerWidget {
         error: (error, _) => EmptyState(
           icon: Icons.cloud_off_outlined,
           title: l10n.genericError,
-          body: l10n.networkError,
-          action: FilledButton(
+          // The server's message, not a generic one: it arrives already
+          // localised, and it is the only part that says what actually
+          // failed (§4).
+          body: error is ApiException ? error.message : l10n.networkError,
+          action: OutlinedButton.icon(
             onPressed: () => ref.invalidate(myOrdersProvider),
-            child: Text(l10n.retry),
+            icon: const Icon(Icons.refresh),
+            label: Text(l10n.retry),
           ),
         ),
         data: (all) {
           if (all.isEmpty) {
-            return EmptyState(
-              icon: Icons.receipt_long_outlined,
-              title: l10n.noOrdersTitle,
-              body: l10n.noOrdersBody,
+            // Stacked over an empty ListView so the pull-to-refresh gesture
+            // still works — the same trick the queue and notification lists
+            // use. An empty list you cannot refresh is a dead end.
+            return RefreshIndicator(
+              onRefresh: () async => ref.invalidate(myOrdersProvider),
+              child: Stack(
+                children: [
+                  ListView(),
+                  EmptyState(
+                    icon: Icons.receipt_long_outlined,
+                    title: l10n.noOrdersTitle,
+                    body: l10n.noOrdersBody,
+                  ),
+                ],
+              ),
             );
           }
 
@@ -109,12 +126,14 @@ class MyOrdersScreen extends ConsumerWidget {
               padding: const EdgeInsetsDirectional.all(Dimens.space4),
               children: [
                 if (current.isNotEmpty) ...[
-                  _SectionLabel(text: l10n.liveOrders),
+                  SectionHeader(label: l10n.liveOrders),
+                  const SizedBox(height: Dimens.space2),
                   for (final order in current) _OrderRow(order: order),
                   const SizedBox(height: Dimens.space5),
                 ],
                 if (past.isNotEmpty) ...[
-                  _SectionLabel(text: l10n.pastOrders),
+                  SectionHeader(label: l10n.pastOrders),
+                  const SizedBox(height: Dimens.space2),
                   for (final order in past) _OrderRow(order: order),
                 ],
               ],
@@ -124,18 +143,6 @@ class MyOrdersScreen extends ConsumerWidget {
       ),
     );
   }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsetsDirectional.only(bottom: Dimens.space2),
-    child: Text(text, style: Theme.of(context).textTheme.labelLarge),
-  );
 }
 
 /// One order in the list. Tapping opens the tracking screen.

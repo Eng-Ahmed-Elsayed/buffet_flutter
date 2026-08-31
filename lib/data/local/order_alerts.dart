@@ -1,6 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../l10n/app_localizations.dart';
 
 /// Android channel ids.
 ///
@@ -221,3 +223,28 @@ class OrderAlerts {
 final orderAlertsProvider = Provider<OrderAlerts>(
   (ref) => OrderAlerts(FlutterLocalNotificationsPlugin()),
 );
+
+/// Creates the notification channels and asks for permission, with the channel
+/// names in the caller's language.
+///
+/// Called from **both landing screens**. It used to live on the composer, which
+/// is the screen an employee lands on but one a staff member only ever reaches
+/// by pushing it from the queue — so staff had no channels and were never asked
+/// for permission at all. A shared helper is what keeps the two landing screens
+/// from drifting apart on this again.
+///
+/// Deliberately called after the first frame of a landing screen rather than at
+/// startup: a permission prompt shown before the user has seen what the app
+/// does is how a permission gets denied permanently.
+Future<void> prepareOrderAlerts(BuildContext context, WidgetRef ref) {
+  final l10n = AppLocalizations.of(context);
+
+  return ref
+      .read(orderAlertsProvider)
+      .initialise(
+        readyChannelName: l10n.channelReadyName,
+        readyChannelDescription: l10n.channelReadyDescription,
+        cancelledChannelName: l10n.channelCancelledName,
+        cancelledChannelDescription: l10n.channelCancelledDescription,
+      );
+}

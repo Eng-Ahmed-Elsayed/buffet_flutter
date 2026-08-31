@@ -1,6 +1,7 @@
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/order_models.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
+import 'package:buffet_app/features/home/home_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
@@ -60,7 +61,7 @@ Widget _app(List<OrderSummaryDto> orders) => ProviderScope(
       GlobalWidgetsLocalizations.delegate,
       GlobalCupertinoLocalizations.delegate,
     ],
-    home: ComposerScreen(),
+    home: HomeScreen(),
   ),
 );
 
@@ -78,7 +79,7 @@ const _liveTitle = 'لديك طلب قيد التنفيذ';
 
 void main() {
   group('an uncollected order is visible on the screen the user lands on', () {
-    testWidgets('a Ready order announces itself on the composer', (
+    testWidgets('a Ready order announces itself on the home screen', (
       tester,
     ) async {
       await _pumpTall(tester, _app([_order(7, 'Ready')]));

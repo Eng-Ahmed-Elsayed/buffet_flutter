@@ -6,6 +6,8 @@ abstract final class Routes {
   static const lock = '/lock';
 
   // Employee
+  /// The employee landing screen — the hub of actions, not a drink picker.
+  static const home = '/home';
   static const catalogue = '/order';
   static const orderStatus = '/order/:orderId';
   static const myOrders = '/orders';

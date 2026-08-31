@@ -442,6 +442,11 @@ class _Actions extends StatelessWidget {
         _readyRow(context, l10n),
         if (onCancel != null) ...[
           const SizedBox(height: Dimens.space2),
+          // Set apart from the two constructive actions above rather than
+          // sitting flush against them: a destructive action adjacent to the
+          // one you reach for fifty times a shift is a mis-tap waiting to
+          // happen.
+          const Divider(height: Dimens.space3),
           // The ONE staff action that warrants a dialog (§8.1): it takes a
           // reason, and unlike Ready it cannot be undone by simply not
           // sending it. Everything else here is one tap with an undo window.
@@ -458,32 +463,39 @@ class _Actions extends StatelessWidget {
     );
   }
 
+  /// The two ways a drink leaves the queue, stacked rather than side by side.
+  ///
+  /// They used to share a row, which forced the primary label to ellipsise on
+  /// a narrow handset — so the most-used control on the busiest screen in the
+  /// app read as "ready and deli…". Full width each, primary first, and the
+  /// label always legible.
+  ///
+  /// `deliverNow` stays the primary: it is the common case at the counter,
+  /// ready and handed over in one motion.
+  ///
+  /// NEITHER button is ever disabled on a stock reading: /ready returns 200
+  /// with warnings, never 400 (§8.1).
   Widget _readyRow(BuildContext context, AppLocalizations l10n) {
-    return Row(
+    return Column(
       children: [
-        // deliverNow is the common case at the counter — ready and handed over
-        // in one motion — so it is the primary action and the largest target.
-        //
-        // NEITHER button is ever disabled on a stock reading: /ready returns
-        // 200 with warnings, never 400 (§8.1).
-        Expanded(
+        SizedBox(
+          width: double.infinity,
           child: FilledButton(
             onPressed: () => onMarkReady!(order, deliverNow: true),
-            child: Text(
-              l10n.readyAndDelivered,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(l10n.readyAndDelivered),
           ),
         ),
-        const SizedBox(width: Dimens.space2),
-        OutlinedButton(
-          onPressed: () => onMarkReady!(order, deliverNow: false),
-          style: OutlinedButton.styleFrom(
-            side: const BorderSide(color: BrandColors.brand),
-            minimumSize: const Size(Dimens.minTarget, Dimens.controlHeight),
+        const SizedBox(height: Dimens.space2),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: () => onMarkReady!(order, deliverNow: false),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: BrandColors.brand),
+              minimumSize: const Size(Dimens.minTarget, Dimens.controlHeight),
+            ),
+            child: Text(l10n.markReady),
           ),
-          child: Text(l10n.markReady),
         ),
       ],
     );

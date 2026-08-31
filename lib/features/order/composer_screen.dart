@@ -6,25 +6,22 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
-import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
-import '../../data/local/order_alerts.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/repositories/catalogue_repository.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/formatters.dart';
+import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/banners.dart';
-import '../../shared/widgets/exit_confirmation.dart';
-import '../../shared/widgets/notification_bell.dart';
+import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../../theme/motion.dart';
 import '../auth/auth_controller.dart';
 import 'composer_controller.dart';
 import 'my_orders_screen.dart';
+import 'order_mode.dart';
 import 'self_order_outcome.dart';
 import 'widgets/drink_tile.dart';
-import 'widgets/outstanding_order_card.dart';
 import 'widgets/sugar_stepper.dart';
 
 /// Fetches the catalogue in one round trip.
@@ -43,85 +40,74 @@ final catalogueProvider = FutureProvider.autoDispose<CatalogueResponse>((
 
 /// The order composer — one screen, not a wizard. A wizard on a phone for a cup
 /// of coffee is worse, not better (§7.1).
+///
+/// Always a **pushed** screen: from the home hub for an employee, from the queue
+/// for a staff member ordering their own drink. It used to be the employee
+/// landing screen, which is why so much that had nothing to do with composing a
+/// drink had accumulated on it.
+///
+/// The [seed] says how it was opened. In [OrderMode.guest] the guest name is
+/// asked for first and required; in [OrderMode.self] there is no guest field at
+/// all — not an empty one. Which of the two the user is doing is settled before
+/// they choose a drink, rather than inferred afterwards from whether they
+/// happened to type into an optional box.
 class ComposerScreen extends ConsumerStatefulWidget {
-  const ComposerScreen({super.key});
+  const ComposerScreen({this.seed = const ComposerSeed(), super.key});
+
+  /// How this session was opened. Defaults to an ordinary self order, which is
+  /// what the staff "order for myself" push and any deep link both mean.
+  final ComposerSeed seed;
 
   @override
   ConsumerState<ComposerScreen> createState() => _ComposerScreenState();
 }
 
-class _ComposerScreenState extends ConsumerState<ComposerScreen>
-    with WidgetsBindingObserver {
+class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   bool _placing = false;
-  Timer? _pollTimer;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _startPolling();
-    // Channels and the permission prompt, once the user is signed in and has
-    // seen what the app does — never at startup, which is how a permission
-    // gets denied permanently.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _prepareAlerts());
-  }
+  /// The guest name needs a controller where the other fields do not: it can be
+  /// cleared from outside (a revoked privilege) and the screen has to be able
+  /// to show that.
+  final _guestNameController = TextEditingController();
+
+  /// Whether the guest field has been interacted with yet.
+  ///
+  /// The field is required, but a required field that turns red before the user
+  /// has had a chance to type is scolding them for not having done something
+  /// yet. The error appears once they have left it, or once they try to order.
+  bool _guestNameTouched = false;
+
+  /// Guards [_applySeedUsual] so a rebuild cannot refill a draft the user has
+  /// since changed or deliberately cleared.
+  bool _seedUsualApplied = false;
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _pollTimer?.cancel();
+    _guestNameController.dispose();
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      // A drink can turn Ready while the app is in the background. Re-reading
-      // on resume is what makes the card honest for the user who closed the
-      // app to wait — the case this whole card is for.
-      case AppLifecycleState.resumed:
-        ref.invalidate(myOrdersProvider);
-        _startPolling();
-      case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
-        _pollTimer?.cancel();
-    }
-  }
-
-  /// Keeps the outstanding-order card fresh while this screen is open.
+  /// The mode this session is really in.
   ///
-  /// Without it the card only moved on resume, so a user sitting here waiting
-  /// for their drink watched a stale "still being made" indefinitely — on the
-  /// very screen they land on. Uses the order poll interval rather than the
-  /// queue's: this is one person's drink, not a shared work queue.
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(
-      ApiConfig.orderPollInterval,
-      (_) => ref.invalidate(myOrdersProvider),
-    );
-  }
-
-  Future<void> _prepareAlerts() async {
-    if (!mounted) return;
-    final l10n = AppLocalizations.of(context);
-
-    await ref
-        .read(orderAlertsProvider)
-        .initialise(
-          readyChannelName: l10n.channelReadyName,
-          readyChannelDescription: l10n.channelReadyDescription,
-          cancelledChannelName: l10n.channelCancelledName,
-          cancelledChannelDescription: l10n.channelCancelledDescription,
-        );
-  }
+  /// A guest seed whose privilege has since gone away degrades to a self order
+  /// rather than offering a field every order would be rejected for. Computed
+  /// in `build` rather than stored, so there is no frame in which the wrong
+  /// mode is on screen.
+  OrderMode _effectiveMode(bool canOrderForGuests) =>
+      canOrderForGuests ? widget.seed.mode : OrderMode.self;
 
   Future<void> _placeOrder() async {
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
     final composer = ref.read(composerControllerProvider);
+
+    // Reveal the reason before refusing. Without this the button is simply
+    // dead for a guest order with no name, which is the dead end that
+    // disabling a control always risks.
+    if (composer.guestNameMissing) {
+      setState(() => _guestNameTouched = true);
+      return;
+    }
     if (!composer.canPlaceOrder) return;
 
     setState(() => _placing = true);
@@ -161,7 +147,13 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen>
         return;
       }
 
-      context.go(Routes.orderStatusFor(result.orderId));
+      // pushReplacement, not go: `go` is a location change that clears the
+      // stack, which would leave the status screen with nothing beneath it and
+      // send back to a composer the user has finished with. This swaps the
+      // composer for the status screen and leaves the hub underneath, so back
+      // lands on the hub — where the outstanding card is already showing this
+      // very order.
+      context.pushReplacement(Routes.orderStatusFor(result.orderId));
     } on ApiException catch (error) {
       if (!mounted) return;
       // The composer keeps its contents and its idempotency key, so the retry
@@ -178,91 +170,102 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen>
     final l10n = AppLocalizations.of(context);
     final catalogue = ref.watch(catalogueProvider);
     final composer = ref.watch(composerControllerProvider);
+    final mode = _effectiveMode(ref.watch(canOrderForGuestsProvider));
 
-    return ExitConfirmation(
-      // A landing screen: nothing sits beneath it in the stack, so back
-      // would otherwise close the app outright.
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.orderTitle),
-          actions: [
-            // The way back to a live order. Without this the tracking screen
-            // was reachable only by placing an order — leave it and a drink
-            // still being made became untraceable.
-            IconButton(
-              icon: const Icon(Icons.receipt_long_outlined),
-              tooltip: l10n.myOrdersTitle,
-              onPressed: () => context.push(Routes.myOrders),
-            ),
-            IconButton(
-              icon: const Icon(Icons.inventory_2_outlined),
-              tooltip: l10n.myMaterialsTitle,
-              onPressed: () => context.push(Routes.materials),
-            ),
-            const NotificationBell(),
-            IconButton(
-              icon: const Icon(Icons.settings_outlined),
-              tooltip: l10n.settings,
-              onPressed: () => context.push(Routes.settings),
-            ),
-          ],
-        ),
-        body: catalogue.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-
-          error: (error, _) => EmptyState(
-            icon: Icons.cloud_off_outlined,
-            title: l10n.genericError,
-            body: error is ApiException ? error.message : l10n.networkError,
-            action: OutlinedButton.icon(
-              onPressed: () => ref.invalidate(catalogueProvider),
-              icon: const Icon(Icons.refresh),
-              label: Text(l10n.retry),
-            ),
-          ),
-
-          data: (data) {
-            if (data.drinks.isEmpty) {
-              return EmptyState(
-                icon: Icons.no_drinks_outlined,
-                title: l10n.emptyCatalogueTitle,
-                body: l10n.emptyCatalogueBody,
-                action: OutlinedButton.icon(
-                  onPressed: () => ref.invalidate(catalogueProvider),
-                  icon: const Icon(Icons.refresh),
-                  label: Text(l10n.refresh),
-                ),
-              );
-            }
-
-            // The caps live on the server and are published with the
-            // catalogue, so the limit is not duplicated as a magic number
-            // here. Applied in a post-frame callback: this runs during build,
-            // and mutating a provider mid-build would be a write during a
-            // read.
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!context.mounted) return;
-              ref.read(composerControllerProvider.notifier)
-                ..applyLimits(
-                  maxLines: data.maxLines,
-                  maxBuffetDrinks: data.maxBuffetDrinks,
-                )
-                // The cap rule needs both the name and the privilege, so the
-                // model carries both rather than half the rule living in the
-                // guest field's `if`.
-                ..setCanOrderForGuests(ref.read(canOrderForGuestsProvider));
-            });
-
-            return _ComposerBody(
-              catalogue: data,
-              composer: composer,
-              placing: _placing,
-              onPlaceOrder: _placeOrder,
-            );
-          },
+    // No ExitConfirmation and no action cluster: this is a pushed screen now,
+    // with a back arrow and somewhere to go back to. Pushing settings on top of
+    // a half-composed order was never a good offer anyway.
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          mode == OrderMode.guest ? l10n.guestOrderTitle : l10n.orderTitle,
         ),
       ),
+      body: catalogue.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+
+        error: (error, _) => EmptyState(
+          icon: Icons.cloud_off_outlined,
+          title: l10n.genericError,
+          body: error is ApiException ? error.message : l10n.networkError,
+          action: OutlinedButton.icon(
+            onPressed: () => ref.invalidate(catalogueProvider),
+            icon: const Icon(Icons.refresh),
+            label: Text(l10n.retry),
+          ),
+        ),
+
+        data: (data) {
+          if (data.drinks.isEmpty) {
+            return EmptyState(
+              icon: Icons.no_drinks_outlined,
+              title: l10n.emptyCatalogueTitle,
+              body: l10n.emptyCatalogueBody,
+              action: OutlinedButton.icon(
+                onPressed: () => ref.invalidate(catalogueProvider),
+                icon: const Icon(Icons.refresh),
+                label: Text(l10n.refresh),
+              ),
+            );
+          }
+
+          // The caps live on the server and are published with the
+          // catalogue, so the limit is not duplicated as a magic number
+          // here. Applied in a post-frame callback: this runs during build,
+          // and mutating a provider mid-build would be a write during a
+          // read.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            ref.read(composerControllerProvider.notifier)
+              ..applyLimits(
+                maxLines: data.maxLines,
+                maxBuffetDrinks: data.maxBuffetDrinks,
+              )
+              // The cap rule needs both the name and the privilege, so the
+              // model carries both rather than half the rule living in the
+              // guest field's `if`.
+              ..setCanOrderForGuests(ref.read(canOrderForGuestsProvider))
+              // Ordered AFTER the privilege: setCanOrderForGuests(false)
+              // nulls any guest name, and doing it the other way round would
+              // leave the session in guest mode with the name wiped.
+              ..setMode(mode);
+
+            _applySeedUsual(data);
+          });
+
+          return _ComposerBody(
+            catalogue: data,
+            composer: composer,
+            mode: mode,
+            placing: _placing,
+            guestNameController: _guestNameController,
+            guestNameError: _guestNameTouched && composer.guestNameMissing,
+            onGuestNameBlurred: () {
+              if (!_guestNameTouched) {
+                setState(() => _guestNameTouched = true);
+              }
+            },
+            onPlaceOrder: _placeOrder,
+          );
+        },
+      ),
     );
+  }
+
+  /// Fills the draft from the usual order, once, when the hub asked for it.
+  ///
+  /// Guarded rather than idempotent-by-luck: this runs from a post-frame
+  /// callback that fires on every rebuild, and refilling a draft the user has
+  /// since edited or cleared would silently undo their work.
+  void _applySeedUsual(CatalogueResponse data) {
+    if (!widget.seed.applyUsual || _seedUsualApplied) return;
+    final usual = data.usual;
+    if (usual == null) return;
+
+    _seedUsualApplied = true;
+    ref
+        .read(composerControllerProvider.notifier)
+        .applyUsual(usual, data.drinks);
   }
 }
 
@@ -270,20 +273,27 @@ class _ComposerBody extends ConsumerWidget {
   const _ComposerBody({
     required this.catalogue,
     required this.composer,
+    required this.mode,
     required this.placing,
+    required this.guestNameController,
+    required this.guestNameError,
+    required this.onGuestNameBlurred,
     required this.onPlaceOrder,
   });
 
   final CatalogueResponse catalogue;
   final ComposerState composer;
+  final OrderMode mode;
   final bool placing;
+  final TextEditingController guestNameController;
+  final bool guestNameError;
+  final VoidCallback onGuestNameBlurred;
   final Future<void> Function() onPlaceOrder;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final controller = ref.read(composerControllerProvider.notifier);
-    final outstanding = ref.watch(outstandingOrdersProvider);
 
     return Column(
       children: [
@@ -291,28 +301,35 @@ class _ComposerBody extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsetsDirectional.all(Dimens.space4),
             children: [
-              // Above even the usual order: a drink already owed to the user
-              // outranks placing another. This is the whole reason the card
-              // exists — closing the app while waiting is normal, and on the
-              // next launch this screen is where they land.
-              if (outstanding.isNotEmpty) ...[
-                OutstandingOrderCard(
-                  order: outstanding.first,
-                  othersCount: outstanding.length - 1,
-                  onTap: () => context.push(
-                    Routes.orderStatusFor(outstanding.first.orderId),
-                  ),
+              // Who this is for comes FIRST, and only in guest mode. It is the
+              // one thing that makes this order different from an ordinary
+              // one, it changes which rules apply, and it is required — so it
+              // is asked before the drink rather than discovered in a footer
+              // after the order has been composed.
+              if (mode == OrderMode.guest) ...[
+                InlineBanner(
+                  tone: BannerTone.info,
+                  title: l10n.guestOrderTitle,
+                  // States the cap-lifting up front, where it explains why this
+                  // order may take more than one buffet drink.
+                  body: l10n.guestOrderNote,
                 ),
-                const SizedBox(height: Dimens.space4),
-              ],
-
-              // The usual order is the single highest-value feature in the
-              // app — one tap, at the top (§7.1).
-              if (catalogue.usual != null) ...[
-                _UsualOrderCard(
-                  usual: catalogue.usual!,
-                  onApply: () =>
-                      controller.applyUsual(catalogue.usual!, catalogue.drinks),
+                const SizedBox(height: Dimens.space3),
+                Focus(
+                  onFocusChange: (hasFocus) {
+                    if (!hasFocus) onGuestNameBlurred();
+                  },
+                  child: TextField(
+                    controller: guestNameController,
+                    decoration: InputDecoration(
+                      labelText: l10n.guestOrderLabel,
+                      hintText: l10n.guestOrderHint,
+                      prefixIcon: const Icon(Icons.person_outline, size: 18),
+                      errorText: guestNameError ? l10n.guestNameRequired : null,
+                    ),
+                    textInputAction: TextInputAction.next,
+                    onChanged: controller.setOnBehalfOfName,
+                  ),
                 ),
                 const SizedBox(height: Dimens.space4),
               ],
@@ -358,17 +375,7 @@ class _ComposerBody extends ConsumerWidget {
               // the order outright past it. It still does not disable the
               // order button — the user fixes it by switching a drink to
               // their own jar or removing it.
-              // The password change worked but the token refresh did not.
-              // Shown here because this is where the user lands afterwards,
-              // and dismissed once seen.
-              if (ref.watch(sessionNotRefreshedProvider)) ...[
-                InlineBanner(
-                  tone: BannerTone.warning,
-                  title: l10n.sessionNotRefreshed,
-                ),
-                const SizedBox(height: Dimens.space4),
-              ],
-
+              //
               // Shown for the order as it stands AND for a draft that cannot
               // be added — the add button is disabled in the second case, and
               // a disabled control with no reason beside it is a dead end.
@@ -608,15 +615,15 @@ List<Widget> _groupedDrinks({
   if (mine.isEmpty) return [grid(drinks, fromOwn: false)];
 
   return [
-    _PickerSectionHeading(
+    SectionHeader(
       label: l10n.sectionMyMaterials,
       // Violet, because this section genuinely IS the user's own jar.
-      color: BrandColors.accent,
+      accent: BrandColors.accent,
     ),
     const SizedBox(height: Dimens.space2),
     grid(mine, fromOwn: true),
     const SizedBox(height: Dimens.space4),
-    _PickerSectionHeading(label: l10n.sectionBuffet, color: BrandColors.muted),
+    SectionHeader(label: l10n.sectionBuffet, accent: BrandColors.muted),
     const SizedBox(height: Dimens.space2),
     // The whole catalogue, including drinks the user also owns.
     grid(drinks, fromOwn: false),
@@ -685,32 +692,6 @@ class _ExtraChip extends StatelessWidget {
   }
 }
 
-class _PickerSectionHeading extends StatelessWidget {
-  const _PickerSectionHeading({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Container(
-        width: Dimens.space1,
-        height: Dimens.space4,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(Dimens.radiusSm),
-        ),
-      ),
-      const SizedBox(width: Dimens.space2),
-      Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
-      ),
-    ],
-  );
-}
-
 /// The drinks already added to this order, each removable.
 class _AddedLines extends StatelessWidget {
   const _AddedLines({required this.lines, required this.onRemove});
@@ -723,13 +704,8 @@ class _AddedLines extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final language = Localizations.localeOf(context).languageCode;
 
-    return Container(
+    return AppCard(
       padding: const EdgeInsetsDirectional.all(Dimens.space3),
-      decoration: BoxDecoration(
-        color: BrandColors.surface,
-        border: Border.all(color: BrandColors.brandLight),
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -778,60 +754,6 @@ class _AddedLines extends StatelessWidget {
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _UsualOrderCard extends StatelessWidget {
-  const _UsualOrderCard({required this.usual, required this.onApply});
-
-  final UsualOrderDto usual;
-  final VoidCallback onApply;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-
-    return Container(
-      padding: const EdgeInsetsDirectional.all(Dimens.space4),
-      decoration: BoxDecoration(
-        color: BrandColors.surface,
-        border: Border.all(color: BrandColors.brandLight),
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.refresh, size: 18, color: BrandColors.brand),
-              const SizedBox(width: Dimens.space2),
-              Text(
-                l10n.usualOrder,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-            ],
-          ),
-          const SizedBox(height: Dimens.space2),
-          // Server-composed and rendered as-is per §4 — but ISOLATED: the
-          // server builds this from the item's English name and an Arabic
-          // parenthetical regardless of Accept-Language, so it is reliably
-          // mixed-script ("Coffee (بدون سكر)"). Without the isolate the bidi
-          // algorithm reorders the parentheses around the Latin run.
-          Text(
-            Formatters.isolate(usual.summary),
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-          const SizedBox(height: Dimens.space3),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: onApply,
-              child: Text(l10n.orderTheUsual),
-            ),
-          ),
         ],
       ),
     );
@@ -920,33 +842,19 @@ class _ComposerFooter extends ConsumerWidget {
           ),
           const SizedBox(height: Dimens.space3),
 
-          // Shown only when the token carries the privilege. The server reads
-          // it from the token's claims, not the body — a client cannot grant
-          // itself this, and offering the field to someone without it would
-          // produce an unexplained rejection.
-          //
-          // Naming a guest also lifts the one-buffet-drink cap server-side:
-          // an order for three visitors that had to draw two drinks from the
-          // employee's own jar would be useless for its one purpose.
-          if (ref.watch(canOrderForGuestsProvider)) ...[
-            TextField(
-              decoration: InputDecoration(
-                labelText: l10n.guestOrderLabel,
-                hintText: l10n.guestOrderHint,
-                helperText: l10n.guestOrderNote,
-                prefixIcon: const Icon(Icons.person_outline, size: 18),
-              ),
-              textInputAction: TextInputAction.done,
-              onChanged: controller.setOnBehalfOfName,
-            ),
-            const SizedBox(height: Dimens.space3),
-          ],
-
+          // The guest name is NOT here. It moved to the top of the screen and
+          // only exists in guest mode — asking "who is this for?" underneath a
+          // composed order was asking it far too late, and asking it of
+          // everyone made the two kinds of order look identical.
           FilledButton(
             // Disabled only when there is genuinely nothing to order.
             // NEVER disabled on a stock reading — see ownStockIsShort, which
             // drives a warning and nothing else.
-            onPressed: composer.canPlaceOrder && !placing
+            //
+            // A missing guest name deliberately does NOT disable it: the
+            // handler reveals the error on the field instead, so the user is
+            // told what is wrong rather than left with a dead button.
+            onPressed: composer.allLines.isNotEmpty && !placing
                 ? () => onPlaceOrder()
                 : null,
             child: placing

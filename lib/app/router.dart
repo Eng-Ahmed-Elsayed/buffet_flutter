@@ -7,10 +7,12 @@ import '../features/auth/change_password_screen.dart';
 import '../features/auth/lock_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/splash_screen.dart';
+import '../features/home/home_screen.dart';
 import '../features/materials/my_materials_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/order/composer_screen.dart';
 import '../features/order/my_orders_screen.dart';
+import '../features/order/order_mode.dart';
 import '../features/order/order_status_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/staff_queue/queue_screen.dart';
@@ -66,13 +68,21 @@ final routerProvider = Provider<GoRouter>((ref) {
               location == Routes.login ||
               location == Routes.lock ||
               location == Routes.changePassword) {
-            return auth.role.startsOnQueue ? Routes.queue : Routes.catalogue;
+            return auth.role.startsOnQueue ? Routes.queue : Routes.home;
           }
 
           // The queue is staff-only. An employee reaching it by deep link goes
-          // to the catalogue rather than seeing a screen whose every call 403s.
+          // to the hub rather than seeing a screen whose every call 403s.
           if (location == Routes.queue && !auth.role.startsOnQueue) {
-            return Routes.catalogue;
+            return Routes.home;
+          }
+
+          // And the mirror of it: /home is the EMPLOYEE landing screen. Staff
+          // have one landing, the queue, and reach the composer by pushing it
+          // from there — which is what keeps ExitConfirmation unambiguous about
+          // which screen closes the app.
+          if (location == Routes.home && auth.role.startsOnQueue) {
+            return Routes.queue;
           }
 
           return null;
@@ -97,14 +107,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ChangePasswordScreen(),
       ),
       GoRoute(
+        path: Routes.home,
+        builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
         path: Routes.catalogue,
-        builder: (context, state) => const ComposerScreen(),
+        // The seed carries how the composer was opened — for the user, or for
+        // a guest. Absent for the staff "order for myself" push, which defaults
+        // to self, and absent on any deep link, which is deliberate: mode is
+        // not something a URL should be able to assert.
+        builder: (context, state) => ComposerScreen(
+          seed: state.extra is ComposerSeed
+              ? state.extra! as ComposerSeed
+              : const ComposerSeed(),
+        ),
       ),
       GoRoute(
         path: Routes.orderStatus,
         builder: (context, state) {
           final id = int.tryParse(state.pathParameters['orderId'] ?? '');
-          if (id == null) return const ComposerScreen();
+          if (id == null) return const HomeScreen();
           return OrderStatusScreen(orderId: id);
         },
       ),

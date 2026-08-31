@@ -9,6 +9,7 @@ import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
+import '../../data/local/order_alerts.dart';
 import '../../data/models/staff_models.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../l10n/app_localizations.dart';
@@ -83,7 +84,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     // AppLocalizations for its network-error fallback, and an inherited widget
     // cannot legally be looked up before initState has returned.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_refresh());
+      if (!mounted) return;
+      unawaited(_refresh());
+      // Staff never got this. The prompt used to live on the composer, which
+      // is the EMPLOYEE landing screen — staff only ever reach it by pushing
+      // it from here, so a staff member who never ordered their own drink had
+      // no notification channels and was never asked for permission at all.
+      unawaited(prepareOrderAlerts(context, ref));
     });
     _startPolling();
   }
