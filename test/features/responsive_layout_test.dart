@@ -16,12 +16,14 @@ library;
 /// different lengths.
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/order_models.dart';
+import 'package:buffet_app/data/models/staff_models.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/home/home_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/features/settings/settings_screen.dart';
+import 'package:buffet_app/features/staff_queue/widgets/queue_card.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -101,6 +103,33 @@ Widget _wrap(Widget home, double scale, Locale locale) => ProviderScope(
   ),
 );
 
+final _staffOrder = StaffOrderDto(
+  orderId: 41,
+  status: 'Pending',
+  createdAtUtc: DateTime.utc(2026, 8, 20, 7),
+  readyAtUtc: null,
+  requesterDisplayName: 'سارة عبد الرحمن',
+  department: 'الشؤون المالية والإدارية',
+  locationText: 'الدور الثالث، مكتب ٣١٢',
+  onBehalfOfName: 'وفد وزارة الاتصالات',
+  notes: 'بدون لبن من فضلك',
+  waitingSeconds: 420,
+  lines: const [
+    StaffOrderLineDto(
+      drinkItemId: 1,
+      drinkNameAr: 'قهوة تركي سادة',
+      variantNameAr: 'غامق',
+      sugarSpoons: 2,
+      sugarNameAr: null,
+      extraNamesAr: ['حليب'],
+      lineNote: 'كوب كبير',
+      drinkSourceOwnerName: 'سارة',
+      sugarSourceOwnerName: '',
+      extraSources: [],
+    ),
+  ],
+);
+
 void main() {
   final screens = <String, Widget>{
     'home': const HomeScreen(),
@@ -110,6 +139,18 @@ void main() {
     ),
     'my-orders': const MyOrdersScreen(),
     'settings': const SettingsScreen(),
+    // The busiest screen in the app, with a worst-case card: long names, a
+    // guest, a note and a preparation. Its drink-name row was unbounded and
+    // ran 210dp off a 320dp card at 2x.
+    'staff-queue-card': SingleChildScrollView(
+      child: QueueCard(
+        order: _staffOrder,
+        warnings: null,
+        onMarkReady: (o, {required deliverNow}) async {},
+        onComplete: null,
+        onCancel: (o) async {},
+      ),
+    ),
   };
 
   for (final entry in screens.entries) {

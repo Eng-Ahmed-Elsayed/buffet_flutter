@@ -268,7 +268,12 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   /// the user mid-keystroke or move their cursor while they type.
   void _syncGuestNameField(String? name) {
     final text = name ?? '';
-    if (_guestNameController.text == text) return;
+
+    // Compared on the TRIMMED text, because the state is trimmed and the field
+    // is not. Comparing raw would make every trailing space a divergence: the
+    // user types "أحمد " on the way to "أحمد محمد", the state trims it back to
+    // "أحمد", and the sync would snatch the space away as they typed it.
+    if (_guestNameController.text.trim() == text) return;
 
     _guestNameController.value = TextEditingValue(
       text: text,
@@ -584,6 +589,28 @@ class _ComposerBody extends ConsumerWidget {
   }
 }
 
+/// How tall a drink tile has to be for its text to fit at the current scale.
+///
+/// The image and the paddings are fixed; the name (up to two lines) and the
+/// servings label are not, and both grow with the platform text scale. Measured
+/// rather than guessed, so a large-text user gets a taller tile instead of a
+/// clipped name.
+double _drinkTileHeight(BuildContext context) {
+  final scaler = MediaQuery.textScalerOf(context);
+  final text = Theme.of(context).textTheme;
+
+  final nameLine =
+      scaler.scale(text.labelSmall?.fontSize ?? 12) * Dimens.lineHeight;
+
+  // padding + image + gap + two lines of name + gap + one line of servings.
+  return Dimens.space3 * 2 +
+      40 +
+      Dimens.space2 +
+      nameLine * 2 +
+      Dimens.space1 +
+      nameLine;
+}
+
 /// The extras this drink permits, in catalogue order.
 ///
 /// A null [CatalogueItemDto.allowedExtraItemIds] means unrestricted, so every
@@ -631,16 +658,21 @@ List<Widget> _groupedDrinks({
       GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        // maxCrossAxisExtent, not a fixed count with a fixed ratio: the
-        // ratio dictated the tile HEIGHT, so a two-line drink name overflowed
-        // it — on a 320dp phone at the DEFAULT text scale, and worse at the
+        // maxCrossAxisExtent, not a fixed count with a fixed ratio: the ratio
+        // dictated the tile HEIGHT, so a two-line drink name overflowed it —
+        // on a 320dp phone at the DEFAULT text scale, and worse at the
         // accessibility scales. An extent keeps three columns on an ordinary
-        // phone, drops to two on a narrow one, and adds a fourth on a tablet.
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        // phone and adds more on a tablet.
+        //
+        // The height scales with the text rather than being fixed, because a
+        // fixed one merely converts the overflow into a silent clip: at 2x the
+        // name had room for one line of the two it is allowed, so a drink
+        // whose name needs both became unreadable with nothing to show for it.
+        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
           maxCrossAxisExtent: 128,
           mainAxisSpacing: Dimens.space3,
           crossAxisSpacing: Dimens.space3,
-          mainAxisExtent: 132,
+          mainAxisExtent: _drinkTileHeight(context),
         ),
         itemCount: items.length,
         itemBuilder: (context, index) {

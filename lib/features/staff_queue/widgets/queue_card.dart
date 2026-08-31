@@ -269,9 +269,13 @@ class _LineDetails extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+        // A Wrap, not a Row: the drink name and its preparation together were
+        // wider than a 320dp card at the larger text scales — by 210dp at 2x —
+        // and an unbounded Row has nowhere to put the excess but off the edge.
+        // The preparation drops to its own line instead.
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: Dimens.space2,
           children: [
             Text(
               // Arabic by contract: StaffOrderLineDto carries only *NameAr —
@@ -284,13 +288,8 @@ class _LineDetails extends StatelessWidget {
               line.drinkNameAr,
               style: Theme.of(context).textTheme.titleSmall,
             ),
-            if (line.variantNameAr != null) ...[
-              const SizedBox(width: Dimens.space2),
-              Text(
-                line.variantNameAr!,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+            if (line.variantNameAr case final String variant)
+              Text(variant, style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
         const SizedBox(height: Dimens.space2),

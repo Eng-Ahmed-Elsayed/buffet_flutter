@@ -437,6 +437,36 @@ void main() {
   });
 
   group('the guest field shows what the order will actually carry', () {
+    testWidgets('typing a two-word name keeps the space between them', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+            usual: null,
+          ),
+          canOrderForGuests: true,
+          mode: OrderMode.guest,
+        ),
+      );
+
+      // On the way to "أحمد محمد" the user passes through "أحمد ". The state
+      // trims that back, and a sync comparing raw text would read the trim as
+      // a divergence and snatch the space away as it was typed.
+      await tester.enterText(find.byType(TextField).first, 'أحمد ');
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller?.text,
+        'أحمد ',
+      );
+    });
+
     testWidgets('a confirmed order clears the visible name, not just state', (
       tester,
     ) async {
