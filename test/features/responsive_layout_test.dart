@@ -17,11 +17,13 @@ library;
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/order_models.dart';
 import 'package:buffet_app/data/models/staff_models.dart';
+import 'package:buffet_app/data/repositories/order_repository.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/home/home_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
+import 'package:buffet_app/features/order/order_status_screen.dart';
 import 'package:buffet_app/features/settings/settings_screen.dart';
 import 'package:buffet_app/features/staff_queue/widgets/queue_card.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
@@ -29,6 +31,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 CatalogueItemDto _d(int id, String n) => CatalogueItemDto(
   itemId: id,
@@ -130,6 +133,65 @@ final _staffOrder = StaffOrderDto(
   ],
 );
 
+/// Serves one order at a chosen status, so the status screen can be rendered
+/// without a network. A worst-case order: a guest with a long name, a note and
+/// a location that all have to share a 320dp width.
+class _StatusRepo implements OrderRepository {
+  _StatusRepo(this.status);
+
+  final String status;
+
+  @override
+  Future<OrderSummaryDto> fetchOrder({
+    required int orderId,
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async => OrderSummaryDto(
+    orderId: orderId,
+    status: status,
+    createdAtUtc: DateTime.utc(2026, 8, 20, 7),
+    readyAtUtc: DateTime.utc(2026, 8, 20, 7, 5),
+    handledAtUtc: null,
+    locationText: 'الدور الثالث، مكتب ٣١٢',
+    onBehalfOfName: 'وفد وزارة الاتصالات',
+    notes: 'بدون لبن من فضلك',
+    lines: const [
+      OrderLineDto(
+        drinkItemId: 1,
+        drinkNameAr: 'قهوة تركي سادة',
+        sugarSpoons: 2,
+        variantId: null,
+        sugarItemId: null,
+        extraItemIds: [],
+        lineNote: null,
+        drinkFromOwn: true,
+        sugarFromOwn: false,
+        ownExtraItemIds: [],
+      ),
+    ],
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
+}
+
+/// The status screen calls `context.canPop()`, which needs a router above it.
+class _RoutedStatus extends StatelessWidget {
+  const _RoutedStatus();
+
+  @override
+  Widget build(BuildContext context) => Router.withConfig(
+    config: GoRouter(
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (c, s) => const OrderStatusScreen(orderId: 41),
+        ),
+      ],
+    ),
+  );
+}
+
 void main() {
   final screens = <String, Widget>{
     'home': const HomeScreen(),
@@ -173,6 +235,59 @@ void main() {
           );
         });
       }
+    }
+  }
+
+  // The status screen gets its own group: it needs a repository override, and
+  // its four-step track and guest chip are exactly the kind of thing that
+  // overflows. The track was four fixed 72dp columns; the chip was an
+  // unbounded row.
+  for (final status in [
+    'Pending',
+    'InProgress',
+    'Ready',
+    'Completed',
+    'Cancelled',
+  ]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets('order status $status fits 320dp at ${scale}x', (t) async {
+        t.view.physicalSize = const Size(320, 900);
+        t.view.devicePixelRatio = 1;
+        addTearDown(t.view.reset);
+
+        await t.pumpWidget(
+          ProviderScope(
+            overrides: [
+              orderRepositoryProvider.overrideWithValue(_StatusRepo(status)),
+              catalogueProvider.overrideWith((r) async => _cat),
+            ],
+            child: MaterialApp(
+              locale: const Locale('ar'),
+              supportedLocales: const [Locale('ar'), Locale('en')],
+              localizationsDelegates: const [
+                AppLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              builder: (c, child) => MediaQuery.withClampedTextScaling(
+                minScaleFactor: scale,
+                maxScaleFactor: scale,
+                child: child!,
+              ),
+              home: const _RoutedStatus(),
+            ),
+          ),
+        );
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 50));
+
+        expect(
+          t.takeException(),
+          isNull,
+          reason: 'order status $status overflows at ${scale}x',
+        );
+      });
     }
   }
 }

@@ -48,7 +48,13 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_refresh());
+    // After the first frame, not during initState: _refresh reads
+    // AppLocalizations for its network-error fallback, and an inherited widget
+    // cannot legally be looked up before initState has returned. The queue
+    // screen already defers its own first load for exactly this reason.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_refresh());
+    });
     _startPolling();
   }
 
@@ -431,6 +437,10 @@ class _StatusHeader extends StatelessWidget {
                   color: isReady ? BrandColors.surface : BrandColors.brandLight,
                   borderRadius: BorderRadius.circular(Dimens.radiusLg),
                 ),
+                // mainAxisSize.min shrinks the row to its children but does
+                // not BOUND them, so a long guest name at a large text scale
+                // ran off the card. Flexible lets the name wrap instead; the
+                // guest is the point of the chip, so it is never truncated.
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -440,12 +450,14 @@ class _StatusHeader extends StatelessWidget {
                       color: BrandColors.brand,
                     ),
                     const SizedBox(width: Dimens.space1),
-                    Text(
-                      // User-entered, so it may run counter to the page
-                      // direction (§2.4).
-                      Formatters.isolate(name),
-                      style: Theme.of(context).textTheme.labelSmall
-                          ?.copyWith(color: BrandColors.brand),
+                    Flexible(
+                      child: Text(
+                        // User-entered, so it may run counter to the page
+                        // direction (§2.4).
+                        Formatters.isolate(name),
+                        style: Theme.of(context).textTheme.labelSmall
+                            ?.copyWith(color: BrandColors.brand),
+                      ),
                     ),
                   ],
                 ),

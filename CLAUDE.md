@@ -195,6 +195,10 @@ Not a workflow — these hold on every edit, whether or not a skill was invoked.
   `PopScope` that routes somewhere sensible.
 - **Never hardcode a colour, duration, radius or spacing value.** They live in `lib/theme/`. A
   literal in a widget is a bug even when it looks right.
+- **Never read `AppLocalizations` (or any inherited widget) from `initState`.** It throws a
+  framework assertion, which in a `ConsumerState` surfaces only as a screen that fails to load —
+  the status screen shipped this way. Defer the first load to
+  `addPostFrameCallback`, as the queue and status screens now both do.
 - **A fixed `childAspectRatio` on a grid of text is a bug.** It dictates the tile *height*, so a
   label needing more room overflows instead of growing — this shipped twice, and overflowed at the
   **default** text scale on a 320dp phone, not merely at the accessibility scales. Size tiles from
