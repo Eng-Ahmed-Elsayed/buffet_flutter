@@ -1,3 +1,5 @@
+import '../../data/models/favourite_models.dart';
+
 /// Who an order is being composed for.
 ///
 /// Chosen **before** the composer opens, by which action the user tapped on the
@@ -26,14 +28,21 @@ enum OrderMode {
 /// wanted here. Push deep links only ever target `/order/{id}`, never `/order`,
 /// so nothing is lost by it being unserialisable.
 class ComposerSeed {
-  const ComposerSeed({this.mode = OrderMode.self, this.applyUsual = false});
+  const ComposerSeed({this.mode = OrderMode.self, this.favourite});
 
   final OrderMode mode;
 
-  /// Whether to fill the draft from the caller's usual order on open.
+  /// The favourite to fill the composer from on open, or null for an empty one.
   ///
-  /// A flag rather than the usual order itself, so this stays
-  /// const-constructible and the composer reads the usual from the catalogue it
-  /// already fetches — one source of truth for what "the usual" is.
-  final bool applyUsual;
+  /// Carried **whole** rather than as an id or a flag, unlike the "usual order"
+  /// this replaced: that came from the catalogue the composer already fetched,
+  /// so a flag was enough. Favourites are a separate endpoint, and making the
+  /// composer refetch the list just to look one up would put a spinner between
+  /// the tap and the drink — the delay the one-tap repeat exists to avoid.
+  ///
+  /// Seeds the composer rather than placing outright: the user still sees and
+  /// confirms what they are ordering, and a favourite holding an item retired
+  /// since it was saved shows up as a line they can see rather than a rejection
+  /// they cannot act on (§7.6).
+  final FavouriteDto? favourite;
 }

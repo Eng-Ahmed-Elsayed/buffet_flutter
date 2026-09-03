@@ -41,7 +41,6 @@ const _catalogue = CatalogueResponse(
   sugars: [],
   extras: [],
   locations: [],
-  usual: null,
   maxLines: 3,
   maxBuffetDrinks: 2,
 );

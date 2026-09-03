@@ -36,7 +36,6 @@ const _catalogue = CatalogueResponse(
   sugars: [],
   extras: [],
   locations: [],
-  usual: null,
 );
 
 /// Mirrors the resolution the status card performs.

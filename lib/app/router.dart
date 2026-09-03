@@ -11,6 +11,7 @@ import '../features/home/home_screen.dart';
 import '../features/materials/my_materials_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/order/composer_screen.dart';
+import '../features/order/favourites_screen.dart';
 import '../features/order/my_orders_screen.dart';
 import '../features/order/order_mode.dart';
 import '../features/order/order_status_screen.dart';
@@ -133,6 +134,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.myOrders,
         builder: (context, state) => const MyOrdersScreen(),
+      ),
+      GoRoute(
+        path: Routes.favourites,
+        builder: (context, state) => const FavouritesScreen(),
       ),
       GoRoute(
         path: Routes.materials,

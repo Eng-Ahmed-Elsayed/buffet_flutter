@@ -11,6 +11,10 @@ abstract final class Routes {
   static const catalogue = '/order';
   static const orderStatus = '/order/:orderId';
   static const myOrders = '/orders';
+
+  /// The full saved-orders list. The hub and composer show only the first few;
+  /// this is where the rest live and where the list gets tidied.
+  static const favourites = '/favourites';
   static const materials = '/materials';
   static const notifications = '/notifications';
   static const settings = '/settings';

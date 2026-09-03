@@ -67,6 +67,9 @@ class PlaceOrderApiRequest {
     this.locationText,
     this.onBehalfOfName,
     this.idempotencyKey,
+    this.saveAsFavourite = false,
+    this.favouriteName,
+    this.fromFavouriteId,
   });
 
   final List<OrderLineDto> lines;
@@ -86,6 +89,25 @@ class PlaceOrderApiRequest {
   /// on office wifi otherwise becomes a second coffee (§7.2).
   final String? idempotencyKey;
 
+  /// Save these lines as a favourite once the order is placed, so "order this
+  /// again" needs no second screen.
+  ///
+  /// **Best-effort, and never fails the order** — the drink is already made by
+  /// the time it is written. Ignored on an idempotent retry, so resending after
+  /// a dropped response cannot leave two copies of the same favourite.
+  final bool saveAsFavourite;
+
+  /// What to call it. Ignored unless [saveAsFavourite] is set; **null means
+  /// "name it after the drinks"**, which the server does including the
+  /// preparation.
+  final String? favouriteName;
+
+  /// The favourite this order was replayed from, when it was.
+  ///
+  /// Only stamps that favourite as recently used — it does not affect what is
+  /// ordered, which comes from [lines] as on any other order.
+  final int? fromFavouriteId;
+
   Map<String, dynamic> toJson() => _$PlaceOrderApiRequestToJson(this);
 }
 
@@ -101,6 +123,7 @@ class PlaceOrderResponse {
     required this.duplicate,
     this.autoServed = false,
     this.shortageNames,
+    this.favouriteId,
   });
 
   factory PlaceOrderResponse.fromJson(Map<String, dynamic> json) =>
@@ -126,6 +149,13 @@ class PlaceOrderResponse {
   /// **Not a failure**: the drink was made and the ledger written. It means
   /// physical and recorded stock have drifted, which an admin reconciles.
   final String? shortageNames;
+
+  /// The favourite created from this order, when one was asked for and saved.
+  ///
+  /// **Null is not an error.** It is null both when none was requested and when
+  /// saving failed — a full list, or an item retired since. The order stands
+  /// either way, so never interrupt a successful order over it.
+  final int? favouriteId;
 }
 
 /// Mirrors `OrderSummaryDto` in ApiContracts.cs.

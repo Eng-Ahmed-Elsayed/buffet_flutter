@@ -43,7 +43,6 @@ final _catalogue = CatalogueResponse(
   sugars: [_item(1, 'سكر', 'Sugar')],
   extras: [_item(9, 'حليب', 'Extra')],
   locations: const [],
-  usual: null,
 );
 
 ProviderContainer _container({
@@ -117,7 +116,6 @@ void main() {
           sugars: [],
           extras: [],
           locations: [],
-          usual: null,
         ),
       );
       addTearDown(container.dispose);

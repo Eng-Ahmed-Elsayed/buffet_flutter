@@ -6,6 +6,7 @@ import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/models/order_models.dart';
+import '../../data/repositories/favourites_repository.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
@@ -13,6 +14,8 @@ import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import 'favourites_controller.dart';
+import 'widgets/favourite_name_dialog.dart';
 
 /// The caller's own orders, newest first.
 final myOrdersProvider = FutureProvider.autoDispose<List<OrderSummaryDto>>((
@@ -58,6 +61,12 @@ class MyOrdersScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     final orders = ref.watch(myOrdersProvider);
+    // valueOrNull: the history list must not wait on the favourites request.
+    // Not yet loaded reads as "none saved", which shows the save action — and
+    // the server refuses a duplicate anyway, so the worst case is one honest
+    // error rather than a row that sat disabled for no visible reason.
+    final saved =
+        ref.watch(favouritesProvider).valueOrNull?.favourites ?? const [];
 
     return Scaffold(
       appBar: AppBar(
@@ -134,7 +143,28 @@ class MyOrdersScreen extends ConsumerWidget {
                 if (past.isNotEmpty) ...[
                   SectionHeader(label: l10n.pastOrders),
                   const SizedBox(height: Dimens.space2),
-                  for (final order in past) _OrderRow(order: order),
+                  for (final order in past)
+                    _OrderRow(
+                      order: order,
+                      // Whether this exact order is already saved, so the row
+                      // can say so with a filled star rather than offering to
+                      // save a second copy of it.
+                      alreadySaved:
+                          order.lines.isNotEmpty &&
+                          saved.any((f) => f.orders(order.lines)),
+                      // Only on a finished order. This is the migration path
+                      // for anyone who relied on the old "last order" button:
+                      // the user picks WHICH past order was actually a habit,
+                      // instead of the server assuming the newest one was
+                      // (§7.7).
+                      // An order carrying no lines cannot become a
+                      // favourite — the server refuses an empty one with a
+                      // 400 — so the action is absent rather than offered
+                      // and then rejected after the user has named it.
+                      onSaveAsFavourite: order.lines.isEmpty
+                          ? null
+                          : () => _saveAsFavourite(context, ref, order),
+                    ),
                 ],
               ],
             ),
@@ -145,11 +175,72 @@ class MyOrdersScreen extends ConsumerWidget {
   }
 }
 
+/// Saves a past order to the caller's favourites.
+///
+/// **No backend work was needed for this**: `OrderSummaryDto.lines` and
+/// `SaveFavouriteRequest.lines` are both `OrderLineDto`, so this is a straight
+/// repost of the order's own lines.
+///
+/// Asks what to call it first. The name stays optional — blank means "name it
+/// after the drinks", which the server does including the preparation — so the
+/// dialog never blocks on typing.
+Future<void> _saveAsFavourite(
+  BuildContext context,
+  WidgetRef ref,
+  OrderSummaryDto order,
+) async {
+  final l10n = AppLocalizations.of(context);
+  final locale = ref.read(localeControllerProvider);
+  final messenger = ScaffoldMessenger.of(context);
+
+  // Ask what to call it first. The name is optional — blank means "name it
+  // after the drinks" — but asking is what lets somebody who keeps several
+  // similar orders tell them apart later, which a server-composed name of
+  // "قهوة (2 سكر)" repeated three times cannot.
+  final choice = await showFavouriteNameDialog(context);
+  // Dismissed, or the screen went away while the dialog was open — `ref` and
+  // the messenger are both dead past that point.
+  if (choice == null || !context.mounted) return;
+
+  try {
+    await ref
+        .read(favouritesRepositoryProvider)
+        .saveFavourite(
+          lines: order.lines,
+          name: choice.name,
+          languageCode: locale.languageCode,
+          networkErrorFallback: l10n.networkError,
+        );
+    ref.invalidate(favouritesProvider);
+    messenger.showSnackBar(SnackBar(content: Text(l10n.favouriteSaved)));
+  } on ApiException catch (error) {
+    // Surfaced as-is: at the cap the server says so, and that message is the
+    // only thing that tells the user what to do about it (§4).
+    messenger.showSnackBar(SnackBar(content: Text(error.message)));
+  }
+}
+
 /// One order in the list. Tapping opens the tracking screen.
 class _OrderRow extends StatelessWidget {
-  const _OrderRow({required this.order});
+  const _OrderRow({
+    required this.order,
+    this.onSaveAsFavourite,
+    this.alreadySaved = false,
+  });
 
   final OrderSummaryDto order;
+
+  /// Offered on finished orders only. Null on a live one — an order still
+  /// being made is not yet something the user knows they want again.
+  final VoidCallback? onSaveAsFavourite;
+
+  /// Whether this order is already in the user's favourites.
+  ///
+  /// Turns the action into a filled-star statement rather than a button. The
+  /// action is *replaced*, not disabled: a greyed-out control with no
+  /// explanation is the dead end this codebase avoids, and "saved" said plainly
+  /// is the explanation.
+  final bool alreadySaved;
 
   @override
   Widget build(BuildContext context) {
@@ -180,47 +271,104 @@ class _OrderRow extends StatelessWidget {
               border: Border.all(color: BrandColors.brandLight),
               borderRadius: BorderRadius.circular(Dimens.radius),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        // locationText is optional — an order stands without
-                        // one, so an empty string is a normal state and must
-                        // read as "none given" rather than as a blank row.
-                        order.locationText.trim().isEmpty
-                            ? l10n.noLocationGiven
-                            // Isolated: user- or admin-entered, and may run
-                            // counter to the page direction (§2.4).
-                            : Formatters.isolate(order.locationText),
-                        style: Theme.of(context).textTheme.titleSmall,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            // locationText is optional — an order stands without
+                            // one, so an empty string is a normal state and must
+                            // read as "none given" rather than as a blank row.
+                            order.locationText.trim().isEmpty
+                                ? l10n.noLocationGiven
+                                // Isolated: user- or admin-entered, and may run
+                                // counter to the page direction (§2.4).
+                                : Formatters.isolate(order.locationText),
+                            style: Theme.of(context).textTheme.titleSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            // Converted from UTC — never rendered raw (§4).
+                            Formatters.dateTime(order.createdAtUtc, locale),
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
                       ),
-                      Text(
-                        // Converted from UTC — never rendered raw (§4).
-                        Formatters.dateTime(order.createdAtUtc, locale),
-                        style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                    const SizedBox(width: Dimens.space2),
+                    // Constrained rather than free: at a large text scale the
+                    // status word alone was wider than the row and pushed the
+                    // chevron off the edge. It still always shows — colour is
+                    // never the only signal (§2.5) — it just wraps instead.
+                    Flexible(
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: tone),
                       ),
-                    ],
-                  ),
+                    ),
+                    const Icon(Icons.chevron_right, size: 18),
+                  ],
                 ),
-                const SizedBox(width: Dimens.space2),
-                // Constrained rather than free: at a large text scale the
-                // status word alone was wider than the row and pushed the
-                // chevron off the edge. It still always shows — colour is
-                // never the only signal (§2.5) — it just wraps instead.
-                Flexible(
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.end,
-                    style: Theme.of(context).textTheme.labelMedium
-                        ?.copyWith(color: tone),
+
+                // On its own line rather than in the row above: at 320dp the
+                // row already carries a location, a date, a status word and a
+                // chevron, and a fourth control squeezed in beside them is how
+                // the status label got pushed off the edge before. A full-width
+                // button below also states what it does in words, which an
+                // icon in a crowded row could not.
+                if (alreadySaved) ...[
+                  const SizedBox(height: Dimens.space2),
+                  // A filled star and a statement, not a button: there is
+                  // nothing left to do here, and offering the action again
+                  // would either save a duplicate or produce a rejection the
+                  // user could not have predicted.
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(
+                        start: Dimens.space2,
+                        top: Dimens.space1,
+                        bottom: Dimens.space1,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.star,
+                            size: 16,
+                            color: BrandColors.brand,
+                          ),
+                          const SizedBox(width: Dimens.space2),
+                          Flexible(
+                            child: Text(
+                              l10n.favouriteAlreadySaved,
+                              style: Theme.of(context).textTheme.labelMedium
+                                  ?.copyWith(color: BrandColors.muted),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-                const Icon(Icons.chevron_right, size: 18),
+                ] else if (onSaveAsFavourite case final VoidCallback save) ...[
+                  const SizedBox(height: Dimens.space2),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      onPressed: save,
+                      icon: const Icon(Icons.star_outline, size: 16),
+                      label: Text(l10n.saveAsFavourite),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

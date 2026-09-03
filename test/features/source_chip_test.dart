@@ -80,9 +80,31 @@ void main() {
         ),
       );
       expect(text.data, contains('أحمد حسن'));
+      // The colon is the punctuation half of the "from my own jar" signal.
+      expect(text.data, startsWith('المشروب: '));
     });
 
-    testWidgets('renders company stock in English too', (tester) async {
+    testWidgets('company stock shows the bare label — no colon, no source', (
+      tester,
+    ) async {
+      // Naming the buffet on every chip is noise: it is where a drink comes
+      // from unless something says otherwise. Only a personal jar earns the
+      // "label: source" form.
+      await tester.pumpWidget(
+        wrap(const SourceChip(label: 'المشروب', ownerName: '')),
+      );
+
+      final text = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(SourceChip),
+          matching: find.byType(Text),
+        ),
+      );
+      expect(text.data, 'المشروب');
+      expect(text.data, isNot(contains(':')));
+    });
+
+    testWidgets('and in English too', (tester) async {
       await tester.pumpWidget(
         wrap(
           const SourceChip(label: 'Drink', ownerName: ''),
@@ -96,7 +118,7 @@ void main() {
           matching: find.byType(Text),
         ),
       );
-      expect(text.data, contains('Buffet'));
+      expect(text.data, 'Drink');
     });
   });
 

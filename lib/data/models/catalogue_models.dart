@@ -134,6 +134,14 @@ class VariantDto {
 ///
 /// Bundled deliberately: a phone on office wifi should not need four requests
 /// to draw one screen.
+///
+/// **Carries no "usual order", and must not grow one back.** It used to: the
+/// caller's last non-cancelled order, dressed up as a habit. It changed under
+/// the user every time they ordered something for a visitor, and nobody chose
+/// it. Favourites replaced it — the same one-tap repeat, stated rather than
+/// guessed — and deliberately from a *separate* endpoint, since this response
+/// is cached until resume while that list changes the moment the user saves
+/// one — see `FavouriteDto` in `favourite_models.dart`.
 @JsonSerializable(createToJson: false)
 class CatalogueResponse {
   const CatalogueResponse({
@@ -141,7 +149,6 @@ class CatalogueResponse {
     required this.sugars,
     required this.extras,
     required this.locations,
-    required this.usual,
     this.maxLines = 25,
     this.maxBuffetDrinks = 1,
   });
@@ -153,10 +160,6 @@ class CatalogueResponse {
   final List<CatalogueItemDto> sugars;
   final List<CatalogueItemDto> extras;
   final List<LocationDto> locations;
-
-  /// The caller's last order, for a one-tap repeat. Null when they have never
-  /// ordered.
-  final UsualOrderDto? usual;
 
   /// The most drinks one order may carry.
   ///
@@ -193,22 +196,6 @@ class LocationDto {
   final int locationId;
   final String nameAr;
   final String kind;
-}
-
-/// Mirrors `UsualOrderDto` in ApiContracts.cs.
-@JsonSerializable(createToJson: false)
-class UsualOrderDto {
-  const UsualOrderDto({required this.summary, required this.lines});
-
-  factory UsualOrderDto.fromJson(Map<String, dynamic> json) =>
-      _$UsualOrderDtoFromJson(json);
-
-  /// Human-readable, server-composed. Rendered as-is.
-  final String summary;
-
-  /// The full lines, **including which jar each component came from**, so one
-  /// tap refills the composer exactly.
-  final List<OrderLineDto> lines;
 }
 
 /// Mirrors `OrderLineDto` in ApiContracts.cs.

@@ -116,6 +116,13 @@ public sealed record VariantDto(
 /// <summary>Everything the order screen needs, in one round trip.</summary>
 /// <remarks>
 /// Bundled deliberately: a phone on office wifi should not need four requests to draw one screen.
+/// <para>
+/// Carries no "usual order". It used to, and it was the caller's last non-cancelled order dressed up
+/// as a habit — it changed under them every time they ordered something unusual for a visitor, and
+/// nobody ever chose it. Favourites replaced it: see <c>GET /favourites</c>, which is the same idea
+/// stated rather than guessed. Deliberately a separate endpoint, since that list changes whenever
+/// the user saves one and this response is cached until app resume.
+/// </para>
 /// </remarks>
 /// <param name="MaxLines">The most drinks one order may carry.</param>
 /// <param name="MaxBuffetDrinks">
@@ -133,14 +140,10 @@ public sealed record CatalogueResponse(
     IReadOnlyList<CatalogueItemDto> Sugars,
     IReadOnlyList<CatalogueItemDto> Extras,
     IReadOnlyList<LocationDto> Locations,
-    UsualOrderDto? Usual,
     int MaxLines,
     int MaxBuffetDrinks);
 
 public sealed record LocationDto(int LocationId, string NameAr, string Kind);
-
-/// <summary>The caller's last order, for a one-tap repeat.</summary>
-public sealed record UsualOrderDto(string Summary, IReadOnlyList<OrderLineDto> Lines);
 
 public sealed record OrderLineDto(
     int DrinkItemId,
@@ -154,20 +157,67 @@ public sealed record OrderLineDto(
     bool SugarFromOwn,
     IReadOnlyList<int> OwnExtraItemIds);
 
+/// <param name="IdempotencyKey">
+/// Client-generated key. Send the same value when retrying so a dropped response cannot become a
+/// second drink.
+/// </param>
+/// <param name="SaveAsFavourite">
+/// Save these lines as a favourite once the order is placed, so "order this again" needs no second
+/// screen. Ignored on a duplicate: a retry of an order already placed must not add a second copy
+/// of the same favourite.
+/// <para>
+/// Best-effort. A favourite that cannot be saved — the per-user cap is full, say — never fails the
+/// order, which is already made. <see cref="PlaceOrderResponse.FavouriteId"/> reports what happened.
+/// </para>
+/// </param>
+/// <param name="FavouriteName">
+/// What to call it. Ignored unless <paramref name="SaveAsFavourite"/> is set; when blank, the
+/// server names it after the drinks it contains.
+/// </param>
+/// <param name="FromFavouriteId">
+/// The favourite this order was replayed from, when it was. Only stamps that favourite as recently
+/// used, so a client can offer the ones actually in use; it does not affect what is ordered, and
+/// the lines still come from <paramref name="Lines"/>.
+/// </param>
 public sealed record PlaceOrderApiRequest(
     IReadOnlyList<OrderLineDto> Lines,
     string? Notes,
     int? LocationId,
     string? LocationText,
     string? OnBehalfOfName,
-    /// <summary>
-    /// Client-generated key. Send the same value when retrying so a dropped response cannot
-    /// become a second drink.
-    /// </summary>
-    string? IdempotencyKey);
+    string? IdempotencyKey,
+    bool SaveAsFavourite = false,
+    string? FavouriteName = null,
+    int? FromFavouriteId = null);
 
 /// <param name="Duplicate">True when an existing order matched the idempotency key.</param>
-public sealed record PlaceOrderResponse(int OrderId, bool Duplicate);
+/// <param name="AutoServed">
+/// True when the order was made and handed over in the same call, which happens for a staff
+/// member's own order — they are standing at the machine, so there is no queue to wait in. The
+/// order is already <c>Completed</c>: <b>do not send the client to a status screen to poll it</b>.
+/// <para>
+/// Always false on a duplicate, and always false for every other role. A client written before this
+/// field existed reads it as absent and falls through to its status screen, which polls an order
+/// that is already Completed and settles on the first read — correct, just one wasted request.
+/// That is why the field was added rather than the status being changed.
+/// </para>
+/// </param>
+/// <param name="ShortageNames">
+/// Items that went short while auto-serving, joined with "، ", or null when nothing did. <b>Not a
+/// failure</b> — the drink was made and the ledger written; a shortage means physical and recorded
+/// stock have drifted, which an admin reconciles later.
+/// </param>
+/// <param name="FavouriteId">
+/// The favourite created from this order, when one was asked for and saved. Null both when none was
+/// requested and when saving it failed — the order stands either way, so a client should treat null
+/// as "no favourite", never as an error worth interrupting the user for.
+/// </param>
+public sealed record PlaceOrderResponse(
+    int OrderId,
+    bool Duplicate,
+    bool AutoServed = false,
+    string? ShortageNames = null,
+    int? FavouriteId = null);
 
 public sealed record OrderSummaryDto(
     int OrderId,
@@ -183,6 +233,52 @@ public sealed record OrderSummaryDto(
     /// <summary>True once the drink has been made, so the client can show a "collect it" prompt.</summary>
     public bool IsReady => Status == nameof(OrderStatus.Ready);
 }
+
+/// <summary>
+/// An order the employee saved to place again in one tap.
+/// <para>
+/// This replaced the "usual order" the catalogue used to carry, which was the last non-cancelled
+/// order presented as a habit: it changed under the user every time they ordered something for a
+/// visitor, and they never chose it. A favourite changes only when they say so, which is the
+/// whole difference and the reason the guessed one was removed rather than kept alongside.
+/// </para>
+/// </summary>
+/// <param name="Name">
+/// What they called it, or a summary of the drinks when they did not name it. Never blank, so a
+/// list never has to render a nameless row.
+/// </param>
+/// <param name="LastUsedAtUtc">
+/// When it was last ordered, or null if never. Offered so a client can sort by what is actually
+/// used rather than by what was saved longest ago.
+/// </param>
+/// <param name="Lines">
+/// The saved drinks, in the same shape <c>POST /orders</c> takes — replay one by posting these
+/// unchanged. They are <b>not</b> revalidated on the way out: an item retired since it was saved
+/// still appears here, and the order that replays it is rejected at that point with a reason the
+/// user can act on. Show the favourite; let the order be the thing that fails.
+/// </param>
+public sealed record FavouriteDto(
+    int FavouriteId,
+    string Name,
+    DateTime CreatedAtUtc,
+    DateTime? LastUsedAtUtc,
+    IReadOnlyList<OrderLineDto> Lines);
+
+/// <param name="Name">Optional. Blank means "name it after the drinks".</param>
+/// <param name="Lines">
+/// The same <see cref="OrderLineDto"/> the order screen builds, so saving a composed order needs no
+/// second shape. Only the orderable fields are kept — the display names and the "from my own stock"
+/// flags are stored as a preference and re-resolved when the favourite is actually ordered.
+/// </param>
+public sealed record SaveFavouriteRequest(string? Name, IReadOnlyList<OrderLineDto> Lines);
+
+/// <param name="MaxFavourites">
+/// How many one employee may keep. Published so the client can disable the save control at the
+/// limit rather than letting the user compose one and be refused.
+/// </param>
+public sealed record FavouritesResponse(
+    IReadOnlyList<FavouriteDto> Favourites,
+    int MaxFavourites);
 
 public sealed record NotificationDto(
     int NotificationId,
@@ -204,6 +300,9 @@ public sealed record NotificationDto(
 /// 404 here is a fallback, not an error.
 /// </para>
 /// </param>
+/// <param name="Platform">"android" or "ios". Support triage only; nothing branches on it.</param>
+public sealed record RegisterDeviceRequest(string Token, string? Platform);
+
 public sealed record MyMaterialDto(
     int ItemId,
     string NameAr,

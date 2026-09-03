@@ -8,6 +8,7 @@ import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_exception.dart';
 import '../../data/models/catalogue_models.dart';
+import '../../data/models/favourite_models.dart';
 import '../../data/repositories/catalogue_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_card.dart';
@@ -18,12 +19,14 @@ import '../../theme/dimens.dart';
 import '../../theme/motion.dart';
 import '../auth/auth_controller.dart';
 import 'composer_controller.dart';
+import 'favourites_controller.dart';
+import 'favourites_screen.dart';
 import 'my_orders_screen.dart';
 import 'order_mode.dart';
 import 'self_order_outcome.dart';
 import 'widgets/drink_tile.dart';
+import 'widgets/favourites_strip.dart';
 import 'widgets/sugar_stepper.dart';
-import 'widgets/usual_order_card.dart';
 
 /// Fetches the catalogue in one round trip.
 final catalogueProvider = FutureProvider.autoDispose<CatalogueResponse>((
@@ -78,13 +81,21 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   /// yet. The error appears once they have left it, or once they try to order.
   bool _guestNameTouched = false;
 
-  /// Guards [_applySeedUsual] so a rebuild cannot refill a draft the user has
-  /// since changed or deliberately cleared.
-  bool _seedUsualApplied = false;
+  /// Guards [_applySeedFavourite] so a rebuild cannot refill a draft the user
+  /// has since changed or deliberately cleared.
+  bool _seedFavouriteApplied = false;
+
+  /// The optional name for a favourite saved with this order.
+  ///
+  /// A controller rather than a plain `onChanged`, for the same reason as the
+  /// guest name: it is cleared from outside — switching the toggle off drops
+  /// the name — and the field has to be able to show that.
+  final _favouriteNameController = TextEditingController();
 
   @override
   void dispose() {
     _guestNameController.dispose();
+    _favouriteNameController.dispose();
     super.dispose();
   }
 
@@ -126,6 +137,13 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
 
       // 201 duplicate:false and 200 duplicate:true are both success — the
       // second means a retry matched an existing order. Same confirmation.
+      // The list has a new row when this order asked to save one. Invalidated
+      // before the reset so the strip is already correct on the way back.
+      //
+      // `favouriteId` null is NOT an error — saving is best-effort and the
+      // drink is already made — so nothing is said about it either way, and
+      // the refetch is harmless when nothing was saved.
+      if (result.favouriteId != null) ref.invalidate(favouritesProvider);
       ref.read(composerControllerProvider.notifier).resetAfterConfirmedOrder();
       // The new order belongs in the outstanding list the moment it exists,
       // so the card is already there when the user comes back here.
@@ -172,6 +190,10 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
     final catalogue = ref.watch(catalogueProvider);
     final composer = ref.watch(composerControllerProvider);
     final mode = _effectiveMode(ref.watch(canOrderForGuestsProvider));
+    // valueOrNull, never `when`: the composer must not wait on this list to
+    // draw a drink grid. A failure here leaves the strip absent, which is the
+    // same state as having saved none — and ordering still works.
+    final favourites = ref.watch(favouritesProvider).valueOrNull;
 
     // No ExitConfirmation and no action cluster: this is a pushed screen now,
     // with a back arrow and somewhere to go back to. Pushing settings on top of
@@ -231,7 +253,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
               // leave the session in guest mode with the name wiped.
               ..setMode(mode);
 
-            _applySeedUsual(data);
+            _applySeedFavourite(data);
           });
 
           // The field is the only part of the guest name the user can see, so
@@ -248,6 +270,15 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
             composer: composer,
             mode: mode,
             placing: _placing,
+            favourites: favourites?.favourites ?? const [],
+            // Unknown while the list is loading, and read as "not full" until
+            // it arrives: a save control disabled because a request has not
+            // come back yet would be a dead end with nothing to explain it.
+            favouritesFull: favourites?.canSaveAnother == false,
+            maxFavourites: favourites?.maxFavourites ?? 20,
+            favouriteNameController: _favouriteNameController,
+            onDeleteFavourite: (favourite) =>
+                unawaited(confirmDeleteFavourite(context, ref, favourite)),
             guestNameController: _guestNameController,
             guestNameError: _guestNameTouched && composer.guestNameMissing,
             onGuestNameBlurred: () {
@@ -284,20 +315,19 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
     if (text.isEmpty) _guestNameTouched = false;
   }
 
-  /// Fills the draft from the usual order, once, when the hub asked for it.
+  /// Fills the draft from the favourite this session was opened with, once.
   ///
   /// Guarded rather than idempotent-by-luck: this runs from a post-frame
   /// callback that fires on every rebuild, and refilling a draft the user has
   /// since edited or cleared would silently undo their work.
-  void _applySeedUsual(CatalogueResponse data) {
-    if (!widget.seed.applyUsual || _seedUsualApplied) return;
-    final usual = data.usual;
-    if (usual == null) return;
+  void _applySeedFavourite(CatalogueResponse data) {
+    final favourite = widget.seed.favourite;
+    if (favourite == null || _seedFavouriteApplied) return;
 
-    _seedUsualApplied = true;
+    _seedFavouriteApplied = true;
     ref
         .read(composerControllerProvider.notifier)
-        .applyUsual(usual, data.drinks);
+        .applyFavourite(favourite, data.drinks);
   }
 }
 
@@ -311,6 +341,11 @@ class _ComposerBody extends ConsumerWidget {
     required this.guestNameError,
     required this.onGuestNameBlurred,
     required this.onPlaceOrder,
+    required this.favourites,
+    required this.favouritesFull,
+    required this.maxFavourites,
+    required this.favouriteNameController,
+    required this.onDeleteFavourite,
   });
 
   final CatalogueResponse catalogue;
@@ -321,6 +356,18 @@ class _ComposerBody extends ConsumerWidget {
   final bool guestNameError;
   final VoidCallback onGuestNameBlurred;
   final Future<void> Function() onPlaceOrder;
+
+  /// The caller's saved orders, or empty while the list is still loading. An
+  /// empty strip and an unloaded one are the same shape, so the composer never
+  /// waits on this to draw the drink grid.
+  final List<FavouriteDto> favourites;
+
+  /// Whether the per-user cap is reached, from `maxFavourites`.
+  final bool favouritesFull;
+  final int maxFavourites;
+
+  final TextEditingController favouriteNameController;
+  final void Function(FavouriteDto favourite) onDeleteFavourite;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -366,19 +413,26 @@ class _ComposerBody extends ConsumerWidget {
                 const SizedBox(height: Dimens.space4),
               ],
 
-              // The usual stays HERE as well as on the hub, and not as a
+              // The strip stays HERE as well as on the hub, and not as a
               // duplicate: staff reach this screen by pushing it from the
-              // queue and never see the hub at all, so removing it from the
-              // composer took the feature away from them entirely. It is one
-              // tap from the ordering screen for both roles (§12).
+              // queue and never see the hub at all, so having it only there
+              // would take the one-tap repeat away from them entirely. It is
+              // one tap from the ordering screen for both roles (§12).
               //
               // Hidden once anything has been composed — replacing a drink
               // the user has already chosen is not a "repeat".
-              if (catalogue.usual case final UsualOrderDto usual
-                  when composer.allLines.isEmpty) ...[
-                UsualOrderCard(
-                  usual: usual,
-                  onApply: () => controller.applyUsual(usual, catalogue.drinks),
+              if (favourites.isNotEmpty && composer.allLines.isEmpty) ...[
+                FavouritesStrip(
+                  favourites: favourites,
+                  // Already on the composer, so this fills the draft in place
+                  // rather than pushing a second one.
+                  onReplay: (favourite) =>
+                      controller.applyFavourite(favourite, catalogue.drinks),
+                  onDelete: onDeleteFavourite,
+                  availableItemIds: {
+                    for (final d in catalogue.drinks) d.itemId,
+                  },
+                  onShowAll: () => context.push(Routes.favourites),
                 ),
                 const SizedBox(height: Dimens.space4),
               ],
@@ -555,6 +609,29 @@ class _ComposerBody extends ConsumerWidget {
                 ],
               ],
 
+              // Save this order for next time — in the same round trip, since
+              // POST /orders carries it. Offered only once there is something
+              // to save, and never in guest mode: a visitor's order is not a
+              // habit of the user's, and the server drops `onBehalfOfName`
+              // from a favourite anyway.
+              if (composer.allLines.isNotEmpty && mode == OrderMode.self) ...[
+                const SizedBox(height: Dimens.space5),
+                _SaveFavouriteControl(
+                  composer: composer,
+                  full: favouritesFull,
+                  maxFavourites: maxFavourites,
+                  nameController: favouriteNameController,
+                  // Replaying a favourite and then toggling "save" would write
+                  // a second identical copy — the server does not dedupe — so
+                  // the control says "already saved" instead of offering it.
+                  alreadySaved: favourites.any(
+                    (f) => f.orders([
+                      for (final line in composer.allLines) line.toDto(),
+                    ]),
+                  ),
+                ),
+              ],
+
               // Commits the drink being composed and clears the controls
               // for the next one — one screen, never a wizard (§7.1).
               // Hidden until a drink is chosen: there is nothing to add.
@@ -584,6 +661,105 @@ class _ComposerBody extends ConsumerWidget {
           placing: placing,
           onPlaceOrder: onPlaceOrder,
         ),
+      ],
+    );
+  }
+}
+
+/// The "save this for next time" toggle, with its optional name.
+///
+/// **The cap is the one limit this app does disable a control on.** It is
+/// structural — the server refuses past it — not a stock reading, and the
+/// disabled switch is never a dead end: the banner beside it says what the
+/// limit is and that deleting one makes room.
+class _SaveFavouriteControl extends ConsumerWidget {
+  const _SaveFavouriteControl({
+    required this.composer,
+    required this.full,
+    required this.maxFavourites,
+    required this.nameController,
+    this.alreadySaved = false,
+  });
+
+  final ComposerState composer;
+  final bool full;
+  final int maxFavourites;
+  final TextEditingController nameController;
+
+  /// Whether what is on screen is already in the user's favourites.
+  final bool alreadySaved;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final controller = ref.read(composerControllerProvider.notifier);
+
+    // The field is the only visible part of the name, so it must agree with
+    // the state: switching the toggle off drops the name, and a field still
+    // showing one would name the next saved favourite after this order.
+    final name = composer.favouriteName ?? '';
+    if (nameController.text.trim() != name) {
+      nameController.value = TextEditingValue(
+        text: name,
+        selection: TextSelection.collapsed(offset: name.length),
+      );
+    }
+
+    // Said plainly and the control withdrawn, rather than a toggle that would
+    // silently write a duplicate. Matches the order-history row exactly.
+    if (alreadySaved) {
+      return Row(
+        children: [
+          const Icon(Icons.star, size: 16, color: BrandColors.brand),
+          const SizedBox(width: Dimens.space2),
+          Flexible(
+            child: Text(
+              l10n.favouriteAlreadySaved,
+              style: Theme.of(context).textTheme.labelMedium
+                  ?.copyWith(color: BrandColors.muted),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (full) ...[
+          InlineBanner(
+            tone: BannerTone.warning,
+            title: l10n.favouritesFullTitle,
+            body: l10n.favouritesFullBody(maxFavourites),
+          ),
+          const SizedBox(height: Dimens.space3),
+        ],
+        SwitchListTile.adaptive(
+          value: composer.saveAsFavourite,
+          // Disabled only at the cap, and only with the banner above saying
+          // so. Never on a stock reading.
+          onChanged: full ? null : controller.setSaveAsFavourite,
+          title: Text(l10n.saveAsFavourite),
+          contentPadding: EdgeInsetsDirectional.zero,
+          activeThumbColor: BrandColors.brand,
+        ),
+        // The name is genuinely optional — blank means "name it after the
+        // drinks", which the server does including the preparation — so the
+        // field appears only once saving is asked for, rather than sitting
+        // there as a question nobody has to answer.
+        if (composer.saveAsFavourite) ...[
+          const SizedBox(height: Dimens.space2),
+          TextField(
+            controller: nameController,
+            decoration: InputDecoration(
+              labelText: l10n.favouriteNameLabel,
+              hintText: l10n.favouriteNameHint,
+              prefixIcon: const Icon(Icons.star_outline, size: 18),
+            ),
+            textInputAction: TextInputAction.done,
+            onChanged: controller.setFavouriteName,
+          ),
+        ],
       ],
     );
   }

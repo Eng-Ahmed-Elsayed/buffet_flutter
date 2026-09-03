@@ -69,7 +69,6 @@ void main() {
         sugars: [],
         extras: [],
         locations: [],
-        usual: null,
         maxLines: 3,
         maxBuffetDrinks: 1,
       );

@@ -1,4 +1,5 @@
 import 'package:buffet_app/data/models/catalogue_models.dart';
+import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/features/order/composer_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -199,28 +200,34 @@ void main() {
     });
   });
 
-  group('the usual order', () {
+  group('replaying a favourite', () {
+    FavouriteDto favourite(List<Map<String, dynamic>> lines) =>
+        FavouriteDto.fromJson({
+          'favouriteId': 12,
+          'name': 'قهوتي',
+          'createdAtUtc': '2026-08-24T09:12:00Z',
+          'lastUsedAtUtc': null,
+          'lines': lines,
+        });
+
     test('fills the composer including which jar each part came from', () {
       final drink = item(id: 4, hasOwnStock: true, ownServingsLeft: 14);
-      final usual = UsualOrderDto.fromJson({
-        'summary': 'قهوة تركي وسط · ٢ ملعقة سكر',
-        'lines': [
-          {
-            'drinkItemId': 4,
-            'drinkNameAr': 'قهوة تركي',
-            'sugarSpoons': 2,
-            'variantId': 7,
-            'sugarItemId': 3,
-            'extraItemIds': [9],
-            'lineNote': null,
-            'drinkFromOwn': true,
-            'sugarFromOwn': false,
-            'ownExtraItemIds': [9],
-          },
-        ],
-      });
+      final saved = favourite([
+        {
+          'drinkItemId': 4,
+          'drinkNameAr': 'قهوة تركي',
+          'sugarSpoons': 2,
+          'variantId': 7,
+          'sugarItemId': 3,
+          'extraItemIds': [9],
+          'lineNote': null,
+          'drinkFromOwn': true,
+          'sugarFromOwn': false,
+          'ownExtraItemIds': [9],
+        },
+      ]);
 
-      final controller = ComposerController()..applyUsual(usual, [drink]);
+      final controller = ComposerController()..applyFavourite(saved, [drink]);
 
       expect(controller.state.drink?.itemId, 4);
       expect(controller.state.sugarSpoons, 2);
@@ -231,27 +238,126 @@ void main() {
       expect(controller.state.ownExtraItemIds, {9});
     });
 
-    test('is a no-op when the drink is no longer in the catalogue', () {
-      final usual = UsualOrderDto.fromJson({
-        'summary': 'قهوة تركي',
-        'lines': [
-          {
-            'drinkItemId': 99,
-            'drinkNameAr': 'قهوة تركي',
-            'sugarSpoons': 1,
-            'variantId': null,
-            'sugarItemId': null,
-            'extraItemIds': <int>[],
-            'lineNote': null,
-            'drinkFromOwn': false,
-            'sugarFromOwn': false,
-            'ownExtraItemIds': <int>[],
-          },
-        ],
-      });
+    test('stamps fromFavouriteId so the server records it as used', () {
+      final saved = favourite([
+        {
+          'drinkItemId': 4,
+          'drinkNameAr': 'قهوة تركي',
+          'sugarSpoons': 0,
+          'variantId': null,
+          'sugarItemId': null,
+          'extraItemIds': <int>[],
+          'lineNote': null,
+          'drinkFromOwn': false,
+          'sugarFromOwn': false,
+          'ownExtraItemIds': <int>[],
+        },
+      ]);
 
-      final controller = ComposerController()..applyUsual(usual, [item(id: 1)]);
+      final controller = ComposerController()
+        ..applyFavourite(saved, [item(id: 4)]);
+
+      expect(controller.state.fromFavouriteId, 12);
+      expect(controller.state.toRequest().fromFavouriteId, 12);
+    });
+
+    test('claims no jar the user does not actually own', () {
+      // The favourite recorded `drinkFromOwn`, but the user's holding of that
+      // item has since gone. A flag that survived would claim stock that is
+      // not there and quietly miscount the buffet cap.
+      final saved = favourite([
+        {
+          'drinkItemId': 4,
+          'drinkNameAr': 'قهوة تركي',
+          'sugarSpoons': 0,
+          'variantId': null,
+          'sugarItemId': null,
+          'extraItemIds': <int>[],
+          'lineNote': null,
+          'drinkFromOwn': true,
+          'sugarFromOwn': false,
+          'ownExtraItemIds': <int>[],
+        },
+      ]);
+
+      final controller = ComposerController()
+        ..applyFavourite(saved, [item(id: 4)]);
+
+      expect(controller.state.drinkFromOwn, isFalse);
+    });
+
+    test('is a no-op when the drink is no longer in the catalogue', () {
+      // A favourite is deliberately NOT pre-filtered server-side, so this is a
+      // reachable state rather than an impossible one.
+      final saved = favourite([
+        {
+          'drinkItemId': 99,
+          'drinkNameAr': 'قهوة تركي',
+          'sugarSpoons': 1,
+          'variantId': null,
+          'sugarItemId': null,
+          'extraItemIds': <int>[],
+          'lineNote': null,
+          'drinkFromOwn': false,
+          'sugarFromOwn': false,
+          'ownExtraItemIds': <int>[],
+        },
+      ]);
+
+      final controller = ComposerController()
+        ..applyFavourite(saved, [item(id: 1)]);
       expect(controller.state.drink, isNull);
+    });
+  });
+
+  group('saving an order as a favourite', () {
+    test('rides along on the order request', () {
+      final controller = ComposerController()
+        ..selectDrink(item())
+        ..setSaveAsFavourite(true)
+        ..setFavouriteName('قهوة الصبح');
+
+      final request = controller.state.toRequest();
+      expect(request.saveAsFavourite, isTrue);
+      expect(request.favouriteName, 'قهوة الصبح');
+    });
+
+    test(
+      'a blank name is sent as null, meaning "name it after the drinks"',
+      () {
+        final controller = ComposerController()
+          ..selectDrink(item())
+          ..setSaveAsFavourite(true)
+          ..setFavouriteName('   ');
+
+        final request = controller.state.toRequest();
+        expect(request.saveAsFavourite, isTrue);
+        expect(request.favouriteName, isNull);
+      },
+    );
+
+    test('switching the toggle off drops the name with it', () {
+      // A name left behind would be sent on the next order the user DID ask to
+      // save, naming it after something else entirely.
+      final controller = ComposerController()
+        ..selectDrink(item())
+        ..setSaveAsFavourite(true)
+        ..setFavouriteName('قهوة الصبح')
+        ..setSaveAsFavourite(false);
+
+      expect(controller.state.favouriteName, isNull);
+    });
+
+    test('a confirmed order clears the toggle and the replay stamp', () {
+      // Unlike `mode`, neither survives: the favourite was saved with the order
+      // that just went out, and the next one did not come from it.
+      final controller = ComposerController()
+        ..selectDrink(item())
+        ..setSaveAsFavourite(true)
+        ..resetAfterConfirmedOrder();
+
+      expect(controller.state.saveAsFavourite, isFalse);
+      expect(controller.state.fromFavouriteId, isNull);
     });
   });
 

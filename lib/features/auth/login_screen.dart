@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -132,6 +134,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const SizedBox(height: Dimens.space4),
                   ],
 
+                  // The 30-day token ran out, or the server rejected it. Said
+                  // for the same reason as the enrolment-change notice above:
+                  // this lands on somebody who did nothing wrong and was in
+                  // the middle of something.
+                  //
+                  // Suppressed once a sign-in attempt has failed, so the two
+                  // banners never stack — the newer message is the one that
+                  // describes what just happened.
+                  if (_errorMessage == null &&
+                      ref.watch(sessionExpiredProvider)) ...[
+                    InlineBanner(
+                      tone: BannerTone.info,
+                      title: l10n.sessionExpiredTitle,
+                      body: l10n.sessionExpiredBody,
+                    ),
+                    const SizedBox(height: Dimens.space4),
+                  ],
+
                   if (_errorMessage != null) ...[
                     InlineBanner(
                       tone: BannerTone.danger,
@@ -196,7 +216,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         : Text(l10n.signIn),
                   ),
 
-                  const SizedBox(height: Dimens.space7),
+                  const SizedBox(height: Dimens.space6),
+
+                  // The language switch belongs HERE as well as in settings,
+                  // because settings is behind the sign-in this screen gates.
+                  // The app opens in Arabic by default regardless of the
+                  // device language (§2.4), so an English-speaking user with
+                  // no session had no way to read the screen they were being
+                  // asked to sign in on — the one screen where being unable to
+                  // change the language is unrecoverable rather than annoying.
+                  //
+                  // It also sets `Accept-Language`, so it changes the language
+                  // of the sign-in errors the server returns, which is the
+                  // other half of why it has to be reachable before signing in.
+                  const _LanguageToggle(),
+
+                  const SizedBox(height: Dimens.space5),
                   Center(
                     child: Text(
                       l10n.adminWorkOnWeb,
@@ -208,6 +243,46 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The language choice, on the one screen that sits in front of settings.
+///
+/// A compact segmented control rather than the radio list settings uses: this
+/// is a secondary affordance under a sign-in form, and a two-row radio group
+/// would carry more visual weight than the password field above it.
+///
+/// Each option is labelled in **its own language** in both locales, exactly as
+/// in settings — somebody who has landed in a language they cannot read still
+/// has to be able to find their way out.
+class _LanguageToggle extends ConsumerWidget {
+  const _LanguageToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final locale = ref.watch(localeControllerProvider);
+    final l10n = AppLocalizations.of(context);
+
+    return Center(
+      child: SegmentedButton<Locale>(
+        segments: [
+          for (final option in LocaleController.supported)
+            ButtonSegment<Locale>(
+              value: option,
+              label: Text(
+                option.languageCode == 'ar'
+                    ? l10n.languageArabic
+                    : l10n.languageEnglish,
+              ),
+            ),
+        ],
+        selected: {locale},
+        showSelectedIcon: false,
+        onSelectionChanged: (selected) => unawaited(
+          ref.read(localeControllerProvider.notifier).setLocale(selected.first),
         ),
       ),
     );

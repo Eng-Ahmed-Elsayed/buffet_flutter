@@ -55,6 +55,17 @@ abstract final class ApiConfig {
   static const myOrders = '/orders/mine';
   static String order(int id) => '/orders/$id';
   static String cancelOrder(int id) => '/orders/$id/cancel';
+
+  /// The caller's saved orders. **Deliberately not bundled into
+  /// [catalogue]**, which is cached and refreshed on resume: this list changes
+  /// the moment the user saves one, and a just-saved favourite invisible until
+  /// the next resume is worse than the extra round trip (§7.6).
+  static const favourites = '/favourites';
+
+  /// `204` on success and **`404`** — never `403` — for someone else's, the
+  /// same convention as [order].
+  static String favourite(int id) => '/favourites/$id';
+
   static const notifications = '/notifications';
   static const notificationsRead = '/notifications/read';
 

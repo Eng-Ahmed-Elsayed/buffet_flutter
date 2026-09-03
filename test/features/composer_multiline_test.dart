@@ -1,4 +1,5 @@
 import 'package:buffet_app/data/models/catalogue_models.dart';
+import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/features/order/composer_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -476,38 +477,46 @@ void main() {
       expect(controller.state.ownExtraItemIds, isEmpty);
     });
 
-    test('the usual order is filtered by what the drink still permits', () {
-      // An admin may have narrowed the drink's extras since the order was
-      // placed.
-      final usual = UsualOrderDto.fromJson({
-        'summary': 'قهوة تركي',
-        'lines': [
-          {
-            'drinkItemId': 4,
-            'drinkNameAr': 'قهوة تركي',
-            'sugarSpoons': 2,
-            'variantId': null,
-            'sugarItemId': null,
-            'extraItemIds': [9, 12],
-            'lineNote': null,
-            'drinkFromOwn': false,
-            'sugarFromOwn': false,
-            'ownExtraItemIds': <int>[],
-          },
-        ],
-      });
+    test(
+      'a replayed favourite is filtered by what the drink still permits',
+      () {
+        // An admin may have narrowed the drink's extras since it was saved.
+        final saved = FavouriteDto.fromJson({
+          'favouriteId': 3,
+          'name': 'قهوتي',
+          'createdAtUtc': '2026-08-24T09:12:00Z',
+          'lastUsedAtUtc': null,
+          'lines': [
+            {
+              'drinkItemId': 4,
+              'drinkNameAr': 'قهوة تركي',
+              'sugarSpoons': 2,
+              'variantId': null,
+              'sugarItemId': null,
+              'extraItemIds': [9, 12],
+              'lineNote': null,
+              'drinkFromOwn': false,
+              'sugarFromOwn': false,
+              'ownExtraItemIds': <int>[],
+            },
+          ],
+        });
 
-      final controller = ComposerController()
-        ..applyUsual(usual, [
-          drink(id: 4, allowedExtraItemIds: const [9]),
-        ]);
+        final controller = ComposerController()
+          ..applyFavourite(saved, [
+            drink(id: 4, allowedExtraItemIds: const [9]),
+          ]);
 
-      expect(controller.state.extraItemIds, {9});
-    });
+        expect(controller.state.extraItemIds, {9});
+      },
+    );
 
-    test('the usual fills the draft without discarding added lines', () {
-      final usual = UsualOrderDto.fromJson({
-        'summary': 'قهوة تركي',
+    test('a favourite fills the draft without discarding added lines', () {
+      final saved = FavouriteDto.fromJson({
+        'favouriteId': 3,
+        'name': 'قهوتي',
+        'createdAtUtc': '2026-08-24T09:12:00Z',
+        'lastUsedAtUtc': null,
         'lines': [
           {
             'drinkItemId': 4,
@@ -527,11 +536,24 @@ void main() {
       final controller = ComposerController()
         ..selectDrink(drink(id: 1))
         ..addLine()
-        ..applyUsual(usual, [drink(id: 4)]);
+        ..applyFavourite(saved, [drink(id: 4)]);
 
-      // Repeating the usual on top of a part-built order adds to it.
+      // Replaying on top of a part-built order adds to it.
       expect(controller.state.lines, hasLength(1));
       expect(controller.state.drink?.itemId, 4);
+    });
+
+    test('the save toggle survives adding a second drink', () {
+      // addLine() rebuilds ComposerState field by field, so anything left out
+      // is silently reset the moment the user adds another drink.
+      final controller = ComposerController()
+        ..setSaveAsFavourite(true)
+        ..setFavouriteName('قهوة الصبح')
+        ..selectDrink(drink(id: 1))
+        ..addLine();
+
+      expect(controller.state.saveAsFavourite, isTrue);
+      expect(controller.state.favouriteName, 'قهوة الصبح');
     });
   });
 }

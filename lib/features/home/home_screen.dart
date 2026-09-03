@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
 import '../../data/local/order_alerts.dart';
+import '../../data/models/favourite_models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/exit_confirmation.dart';
@@ -14,12 +15,13 @@ import '../../shared/widgets/notification_bell.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../auth/auth_controller.dart';
-import '../notifications/notifications_screen.dart';
 import '../order/composer_screen.dart';
+import '../order/favourites_controller.dart';
+import '../order/favourites_screen.dart';
 import '../order/my_orders_screen.dart';
 import '../order/order_mode.dart';
+import '../order/widgets/favourites_strip.dart';
 import '../order/widgets/outstanding_order_card.dart';
-import '../order/widgets/usual_order_card.dart';
 
 /// The employee's landing screen, and the answer to "what can I do from here?".
 ///
@@ -97,11 +99,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  void _openComposer({required OrderMode mode, bool applyUsual = false}) {
+  void _openComposer({required OrderMode mode, FavouriteDto? favourite}) {
     unawaited(
       context.push(
         Routes.catalogue,
-        extra: ComposerSeed(mode: mode, applyUsual: applyUsual),
+        extra: ComposerSeed(mode: mode, favourite: favourite),
       ),
     );
   }
@@ -111,10 +113,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final l10n = AppLocalizations.of(context);
     final outstanding = ref.watch(outstandingOrdersProvider);
     // valueOrNull, not `when`: the action grid must never wait on the
-    // catalogue. A user whose network is slow can still tap New Order.
-    final usual = ref.watch(catalogueProvider).valueOrNull?.usual;
+    // favourites list. A user whose network is slow can still tap New Order,
+    // and an empty strip is the same shape as one that has not loaded.
+    final favourites =
+        ref.watch(favouritesProvider).valueOrNull?.favourites ?? const [];
+    // Null while the catalogue loads: a favourite renders as available until
+    // the catalogue says otherwise, rather than the strip flashing
+    // "unavailable" over a request that has not come back yet.
+    final availableItemIds = ref
+        .watch(catalogueProvider)
+        .valueOrNull
+        ?.drinks
+        .map((d) => d.itemId)
+        .toSet();
     final canOrderForGuests = ref.watch(canOrderForGuestsProvider);
-    final unread = ref.watch(unreadNotificationCountProvider);
 
     return ExitConfirmation(
       // A landing screen: nothing sits beneath it in the stack, so back
@@ -128,7 +140,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           onRefresh: () async {
             ref
               ..invalidate(myOrdersProvider)
-              ..invalidate(catalogueProvider);
+              ..invalidate(catalogueProvider)
+              ..invalidate(favouritesProvider);
           },
           child: ListView(
             padding: const EdgeInsetsDirectional.all(Dimens.space4),
@@ -157,14 +170,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: Dimens.space4),
               ],
 
-              // One tap from launch to the same coffee as yesterday. Seeds the
-              // composer rather than placing outright — the user still sees and
-              // confirms what they are ordering.
-              if (usual != null) ...[
-                UsualOrderCard(
-                  usual: usual,
-                  onApply: () =>
-                      _openComposer(mode: OrderMode.self, applyUsual: true),
+              // One tap from launch to the same coffee as yesterday — for an
+              // order the user chose to keep, not one guessed from their last.
+              // Seeds the composer rather than placing outright, so they still
+              // see and confirm what they are ordering.
+              //
+              // Absent rather than empty when nothing is saved: a heading over
+              // no cards is noise on the screen people open to order a drink.
+              if (favourites.isNotEmpty) ...[
+                FavouritesStrip(
+                  favourites: favourites,
+                  availableItemIds: availableItemIds,
+                  onReplay: (favourite) =>
+                      _openComposer(mode: OrderMode.self, favourite: favourite),
+                  onDelete: (favourite) => unawaited(
+                    confirmDeleteFavourite(context, ref, favourite),
+                  ),
+                  onShowAll: () => context.push(Routes.favourites),
                 ),
                 const SizedBox(height: Dimens.space4),
               ],
@@ -197,6 +219,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: Dimens.space3),
               ],
 
+              // Notifications and settings are DELIBERATELY not here. They sit
+              // in the app bar, and having them in both places put the same
+              // destination on one screen twice — two controls, same icon,
+              // same route, a few hundred pixels apart. The grid is for the
+              // things this screen is *about*: the user's orders and their
+              // materials. Chrome that follows the user between screens
+              // belongs in the chrome.
+              //
               // A LayoutBuilder-sized Wrap rather than a GridView: a grid's
               // childAspectRatio fixes the tile HEIGHT, so a label that needs
               // more room than the ratio allows overflows rather than growing
@@ -221,22 +251,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         icon: Icons.inventory_2_outlined,
                         label: l10n.homeMyMaterials,
                         onTap: () => context.push(Routes.materials),
-                      ),
-                      _ActionTile(
-                        width: tileWidth,
-                        icon: Icons.notifications_none_outlined,
-                        label: l10n.homeNotifications,
-                        // The same count the bell shows, from the same
-                        // provider — two entry points that could disagree
-                        // would be worse than one.
-                        badgeCount: unread,
-                        onTap: () => context.push(Routes.notifications),
-                      ),
-                      _ActionTile(
-                        width: tileWidth,
-                        icon: Icons.settings_outlined,
-                        label: l10n.homeSettings,
-                        onTap: () => context.push(Routes.settings),
                       ),
                     ],
                   );
@@ -346,7 +360,6 @@ class _ActionTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.badgeCount = 0,
   });
 
   /// Half the row, measured by the parent. The tile sets its own height from
@@ -357,9 +370,6 @@ class _ActionTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-
-  /// Drawn as a count badge when above zero. Zero draws nothing.
-  final int badgeCount;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -383,40 +393,11 @@ class _ActionTile extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(icon, size: 24, color: BrandColors.brand),
-                  if (badgeCount > 0)
-                    PositionedDirectional(
-                      top: -4,
-                      end: -6,
-                      child: Container(
-                        padding: const EdgeInsetsDirectional.symmetric(
-                          horizontal: Dimens.space1,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: Dimens.space3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: BrandColors.danger,
-                          borderRadius: BorderRadius.circular(
-                            Dimens.handleRadius * 3,
-                          ),
-                        ),
-                        child: Text(
-                          badgeCount > 9 ? '9+' : '$badgeCount',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(
-                                color: BrandColors.surface,
-                                fontSize: 10,
-                              ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+              // No badge here any more: the unread count lives on the app
+              // bar's bell, which is now the only way to notifications. Two
+              // counts from one provider were still two things to keep
+              // agreeing for no gain.
+              Icon(icon, size: 24, color: BrandColors.brand),
               const SizedBox(height: Dimens.space2),
               Text(
                 label,

@@ -30,9 +30,14 @@ class SourceChip extends StatelessWidget {
     // The owner's name is user data in an unknown language sitting next to
     // Arabic label text — isolate it so the bidi algorithm cannot reorder the
     // run around it.
-    final source = _isPersonal
-        ? l10n.fromJarOf(Formatters.isolate(ownerName))
-        : l10n.buffetStock;
+    //
+    // Buffet stock is the unremarkable case: the chip says only what the
+    // component is. The colon-plus-source form is reserved for a personal
+    // jar, so the punctuation itself carries the "from my own materials"
+    // signal alongside the violet.
+    final text = _isPersonal
+        ? '$label: ${l10n.fromJarOf(Formatters.isolate(ownerName))}'
+        : label;
 
     return Container(
       padding: const EdgeInsetsDirectional.symmetric(
@@ -48,7 +53,7 @@ class SourceChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(Dimens.radiusLg),
       ),
       child: Text(
-        '$label: $source',
+        text,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: _isPersonal ? BrandColors.accent : BrandColors.ink,
           fontWeight: _isPersonal ? FontWeight.w700 : FontWeight.w400,

@@ -72,6 +72,63 @@ grid of actions. Staff still land on `/queue` and reach the composer by pushing 
 role has exactly one landing screen and the router bounces the other role off it. The composer is
 now always a **pushed** screen — it carries no `ExitConfirmation` and no app-bar action cluster.
 
+**The catalogue's `usual` is gone and must not come back.** It was the caller's last
+non-cancelled order presented as a habit — no frequency, no weighting — and it moved under the user
+every time they ordered for a visitor. **Favourites** (`GET`/`POST`/`DELETE /favourites`, §7.6)
+replaced it: the same one-tap repeat, stated rather than guessed. The whole point of the removal was
+that two shortcuts side by side, one silently moving, is worse than either alone, so **never add a
+"last order" card next to the strip**. The rationale and the shipped inventory are in
+[docs/backend-change-usual-removed.md](docs/backend-change-usual-removed.md). Four rules from it:
+
+- **A tap seeds the composer; it never places the order.** The user confirms what they are
+  ordering, and a favourite holding a since-retired item shows as a visible line rather than an
+  opaque rejection. Favourites are deliberately **not** pre-filtered server-side — let the order be
+  the thing that fails.
+- **The strip lives on the composer as well as the hub**, for the same reason `prepareOrderAlerts`
+  does: staff never see the hub, they push the composer from the queue.
+- **`ComposerSeed` carries the whole `FavouriteDto`**, not an id — favourites are a separate
+  endpoint from the catalogue, so an id would mean a refetch between the tap and the drink. And
+  `saveAsFavourite` / `favouriteName` / `fromFavouriteId` must stay in **both** `ComposerState`
+  constructor calls, exactly like `mode`.
+- **`maxFavourites` is the one cap that may disable a control**, because it is structural — the
+  server refuses past it — and only ever with the banner beside it saying so. Never a stock reading.
+- **The strip shows four *most recently used*, then defers to `/favourites`** — and truncates **only
+  when a "show all" destination exists**, since hiding a favourite behind a link that is not there
+  loses it as silently as filtering a retired one out. Sorted by `lastUsedAtUtc`, which is what that
+  field is published for.
+- **The strip's tiles are measured two-per-row, never a fixed `maxWidth`.** A 220dp cap put one card
+  per row on a 320dp phone, and four favourites pushed "New order" — the primary action of the whole
+  app — out of the built viewport entirely. The responsive suite did **not** catch it, because it
+  checks for overflow and nothing overflowed; `home_screen_test.dart` now asserts the primary action
+  is reachable without scrolling.
+- **A favourite whose item an admin retired is shown and marked, never hidden or disabled.** The
+  server does not filter these (§7.6), and it is right not to: one that vanished silently would
+  leave the user nothing to act on and no way to delete what they cannot see. It still taps — the
+  composer is where the missing drink becomes a visible line. `favourites_strip_test.dart` pins it.
+- **An order already saved says so; it does not offer to save again.** `FavouriteDto.orders()`
+  compares only what is *ordered* — drink, preparation, sugar, extras — ignoring the name and the
+  jar, so two saves of the same coffee are one favourite. The action is **replaced by a statement**,
+  never greyed out.
+
+**One destination, one control per screen.** Notifications and settings live in the home app bar
+**only** — they were also tiles in the action grid, which put the same icon and the same route on
+one screen twice. The grid is for what the screen is *about* (the user's orders, their materials);
+chrome that follows the user between screens stays in the chrome. The unread badge lives on the
+bell alone for the same reason. Pinned by `test/features/home_screen_test.dart`.
+
+**An expired session says so on the login screen.** A `401` clears the token and drops the user at
+login; `AuthState.sessionExpired` (surfaced by `sessionExpiredProvider`) is what makes that legible,
+since the token lasts 30 days with no refresh endpoint and this lands on somebody mid-task who did
+nothing wrong. It is never set by a failed sign-in — the login request carries
+`ApiConfig.skipAuthFlag`, so its `401` is a wrong password and belongs on the field.
+
+**The language switch is on the login screen as well as in settings.** Settings sits behind the
+sign-in that login gates, and the app opens in Arabic regardless of the device language — so
+without it an English-speaking user cannot read the screen they must sign in on, and has no way to
+fix that. It also sets `Accept-Language`, so it changes the language of sign-in errors. Covered by
+`test/features/login_language_test.dart`; login is now in the 320dp responsive suite too, because
+its two segments are labelled in different scripts and cannot be shortened.
+
 **Guest ordering is a composer *mode*, not a field.** `ComposerSeed` travels as `GoRouterState.extra`
 (never a query parameter — a URL must not be able to assert a privilege the token may not carry).
 Self mode shows no guest field at all; guest mode asks for the name first and requires it. Two rules

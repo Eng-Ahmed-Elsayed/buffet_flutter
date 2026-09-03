@@ -7,10 +7,11 @@ const pdi = '\u2069';
 void main() {
   group('bidi isolation — the recurring class of bug', () {
     test('a mixed-script server string is wrapped', () {
-      // Observed live: /catalogue composes usual.summary from the item's
-      // ENGLISH name and an Arabic parenthetical, identically regardless of
-      // Accept-Language. Unisolated, the bidi algorithm reorders the
-      // parentheses around the Latin run.
+      // Observed live: the server composes an unnamed favourite's name from
+      // the item's ENGLISH name and an Arabic parenthetical, identically
+      // regardless of Accept-Language. Unisolated, the bidi algorithm reorders
+      // the parentheses around the Latin run. (The same held for the removed
+      // catalogue `usual.summary`, which is where this was first seen.)
       const summary = 'Coffee (بدون سكر)';
       final isolated = Formatters.isolate(summary);
 

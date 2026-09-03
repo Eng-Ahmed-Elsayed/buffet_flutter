@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/models/catalogue_models.dart';
+import '../../data/models/favourite_models.dart';
 import '../../data/models/order_models.dart';
 import 'order_mode.dart';
 
@@ -87,6 +88,9 @@ class ComposerState {
     this.mode = OrderMode.self,
     this.maxLines = 25,
     this.maxBuffetDrinks = 1,
+    this.saveAsFavourite = false,
+    this.favouriteName,
+    this.fromFavouriteId,
   });
 
   /// Created when the composer opens and kept across retries — discarded only
@@ -135,6 +139,24 @@ class ComposerState {
   /// limits the server applies anyway.
   final int maxLines;
   final int maxBuffetDrinks;
+
+  /// Whether to save these lines as a favourite when the order is placed.
+  ///
+  /// Rides along on `POST /orders` rather than costing a second round trip, and
+  /// is **best-effort server-side**: a save that fails never fails the order,
+  /// which is already made by then.
+  final bool saveAsFavourite;
+
+  /// What to call the saved favourite. Null — the ordinary case — means "name
+  /// it after the drinks", which the server does including the preparation.
+  final String? favouriteName;
+
+  /// The favourite this session was seeded from, when it was.
+  ///
+  /// Sent so the server can stamp that favourite as recently used. It does not
+  /// affect what is ordered: the lines are whatever is on screen now, including
+  /// anything the user changed after the seed.
+  final int? fromFavouriteId;
 
   /// Whether the selected drink is one the user owns any of.
   ///
@@ -292,6 +314,9 @@ class ComposerState {
     OrderMode? mode,
     int? maxLines,
     int? maxBuffetDrinks,
+    bool? saveAsFavourite,
+    String? Function()? favouriteName,
+    int? Function()? fromFavouriteId,
   }) => ComposerState(
     idempotencyKey: idempotencyKey ?? this.idempotencyKey,
     lines: lines ?? this.lines,
@@ -313,6 +338,11 @@ class ComposerState {
     mode: mode ?? this.mode,
     maxLines: maxLines ?? this.maxLines,
     maxBuffetDrinks: maxBuffetDrinks ?? this.maxBuffetDrinks,
+    saveAsFavourite: saveAsFavourite ?? this.saveAsFavourite,
+    favouriteName: favouriteName != null ? favouriteName() : this.favouriteName,
+    fromFavouriteId: fromFavouriteId != null
+        ? fromFavouriteId()
+        : this.fromFavouriteId,
   );
 
   /// Builds the wire request. Each line carries which jar its components come
@@ -324,6 +354,13 @@ class ComposerState {
     locationText: locationText,
     onBehalfOfName: onBehalfOfName,
     idempotencyKey: idempotencyKey,
+    saveAsFavourite: saveAsFavourite,
+    // Trimmed to null rather than sent blank: blank already means "name it
+    // after the drinks" server-side, and a name of spaces would be stored.
+    favouriteName: (favouriteName ?? '').trim().isEmpty
+        ? null
+        : favouriteName!.trim(),
+    fromFavouriteId: fromFavouriteId,
   );
 }
 
@@ -465,9 +502,9 @@ class ComposerController extends StateNotifier<ComposerState> {
   /// Changes the jar for the drink already in the draft.
   ///
   /// The composer sets this through [selectDrink] instead — the tile carries
-  /// the answer. Kept for [applyUsual], which replays the source a past order
-  /// recorded, and refuses a jar the user does not own so the flag can never
-  /// claim stock that is not there.
+  /// the answer. Kept for [applyFavourite], which replays the source a saved
+  /// order recorded, and refuses a jar the user does not own so the flag can
+  /// never claim stock that is not there.
   void setDrinkFromOwn(bool value) => state = state.copyWith(
     drinkFromOwn: value && (state.drink?.hasOwnStock ?? false),
   );
@@ -518,6 +555,13 @@ class ComposerController extends StateNotifier<ComposerState> {
       mode: state.mode,
       maxLines: state.maxLines,
       maxBuffetDrinks: state.maxBuffetDrinks,
+      // Carried for the same reason as `mode`: this constructor rebuilds field
+      // by field, so anything left out here is silently reset the moment the
+      // user adds a second drink. A save toggle that switched itself off — or
+      // a `fromFavouriteId` that stopped being sent — would do it invisibly.
+      saveAsFavourite: state.saveAsFavourite,
+      favouriteName: state.favouriteName,
+      fromFavouriteId: state.fromFavouriteId,
     );
   }
 
@@ -528,16 +572,46 @@ class ComposerController extends StateNotifier<ComposerState> {
     state = state.copyWith(lines: [...state.lines]..removeAt(index));
   }
 
-  /// Fills the composer from the usual order — the single highest-value
-  /// feature in the app, and one tap from the top of the screen.
+  /// Whether to save this order as a favourite, and what to call it.
   ///
-  /// Fills the **draft**, replacing whatever was being composed, and leaves any
-  /// added lines alone: repeating the usual on top of a part-built order should
-  /// add to it, not silently discard it.
-  void applyUsual(UsualOrderDto usual, List<CatalogueItemDto> drinks) {
-    final line = usual.lines.firstOrNull;
+  /// The name is optional in the real sense: null means "name it after the
+  /// drinks", which the server does — so the toggle is usable on its own and
+  /// the field beside it never has to be filled in.
+  void setSaveAsFavourite(bool value) => state = value
+      ? state.copyWith(saveAsFavourite: true)
+      // A name left behind by a toggle switched off would be sent on the next
+      // order the user *did* ask to save, naming it after something else.
+      : state.copyWith(saveAsFavourite: false, favouriteName: () => null);
+
+  void setFavouriteName(String? name) => state = state.copyWith(
+    favouriteName: () =>
+        (name == null || name.trim().isEmpty) ? null : name.trim(),
+  );
+
+  /// Fills the composer from a saved favourite — the one-tap repeat, and what
+  /// replaced the catalogue's guessed "usual order".
+  ///
+  /// Fills the **draft** and leaves any added lines alone: replaying a
+  /// favourite on top of a part-built order adds to it rather than silently
+  /// discarding what the user already chose.
+  ///
+  /// Only the first line seeds the draft. A multi-drink favourite is not lost —
+  /// [addLine] is how the rest arrive — but filling several drafts at once is
+  /// not something the single-draft composer can represent, and quietly
+  /// dropping the extras without saying so would be worse than seeding the one
+  /// the user can see and edit.
+  ///
+  /// Stamps [ComposerState.fromFavouriteId] so the server can record the
+  /// favourite as used. That is the only thing the id does: what gets ordered
+  /// is whatever is on screen at submit, edits included.
+  void applyFavourite(FavouriteDto favourite, List<CatalogueItemDto> drinks) {
+    final line = favourite.lines.firstOrNull;
     if (line == null) return;
 
+    // A drink retired since the favourite was saved is simply absent from the
+    // catalogue. The favourite itself is deliberately not pre-filtered (§7.6),
+    // so this is a reachable state rather than an impossible one: seed nothing
+    // and leave the composer as it was, rather than seeding a half-line.
     final drink = drinks.where((d) => d.itemId == line.drinkItemId).firstOrNull;
     if (drink == null) return;
 
@@ -546,12 +620,13 @@ class ComposerController extends StateNotifier<ComposerState> {
       variantId: () => line.variantId,
       sugarItemId: () => line.sugarItemId,
       sugarSpoons: line.sugarSpoons,
-      // The usual is the user's own past order, but the drink's permitted
-      // extras may have been narrowed by an admin since it was placed.
+      // The favourite is the user's own saved order, but the drink's permitted
+      // extras may have been narrowed by an admin since it was saved.
       extraItemIds: line.extraItemIds.where(drink.permitsExtra).toSet(),
-      drinkFromOwn: line.drinkFromOwn,
+      drinkFromOwn: line.drinkFromOwn && drink.hasOwnStock,
       sugarFromOwn: line.sugarFromOwn,
       ownExtraItemIds: line.ownExtraItemIds.where(drink.permitsExtra).toSet(),
+      fromFavouriteId: () => favourite.favouriteId,
     );
   }
 
@@ -565,6 +640,10 @@ class ComposerController extends StateNotifier<ComposerState> {
     mode: state.mode,
     maxLines: state.maxLines,
     maxBuffetDrinks: state.maxBuffetDrinks,
+    // Deliberately NOT carried, unlike `mode`. The favourite was saved with
+    // the order that just went out; leaving the toggle on would save a second
+    // copy of the next one, and `fromFavouriteId` would credit a favourite the
+    // next order did not come from.
   );
 }
 

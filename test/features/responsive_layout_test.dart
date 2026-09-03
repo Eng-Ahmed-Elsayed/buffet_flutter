@@ -8,22 +8,26 @@ library;
 /// home action grid and the composer's drink grid both fixed a tile HEIGHT via
 /// childAspectRatio, so a label needing more room overflowed rather than
 /// growing — at the DEFAULT text scale, not merely at the accessibility ones.
-/// The usual-order heading and the orders list's status word did the same
-/// horizontally at 2x.
+/// The favourites heading (then the usual-order card's) and the orders list's
+/// status word did the same horizontally at 2x.
 ///
 /// 320dp is the floor: it is the narrowest width Android reports on a phone in
 /// portrait, and Arabic is checked alongside English because the two wrap at
 /// different lengths.
 import 'package:buffet_app/data/models/catalogue_models.dart';
+import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/data/models/material_models.dart';
 import 'package:buffet_app/data/models/order_models.dart';
 import 'package:buffet_app/data/models/staff_models.dart';
 import 'package:buffet_app/data/repositories/order_repository.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
+import 'package:buffet_app/features/auth/login_screen.dart';
 import 'package:buffet_app/features/home/home_screen.dart';
 import 'package:buffet_app/features/materials/my_materials_screen.dart';
 import 'package:buffet_app/features/notifications/notifications_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
+import 'package:buffet_app/features/order/favourites_controller.dart';
+import 'package:buffet_app/features/order/favourites_screen.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/features/order/order_status_screen.dart';
@@ -55,7 +59,6 @@ final _cat = CatalogueResponse(
   sugars: const [],
   extras: const [],
   locations: const [],
-  usual: const UsualOrderDto(summary: 'قهوة تركي سادة (بدون سكر)', lines: []),
   maxLines: 5,
   maxBuffetDrinks: 1,
 );
@@ -88,6 +91,21 @@ final _orders = [
 Widget _wrap(Widget home, double scale, Locale locale) => ProviderScope(
   overrides: [
     catalogueProvider.overrideWith((r) async => _cat),
+    // A long, mixed-script name — the shape the server actually composes when
+    // the user does not name one. It is the string that has to wrap at 320dp.
+    favouritesProvider.overrideWith(
+      (r) async => FavouritesResponse(
+        favourites: [
+          FavouriteDto(
+            favouriteId: 1,
+            name: 'قهوة تركي سادة (بدون سكر) + حليب، شاي بالنعناع (١ سكر)',
+            createdAtUtc: DateTime.utc(2026, 8, 24),
+            lastUsedAtUtc: null,
+            lines: const [],
+          ),
+        ],
+      ),
+    ),
     canOrderForGuestsProvider.overrideWith((r) => true),
     myOrdersProvider.overrideWith((r) async => _orders),
     myMaterialsProvider.overrideWith((r) async => _materials),
@@ -231,6 +249,13 @@ void main() {
       seed: ComposerSeed(mode: OrderMode.guest),
     ),
     'my-orders': const MyOrdersScreen(),
+    // Carries a two-segment language control whose labels are in different
+    // scripts and cannot be shortened — the shape that has overflowed here
+    // before.
+    'login': const LoginScreen(),
+    // Full-width cards carrying a long server-composed name plus the
+    // unavailable mark — the widest thing a favourite ever renders.
+    'favourites': const FavouritesScreen(),
     'settings': const SettingsScreen(),
     'materials': const MyMaterialsScreen(),
     'notifications': const NotificationsScreen(),

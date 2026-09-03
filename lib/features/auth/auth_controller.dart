@@ -57,6 +57,7 @@ class AuthState {
     this.biometricsEnabled = false,
     this.offerBiometricEnrolment = false,
     this.signedOutByEnrolmentChange = false,
+    this.sessionExpired = false,
     this.restoredIdentity,
     this.reSignInAfterPasswordChangeFailed = false,
   });
@@ -68,6 +69,7 @@ class AuthState {
       biometricsEnabled = false,
       offerBiometricEnrolment = false,
       signedOutByEnrolmentChange = false,
+      sessionExpired = false,
       restoredIdentity = null,
       reSignInAfterPasswordChangeFailed = false;
 
@@ -87,6 +89,20 @@ class AuthState {
   /// enrolment changed. The login screen explains it — being dropped at a
   /// sign-in screen with no reason reads as a bug, not as a safeguard.
   final bool signedOutByEnrolmentChange;
+
+  /// True when a `401` ended the session — the 30-day token expired, or the
+  /// server rejected it.
+  ///
+  /// Explained on the login screen for the same reason as
+  /// [signedOutByEnrolmentChange]: the token lasts a month and there is no
+  /// refresh endpoint, so this lands on someone who did nothing wrong and was
+  /// mid-task. Dropped at a sign-in screen with no reason, that reads as the
+  /// app having lost their work.
+  ///
+  /// Never set by a failed sign-in: the login request carries
+  /// `ApiConfig.skipAuthFlag`, so its `401` is a wrong password and is shown
+  /// on the field instead.
+  final bool sessionExpired;
 
   /// Set when the session came from storage rather than a login. Carries the
   /// same three fields the UI needs from [session].
@@ -137,6 +153,7 @@ class AuthState {
     bool? biometricsEnabled,
     bool? offerBiometricEnrolment,
     bool? signedOutByEnrolmentChange,
+    bool? sessionExpired,
     RestoredIdentity? restoredIdentity,
     bool? reSignInAfterPasswordChangeFailed,
   }) => AuthState(
@@ -148,6 +165,7 @@ class AuthState {
         offerBiometricEnrolment ?? this.offerBiometricEnrolment,
     signedOutByEnrolmentChange:
         signedOutByEnrolmentChange ?? this.signedOutByEnrolmentChange,
+    sessionExpired: sessionExpired ?? this.sessionExpired,
     restoredIdentity: restoredIdentity ?? this.restoredIdentity,
     reSignInAfterPasswordChangeFailed:
         reSignInAfterPasswordChangeFailed ??
@@ -172,6 +190,9 @@ class AuthController extends StateNotifier<AuthState> {
         state = AuthState(
           stage: AuthStage.signedOut,
           rememberedEmail: state.rememberedEmail,
+          // Says WHY, so a month-old token running out does not look like the
+          // app having thrown the user out at random.
+          sessionExpired: true,
         );
       }
     });
@@ -477,6 +498,15 @@ final authStageProvider = Provider<AuthStage>(
 /// answer does not depend on the whole controller — which would mean standing
 /// up a repository, an event stream, biometrics and the enrolment guard to read
 /// a boolean.
+/// Whether the last session ended in a `401`.
+///
+/// Derived, like [canOrderForGuestsProvider], so the login screen depends on
+/// one boolean rather than on the whole controller — which is also what makes
+/// the banner testable without standing up secure storage and biometrics.
+final sessionExpiredProvider = Provider<bool>(
+  (ref) => ref.watch(authControllerProvider).sessionExpired,
+);
+
 final canOrderForGuestsProvider = Provider<bool>(
   (ref) => ref.watch(authControllerProvider).canOrderForGuests,
 );

@@ -29,7 +29,7 @@ The gaps were *behavioural*. They fall into three kinds, and the kind determines
 | 2 | No guest view | **B** | ✅ `canOrderForGuests`; cap lifts on guest orders | Guest field, gated |
 | 3 | Materials not grouped "mine" vs "buffet" | **A** | — nothing needed | Sectioned picker |
 | 4 | First login asks for the current password | **C** | ✅ `/auth/set-initial-password` (+ web fixed) | Skip field when forced |
-| 5 | "Usual" is just the last order | **C** | ✅ `/favourites` + `saveAsFavourite` | Favourites strip + toggle |
+| 5 | "Usual" is just the last order | **C** | ✅ Favourites shipped; `usual` **removed** | ✅ Strip + toggle; card deleted |
 | 6 | Composer doesn't show a drink's extras | **B** | ✅ `allowedExtraItemIds` | Filter the extras row |
 | 7 | Arabic notes stored as `?` | — | ⬜ **Deployed DB schema**, not code (see §7) | None |
 | 8 | No double-portion warning | **B** | ✅ `variants[].ingredientItemIds` | Mark chip + hint |
@@ -37,8 +37,9 @@ The gaps were *behavioural*. They fall into three kinds, and the kind determines
 
 ### What shipped on the backend
 
-Every change is additive: each appends to a positional record or adds a route, so **nothing
-is a breaking change** and the client can adopt them one at a time:
+All additive except the last row, which is a deliberate removal — see §5. Everything else appends to
+a positional record or adds a route, so **nothing else is a breaking change** and the client can
+adopt them one at a time:
 
 | Change | Where |
 |---|---|
@@ -52,8 +53,9 @@ is a breaking change** and the client can adopt them one at a time:
 | `POST /materials/declare-new` | `EmployeeApi.cs`, reusing `CreatePersonalItemAsync` |
 | `GET`/`POST`/`DELETE /favourites` | `EmployeeApi.cs`, `FavouriteService.cs`, three new tables |
 | `saveAsFavourite` / `fromFavouriteId` on `POST /orders` | `ApiContracts.cs`, `EmployeeApi.cs` |
+| **Removed** `CatalogueResponse.usual` and the web's "الطلب المعتاد" card | `ApiContracts.cs`, `EmployeeApi.cs`, `OrdersController.cs`, `Create.cshtml`, `order-form.js` |
 
-Covered by `EmployeeApiParityTests.cs` and `FavouritesApiTests.cs` — 26 tests over real HTTP, including the negative cases: a
+Covered by `EmployeeApiParityTests.cs` and `FavouritesApiTests.cs` — 31 tests over real HTTP, including the negative cases: a
 settled user cannot reach the initial-password route, the route refuses a second call, and the guest
 privilege alone does not lift the cap on an ordinary order. `OrderFulfillmentServiceTests.cs` gains
 one more, pinning the double deduction that §8 exists to warn about.
@@ -229,81 +231,84 @@ the new endpoint; keep the existing screen and endpoint for voluntary changes fr
 
 ---
 
-## 5. "Usual order" — and favourites
+## 5. "Usual order" — replaced by favourites
 
-**Kind C. Backend done ✅ — Flutter work remains.** Both halves now exist, and they are deliberately
-different things.
+**Kind C. Backend done ✅ — Flutter work remains.** Favourites shipped first; the guessed "usual"
+has now been removed everywhere rather than kept beside them.
 
-The original reading was correct: `usual` is the last order, nothing more.
+### Why it went rather than staying
+
+`usual` was the caller's last non-cancelled order:
 
 ```csharp
-// EmployeeApi.cs
 var last = orders.FirstOrDefault(o => o.Status != OrderStatus.Cancelled && o.Lines.Count > 0);
 ```
 
-Order something unusual once for a visitor and it becomes your "usual" until you order again. That
-is why the label is "آخر طلب" and why favourites had to be *stated* rather than guessed.
+No frequency, no weighting. Order something unusual once for a visitor and it is your "usual" until
+you order again. Two one-tap repeats side by side — one stated, one guessed — is worse than either
+alone: the user cannot tell which is which, and the guessed one silently moves.
 
 ### What shipped
 
-Three tables — `Favourites`, `FavouriteLines`, `FavouriteExtras` — in migration `AddFavourites`,
-plus `FavouriteService` and three endpoints:
+Favourites (three tables, `FavouriteService`, three endpoints, plus `saveAsFavourite` /
+`favouriteName` / `fromFavouriteId` on `POST /orders`) and then the removal:
 
-| | | |
-|---|---|---|
-| `GET` | `/favourites` | `{ favourites: [...], maxFavourites: 20 }` |
-| `POST` | `/favourites` | `{ name?, lines }` → `201` with the saved favourite |
-| `DELETE` | `/favourites/{id}` | `204`; `404` (never `403`) on someone else's |
+| Removed | Where |
+|---|---|
+| `CatalogueResponse.Usual`, `UsualOrderDto`, `BuildUsual` | `ApiContracts.cs`, `EmployeeApi.cs` |
+| The web's "الطلب المعتاد" card, its view model and its JS replay | `OrdersController.cs`, `OrderViewModels.cs`, `Create.cshtml`, `CreateForGuest.cshtml`, `order-form.js` |
+| `UsualOrder` / `OrderTheUsual` strings | `SharedResource.{ar,en}.resx` |
 
-And on `POST /orders`, three appended fields: `saveAsFavourite`, `favouriteName`, and
-`fromFavouriteId` — so the composer's toggle saves in the same round trip and replaying a favourite
-stamps it as used.
+**One free performance win.** The catalogue handler ended with:
 
-`favouriteId` comes back on `PlaceOrderResponse` when one was saved.
+```csharp
+var recent = await repository.GetOrdersAsync(new OrderQuery { RequesterUsername = username }, ct);
+```
 
-### Four decisions worth knowing about
+`BuildUsual` was its only consumer and `OrderQuery.Limit` was never set — so every catalogue fetch
+loaded that employee's **entire order history**, lines and extras included, to use the newest one.
+On the app's most-called endpoint. That query is gone.
 
-1. **A favourite is a template, never a promise.** It stores ids, and replaying one goes through
-   `OrderService.PlaceAsync` like any other order — so the buffet cap, the allowed-extras rule and
-   every shortage check run against today's state. A favourite saved when a drink existed and
-   replayed after it was retired is a rejected order, with a reason the user can act on. This is
-   what the original request meant by "re-validate on replay", and it comes free: nothing about the
-   replay path is special.
+### The auto-generated name now includes the preparation
 
-2. **Saving is validated; reading is not.** `POST /favourites` rejects an item that does not exist
-   or is the wrong category for its slot — a sugar named as the drink is something the composer
-   could never produce but a hand-written request can. `GET /favourites` does **not** filter: an
-   item retired since the favourite was saved still comes back. Hiding it would make the favourite
-   silently disappear with no explanation; showing it lets the order be the thing that fails.
+A favourite saved without a name is named after its drinks. It was dropping the variant, so
+`قهوة غامق` and `قهوة فرنساوي` both came back as plain `قهوة` — indistinguishable in a list, which
+defeats the point of the name. Fixed to the format the web's summary already used:
 
-3. **Not bundled into `/catalogue`**, which is the one place I diverged from the original proposal.
-   The guide tells clients to cache the catalogue and refresh on resume — correct for a list of
-   drinks, wrong for a list that changes every time the user saves one. Bundling them would leave a
-   just-saved favourite invisible until the next resume. Separate endpoint, fetched with the order
-   screen.
+```
+قهوة فرنساوي (2 سكر) + حليب
+قهوة (بدون سكر)، شاي (1 سكر)      ← two drinks, no variants
+```
 
-4. **`saveAsFavourite` never fails the order.** The drink is already made by the time the favourite
-   is written, so a full list or a since-retired item returns a null `favouriteId` rather than an
-   error. It is also ignored on an idempotent retry, so a client resending after a dropped response
-   does not end up with two copies of the same favourite.
+Variants are loaded only when the user did not supply a name, so a named favourite costs nothing
+extra. Names stay frozen at save time, so renaming a variant later never rewrites somebody's list.
 
-There is a cap of **20 per user** (`maxFavourites` on the list response, so the client can disable
-the save control rather than let someone compose one and be refused). A limit exists at all because
-this list is entirely client-driven and otherwise unbounded.
+### Audit
+
+`DELETE /favourites/{id}` was writing no audit entry while `POST` was. Fixed — a log that records
+what was added and never what was removed cannot be reconciled against what is actually there.
+`saveAsFavourite` on `POST /orders` is deliberately *not* audited separately: the order already is,
+and a second entry would double-count one action.
+
+### The web has no replacement, by decision
+
+The web keeps no repeat-order shortcut for now — favourites are API-only. A web favourites UI is
+self-contained later work; the endpoints are already there. `syncVariants(line, preferredId)` in
+`order-form.js` was left in place with its now-unused parameter, because that is exactly the hook
+such a replay needs.
 
 ### Still not done: the computed usual
 
-`ReportingService.EmployeePreferences` still computes the genuine article — most-ordered drink, mean
-sugar, extras appearing on a third or more of the user's drinks, suppressed below
-`MinimumPreferenceSample = 3` — and is still admin-reporting only.
+`ReportingService.EmployeePreferences` still computes the genuine article — most-ordered drink,
+mean sugar, extras on a third or more of the user's drinks, suppressed below
+`MinimumPreferenceSample = 3` — and remains admin-reporting only. With favourites shipped the case
+for promoting a guess is weaker still: somebody who wants a repeat can now say so.
 
-Deliberately left alone. With favourites shipped, the case for promoting a guess into the "usual"
-slot is much weaker: someone who wants a repeat order can now say so explicitly. Worth revisiting
-only if people turn out not to save any.
-
-**Flutter:** a favourites strip above the drink grid, a "احفظ كطلب مفضل" toggle with an optional
-name in the composer, and long-press to delete. Keep the one-tap repeat for `usual`, still labelled
-"آخر طلب" — it is a different thing and should keep looking like one.
+**Flutter: done (2026-09-02).** The card and its usages are gone, the strip is on both the hub and
+the composer, the composer carries the save toggle with its optional name, and the order-history
+screen has "احفظ كطلب مفضل" on every settled order. See the shipped-table in
+[backend-change-usual-removed.md](backend-change-usual-removed.md) for the four decisions worth
+keeping.
 
 ---
 

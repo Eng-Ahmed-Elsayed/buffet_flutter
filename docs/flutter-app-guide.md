@@ -76,12 +76,11 @@ When the artboards are authored against §2 from the start, three failure modes 
 Whatever tool produces the visuals, this document stays authoritative for **meaning and
 behaviour**; the design is authoritative for **layout and dimension**.
 
-### 1.2 The screens to design first
+### 1.2 The five screens to design first
 
-The home hub with its permission-aware action grid · login and first-run password change · the
-order composer in **both** its modes, with the sugar stepper and extras chips · order status
-through all four states · my materials with a pending declaration · the staff queue card showing
-the source jar per line.
+Login and first-run password change · the order composer with the sugar stepper, extras chips and
+the "from my materials" toggle · order status through all four states · my materials with a
+pending declaration · the staff queue card showing the source jar per line.
 
 They are where every rule in this document becomes visible; the rest of the app is conventional and
 can follow. Ask for the **states**, not just the happy path — a shortage warning that does not
@@ -93,6 +92,8 @@ disable, an order sitting in `Ready`, an empty catalogue, an expired token.
   `403`. Confirming materials stays on the web (§8.2).
 - **A sugar name on the queue card.** `SugarNameAr` is always null — design around the spoon count
   and the source owner.
+- **A guest-order screen.** The API hard-codes `AllowMultipleBuffetDrinks = false` and reads
+  `canOrderForGuests` from the token, not the body.
 - **Any admin screen.** Import, reporting and audit stay on the web.
 
 ---
@@ -292,7 +293,7 @@ against a dev instance if you like, but the contracts in `ApiContracts.cs` are t
 | `POST` | `/auth/login` | `{username, password}` → `LoginResponse`. Anonymous. |
 | `POST` | `/auth/set-initial-password` | `{newPassword}` → `204`. **First sign-in only**, no current password — see §5.2 |
 | `POST` | `/auth/change-password` | `{currentPassword, newPassword}` → `204`. Min 8 chars. Voluntary changes only |
-| `GET` | `/catalogue` | Drinks, sugars, extras, locations, the usual order **and the order limits** in one round trip |
+| `GET` | `/catalogue` | Drinks, sugars, extras, locations **and the order limits** in one round trip. No `usual` — see §7.6 |
 | `POST` | `/orders` | → `201 {orderId, duplicate:false}`, or `200 {duplicate:true}` |
 | `GET` | `/orders/mine?take=` | Newest first. `take` capped at 100, defaults to 20 |
 | `GET` | `/orders/{id}` | Caller's own only; **404** for anyone else's |
@@ -542,19 +543,17 @@ coffee is worse, not better.
   legitimate thing to order and the user may well mean it, so say what will happen and let them
   decide. The list is `[]`, not `null`, when a preparation pours nothing extra: unlike allowed
   extras there is no "unrestricted" case to distinguish.
-- **"آخر طلب" — the last order.** `/catalogue` returns `usual` with a human-readable `summary` and
-  the full `lines`, *including which jar each component came from*. One tap fills the composer.
-  This is the single highest-value feature in the app; put it at the top.
+- **There is no "last order" any more.** `/catalogue` used to return `usual` — the caller's most
+  recent non-cancelled order, offered as a one-tap repeat. **The field is gone.** It presented a
+  guess as a habit: order something unusual once for a visitor and it became your "usual" until you
+  ordered again, and nobody ever chose it.
 
-  **Label it "last order", not "الطلب المعتاد".** Despite the field name, `usual` is literally the
-  most recent non-cancelled order — no frequency, no weighting. Order something unusual once for a
-  visitor and it becomes your "usual" until you order again, so calling it a habit overpromises.
+  Favourites (§7.6) replace it, and they are the thing to put at the top of the screen. Same
+  one-tap repeat, except the user decided what is in it.
 
-  For a repeat the user actually *chose*, use favourites (§7.6). The two are different things and
-  should look different: `usual` changes every time they order, a favourite changes only when they
-  say so.
-  Saved favourites are a separate, larger change (a new table and endpoints) and are **not built
-  yet** — do not design against them.
+  Removing `usual_order_card.dart` and its usages is tracked in
+  [backend-change-usual-removed.md](backend-change-usual-removed.md), which also covers the one
+  screen worth adding in its place.
 - **Delivery location is a combo, not a dropdown.** The managed list is a *suggestion*: an
   unlisted place must never block an order. Use an autocomplete that sends `locationId` when a
   suggestion is picked and `locationText` when the user types their own.
@@ -604,11 +603,7 @@ through orders the server then refuses.
 
 ### 7.1.2 Guest orders
 
-Now supported — this section supersedes the "no guest-order screen" line that used to sit in §1.3
-and has been struck. There is still no *separate screen*: guest ordering is a **mode** of the one
-composer, chosen on the home hub before composing rather than typed into an optional field
-afterwards. Self mode shows no guest field at all; guest mode asks for the name first and requires
-it. `LoginResponse.canOrderForGuests` (§4.2) says whether this user holds the privilege:
+Now supported. `LoginResponse.canOrderForGuests` (§4.2) says whether this user holds the privilege:
 **show the guest-name field only when it is true**, and send the name as `onBehalfOfName`. A guest
 name from an unprivileged caller is a `400`.
 
@@ -763,9 +758,20 @@ Four things to build against:
    changes the moment the user saves one. Fetch it with the order screen and refresh it after any
    save or delete.
 
-**"آخر طلب" is not a favourite.** Keep both: `usual` is the last order and moves on its own, a
-favourite is stated and does not. Labelling them the same way is the one thing that makes both
-confusing.
+**This is the only repeat-order shortcut now.** The catalogue's `usual` was removed rather than
+kept alongside: two shortcuts doing nearly the same thing, one of which the user never chose, is
+the confusion favourites exist to end. If somebody misses the old button, the answer is a "save as
+favourite" action on a past order — see §7.7.
+
+### 7.7 Giving somebody their old repeat back
+
+Anyone who relied on "order this again" can get it back as something they chose, and this needs
+**no backend work at all**: `OrderSummaryDto.lines` (from `GET /orders/mine`) and
+`SaveFavouriteRequest.lines` are both `OrderLineDto`.
+
+So a "احفظ كطلب مفضل" action on a past order in the history screen is a straight repost of that
+order's `lines` to `POST /favourites`. It is the natural migration path — the user picks which of
+their past orders was actually a habit, instead of the server guessing that the newest one was.
 
 ---
 
@@ -914,8 +920,8 @@ the exception.
 - [ ] Token in secure storage only; biometric gate with a working password fallback
 - [ ] Biometric-changed clears the token
 - [ ] Idempotency key generated per composer session and reused on retry
-- [ ] "Usual order" is one tap from the catalogue screen
-- [ ] Favourites strip; save toggle in the composer; long-press to delete
+- [x] No "last order" card anywhere — favourites replaced it
+- [x] Favourites strip; save toggle in the composer; long-press to delete
 - [ ] Sugar stepper allows explicit 0
 - [ ] Location accepts free text
 - [ ] Personal materials in violet; toggle appears only when relevant

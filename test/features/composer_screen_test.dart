@@ -1,8 +1,10 @@
 import 'package:buffet_app/data/models/auth_models.dart';
 import 'package:buffet_app/data/models/catalogue_models.dart';
+import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/order/composer_controller.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
+import 'package:buffet_app/features/order/favourites_controller.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
@@ -43,13 +45,29 @@ LoginResponse _session({bool canOrderForGuests = false}) => LoginResponse(
   canOrderForGuests: canOrderForGuests,
 );
 
+FavouriteDto _favourite({int id = 1, String name = 'قهوتي'}) => FavouriteDto(
+  favouriteId: id,
+  name: name,
+  createdAtUtc: DateTime.utc(2026, 8, 24),
+  lastUsedAtUtc: null,
+  lines: const [],
+);
+
 Widget _app(
   CatalogueResponse catalogue, {
   bool canOrderForGuests = false,
   OrderMode mode = OrderMode.self,
+  List<FavouriteDto> favourites = const [],
+  int maxFavourites = 20,
 }) => ProviderScope(
   overrides: [
     catalogueProvider.overrideWith((ref) async => catalogue),
+    favouritesProvider.overrideWith(
+      (ref) async => FavouritesResponse(
+        favourites: favourites,
+        maxFavourites: maxFavourites,
+      ),
+    ),
     canOrderForGuestsProvider.overrideWith(
       (ref) => _session(canOrderForGuests: canOrderForGuests).canOrderForGuests,
     ),
@@ -106,7 +124,6 @@ void main() {
               sugars: const [],
               extras: const [],
               locations: const [],
-              usual: null,
             ),
           ),
         );
@@ -138,7 +155,6 @@ void main() {
               sugars: const [],
               extras: const [],
               locations: const [],
-              usual: null,
             ),
           ),
         );
@@ -161,7 +177,6 @@ void main() {
             sugars: const [],
             extras: const [],
             locations: const [],
-            usual: null,
           ),
         ),
       );
@@ -182,7 +197,6 @@ void main() {
             sugars: const [],
             extras: [_item(9, 'حليب', 'Extra'), _item(10, 'قرفة', 'Extra')],
             locations: const [],
-            usual: null,
           ),
         ),
       );
@@ -204,7 +218,6 @@ void main() {
             sugars: const [],
             extras: [_item(9, 'حليب', 'Extra'), _item(10, 'قرفة', 'Extra')],
             locations: const [],
-            usual: null,
           ),
         ),
       );
@@ -229,7 +242,6 @@ void main() {
             sugars: const [],
             extras: [_item(9, 'حليب', 'Extra')],
             locations: const [],
-            usual: null,
           ),
         ),
       );
@@ -272,7 +284,6 @@ void main() {
       sugars: const [],
       extras: [_item(9, 'حليب', 'Extra')],
       locations: const [],
-      usual: null,
     );
 
     testWidgets('the hint appears only once the doubling extra is ticked', (
@@ -339,7 +350,6 @@ void main() {
       sugars: const [],
       extras: const [],
       locations: const [],
-      usual: null,
     );
 
     testWidgets('a self order never asks for a guest, privilege or not', (
@@ -411,26 +421,31 @@ void main() {
     });
   });
 
-  group('the usual order is one tap from the ordering screen (§12)', () {
-    CatalogueResponse withUsual() => CatalogueResponse(
+  group('favourites are one tap from the ordering screen (§12)', () {
+    CatalogueResponse plain() => CatalogueResponse(
       drinks: [_item(1, 'قهوة', 'Drink')],
       sugars: const [],
       extras: const [],
       locations: const [],
-      usual: const UsualOrderDto(summary: 'قهوة بدون سكر', lines: []),
     );
 
-    testWidgets('it is offered on the composer itself', (tester) async {
-      await _pumpTall(tester, _app(withUsual()));
+    testWidgets('the strip is offered on the composer itself', (tester) async {
+      await _pumpTall(
+        tester,
+        _app(plain(), favourites: [_favourite(name: 'قهوة الصبح')]),
+      );
 
       // It lives on the hub too, but staff reach this screen by pushing it
-      // from the queue and never see the hub — so a usual that existed only
-      // there took the feature away from them entirely.
-      expect(find.text('اطلب مرة أخرى'), findsOneWidget);
+      // from the queue and never see the hub — so a strip that existed only
+      // there would take the one-tap repeat away from them entirely.
+      expect(find.textContaining('قهوة الصبح'), findsOneWidget);
     });
 
     testWidgets('it steps aside once a drink has been added', (tester) async {
-      await _pumpTall(tester, _app(withUsual()));
+      await _pumpTall(
+        tester,
+        _app(plain(), favourites: [_favourite(name: 'قهوة الصبح')]),
+      );
 
       await tester.tap(find.text('قهوة'));
       await tester.pumpAndSettle();
@@ -438,7 +453,44 @@ void main() {
       await tester.pumpAndSettle();
 
       // Replacing drinks the user has already chosen is not a "repeat".
-      expect(find.text('اطلب مرة أخرى'), findsNothing);
+      expect(find.textContaining('قهوة الصبح'), findsNothing);
+    });
+
+    testWidgets('saving is offered once there is an order to save', (
+      tester,
+    ) async {
+      await _pumpTall(tester, _app(plain()));
+
+      // Nothing composed yet — nothing to save.
+      expect(find.text('احفظ كطلب مفضل'), findsNothing);
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أضف مشروبًا آخر'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('احفظ كطلب مفضل'), findsOneWidget);
+    });
+
+    testWidgets('at the cap the switch is off AND the reason is on screen', (
+      tester,
+    ) async {
+      // The cap is structural — the server refuses past it — which is the one
+      // kind of limit this app disables a control on. It is still never a dead
+      // end: the banner says what the limit is and how to make room.
+      await _pumpTall(
+        tester,
+        _app(plain(), favourites: [_favourite()], maxFavourites: 1),
+      );
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أضف مشروبًا آخر'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('وصلت إلى الحد الأقصى'), findsOneWidget);
+      final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      expect(toggle.onChanged, isNull);
     });
   });
 
@@ -454,7 +506,6 @@ void main() {
             sugars: const [],
             extras: const [],
             locations: const [],
-            usual: null,
           ),
           canOrderForGuests: true,
           mode: OrderMode.guest,
@@ -488,7 +539,6 @@ void main() {
                 sugars: const [],
                 extras: const [],
                 locations: const [],
-                usual: null,
               ),
             ),
             canOrderForGuestsProvider.overrideWith((ref) => true),
@@ -542,7 +592,6 @@ void main() {
             sugars: const [],
             extras: const [],
             locations: const [],
-            usual: null,
           ),
         ),
       );
@@ -565,7 +614,6 @@ void main() {
             sugars: const [],
             extras: const [],
             locations: const [],
-            usual: null,
           ),
         ),
       );
@@ -611,7 +659,6 @@ void main() {
             sugars: const [],
             extras: const [],
             locations: const [],
-            usual: null,
           ),
         ),
       );
