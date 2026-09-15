@@ -78,27 +78,5 @@
 		<string>ar</string>
 		<string>en</string>
 	</array>
-	<!--
-	  §11: ATS exception for the plain-HTTP development host, scoped to that one
-	  domain. NSAllowsArbitraryLoads stays absent, so every other host still
-	  requires HTTPS.
-
-	  PRODUCTION MUST BE HTTPS. When the API moves, delete this whole
-	  NSAppTransportSecurity block — a 30-day bearer token with no refresh
-	  endpoint must not travel in the clear.
-	-->
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSExceptionDomains</key>
-		<dict>
-			<key>digitalbuffet.runasp.net</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<false/>
-			</dict>
-		</dict>
-	</dict>
 </dict>
 </plist>

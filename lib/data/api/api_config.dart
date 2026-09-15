@@ -5,7 +5,7 @@ abstract final class ApiConfig {
   /// `flutter run --dart-define=BUFFET_API_BASE_URL=https://host/api/v1`
   static const baseUrl = String.fromEnvironment(
     'BUFFET_API_BASE_URL',
-    defaultValue: 'http://digitalbuffet.runasp.net/api/v1',
+    defaultValue: 'https://digitalbuffet.runasp.net/api/v1',
   );
 
   /// The origin, for resolving the relative `imageUrl` values the API returns.

@@ -47,14 +47,14 @@ void main() {
       final resolved = ApiConfig.imageUrl(parse().imageUrl);
       expect(resolved, isNotNull);
       expect(resolved, contains('/uploads/items/item-7-914ab363.png'));
-      expect(resolved, startsWith('http'));
+      expect(resolved, startsWith('https://'));
     });
 
     test('an absolute imageUrl is passed through unchanged', () {
       // /catalogue returns ABSOLUTE urls while /materials/mine returns
       // relative ones — both must work through the same code path.
       const absolute =
-          'http://digitalbuffet.runasp.net/uploads/items/item-7-914ab363.png';
+          'https://digitalbuffet.runasp.net/uploads/items/item-7-914ab363.png';
       expect(ApiConfig.imageUrl(absolute), absolute);
     });
 
