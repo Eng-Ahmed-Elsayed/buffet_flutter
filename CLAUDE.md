@@ -244,8 +244,9 @@ Not a workflow — these hold on every edit, whether or not a skill was invoked.
   or the two spec documents, it does not exist. Ask rather than guess a field name.
 - **Never hand-edit generated files.** `*.g.dart` and `*.freezed.dart` come from
   `dart run build_runner build --delete-conflicting-outputs`. Change the source and regenerate.
-- **Never commit or push unless asked.** Same for adding a dependency to `pubspec.yaml` — propose
-  it first; §10 already settled the stack.
+- **Never commit or push unless asked.** The one standing exception is the single commit that
+  closes a phase (see *Phase workflow*), and that one is never pushed. Same for adding a dependency
+  to `pubspec.yaml` — propose it first; §10 already settled the stack.
 - **Back must never close the app from a screen with somewhere to go.** Landing screens
   (catalogue, queue, login, lock) confirm first via `ExitConfirmation`; pushed screens keep the
   ordinary pop. A screen reached with `go` rather than `push` has no route beneath it — give it a
@@ -270,6 +271,71 @@ Not a workflow — these hold on every edit, whether or not a skill was invoked.
 - **Never log or print a token, password, or full auth header**, including while debugging.
 - **State what the tests actually said.** If `flutter test` or `flutter analyze` was not run, say
   so — do not describe unverified work as done.
+
+## How to run a task
+
+How to work, not what to build. These follow Anthropic's Opus 5.5 guidance, fitted to this repo.
+
+- **Keep going; stop only when blocked on me.** When a step does not need my input, take it. Put
+  status notes in the same message as the next action rather than pausing to report. Stop and ask
+  only when you cannot continue without a decision from me, or before anything destructive or
+  outward-facing: deleting files or data, `git push`, force-pushing, rewriting history, or
+  anything that hits the live API with a write. Committing and adding dependencies stay ask-first,
+  as the standing rules say.
+- **The finish line is `flutter analyze` clean and `flutter test` passing** unless the task names
+  another. Run both before calling a code task done, and the responsive suite whenever a layout
+  changed.
+- **Once a question is answered, treat the answer as settled.** Do not reopen an earlier conclusion
+  in a long run unless new evidence contradicts it — and then say what the evidence was.
+- **Long runs keep their task list in a file** (`~/.claude/plans/<task>.md`, never inside the repo)
+  and update it as each step lands, so the work survives the context being summarised.
+- **Split wide work across subagents and check each result.** An audit of every screen against a
+  rule, a sweep of the ARB files, or a review across `lib/` fans out well; a single screen does
+  not. Read what each subagent returns before relying on it — a subagent's summary is a claim,
+  not a verification.
+- **Mark anything you could not confirm, and say where you looked.** This matters most for the
+  backend: a behaviour read in [docs/contracts/](docs/contracts/) is not the same as one exercised
+  against the server, and [docs/backend-findings.md](docs/backend-findings.md) exists because they
+  differed.
+- **When asked to review a diff, list only what would block the merge**, each with file and line.
+  §12 of the app guide and the standing rules above are the bar; style preferences are not.
+- **End every run with three headings:** **Blocked on me** (decisions left open, anything needing a
+  device, credentials, or the backend repo), **Changed** (files and behaviour), **Found** (bugs,
+  contradictions or backend issues noticed but not fixed). Lead with *Blocked on me*, since that is
+  what I read first. Keep all three even when one is empty, and write "nothing" under it.
+- **Work in phases, and close each one the same way** (below).
+- **For design work, name the habits to leave out** rather than asking for "not generic": no
+  recoloured logo, no violet outside "my own jar", no disabled control without a stated reason, no
+  fixed-aspect text tiles, no `left`/`right`.
+
+## Phase workflow
+
+A **phase** is one step of a plan in `~/.claude/plans/` that leaves the app building: a
+repository, a screen, a behaviour. A **milestone** is the end of a plan or of a `/buffet-feature`
+run. Each phase ends with these steps, in order:
+
+1. **Tests:** `flutter analyze` clean and `flutter test` passing, plus the responsive suite if a
+   layout changed. A red result stops the phase here.
+2. **Audit in a fresh context:** spawn a `general-purpose` subagent that did not write the code.
+   Give it the phase's diff (`git diff` against the last phase commit), this file and
+   [§12](docs/flutter-app-guide.md). Ask it to list only what would block the merge, with file and
+   line, checked against the domain rules and standing rules. The author's context is exactly
+   what makes a same-session review miss things, so `/buffet-feature` stage 8 does not replace
+   this step. Fix every finding, then go back to step 1. If a finding is wrong, say why in the
+   report rather than dropping it silently.
+3. **Docs:** update whatever the phase made untrue or newly true. That means *Current state* above
+   (including rules a future edit must not undo), the plan file,
+   [docs/backend-findings.md](docs/backend-findings.md) if the server behaved differently from
+   the contracts, and a `docs/backend-request-*.md` for anything only the backend can fix.
+4. **One conventional commit:** `feat:`, `fix:`, `refactor:`, `test:` or `docs:`, with a scope
+   where it helps (`feat(queue): …`), covering the code, tests and docs of that phase. Never mix
+   two phases in one commit. Only commit on `feat/*` or `fix/*` branches, never on `main`, and
+   never push.
+
+At a **milestone**, also run a **definition-of-done check**: go through
+[§12](docs/flutter-app-guide.md) item by item against the code as it stands. Tick only what you
+verified, cite the file or test that shows it, and list what remains open under *Found*. A box
+ticked on memory is how a checklist stops meaning anything.
 
 ## Commands
 
