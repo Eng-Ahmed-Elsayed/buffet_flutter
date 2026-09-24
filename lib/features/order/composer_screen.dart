@@ -778,8 +778,18 @@ double _drinkTileHeight(BuildContext context) {
   final nameLine =
       scaler.scale(text.labelSmall?.fontSize ?? 12) * Dimens.lineHeight;
 
-  // padding + image + gap + two lines of name + gap + one line of servings.
-  return Dimens.space3 * 2 +
+  // border + padding + image + gap + two lines of name + gap + one line of
+  // servings.
+  //
+  // The border counts TWICE and is easy to forget: `Border.all` insets both
+  // edges, so a hairline costs 2dp of the tile's height and the selected
+  // width costs 4dp. Leaving it out overflowed the tile of a drink with NO
+  // own stock by ~1dp — that tile skips the servings line, so it has the least
+  // slack to absorb the missing border, and it was the only one to complain.
+  // The SELECTED width is budgeted rather than the hairline, because tapping a
+  // tile must not be able to make it overflow.
+  return Dimens.borderSelected * 2 +
+      Dimens.space3 * 2 +
       40 +
       Dimens.space2 +
       nameLine * 2 +
