@@ -9,14 +9,17 @@ mapping of what was taken, remapped and dropped, are in
 [docs/figma-redesign.md](docs/figma-redesign.md). Read it before touching any screen. The headline
 changes:
 
-- Employees get a bottom-nav shell: Home · Orders · Materials · Account.
+- Employees get a bottom-nav shell: Home · Favorites · Orders · Account, with My materials inside
+  Account.
 - Ordering becomes (Choose a drink →) Drink Details → Review.
 - The palette moves to the Figma blues, fixed for contrast.
-- English text uses the Figma Latin font, with Cairo for Arabic.
+- English text uses Inter, with Cairo for Arabic.
+- Pickup vs delivery becomes a per-order choice, and the employee can confirm a pickup. This waits
+  on [a backend request](docs/backend-request-fulfilment-mode.md).
 
 Until each phase lands, the rules below describe the app as it stands; the "Rules this redesign
 changes" table in that document says which are about to move. Figma MCP is capped on the current
-seat, so the design is read from PNG exports, which go into `design/figma/` (not added yet).
+seat, so the design is read from the PNG exports in `design/figma/`.
 
 **Scaffolded and building.** The five screens from §1.2 exist, in both locales, on branch
 `feat/app-scaffold`. `flutter analyze` is clean and `flutter test` passes.
@@ -180,10 +183,17 @@ authoritative only for layout and dimension. Where the Figma design and the guid
 
 ## Workflow: design before Dart
 
-Screens are designed and approved *before* widgets are written, using the `/design` skill to
-produce a canvas of artboards. §1.2 names the five screens that carry the domain rules; §1.3 names
-what must deliberately **not** be designed (a staff declarations tab, a sugar name on the queue
-card, a guest-order screen, any admin screen).
+Screens are designed and approved *before* widgets are written. **The identity is now designed**:
+the Figma exports in `design/figma/` plus [docs/figma-redesign.md](docs/figma-redesign.md). A
+screen Figma covers is built to its export. A screen Figma does not cover (Arabic/RTL, the staff
+view, My materials, the lock screen, states) is built in the same identity, from the same tokens
+and components. It is then **approved from screenshot captures (Arabic and English,
+`test/screenshots/`) before the phase is committed**. A screen that departs from the identity, or
+a new pattern with no precedent in Figma, is still mocked up first.
+
+§1.2 names the five screens that carry the domain rules; §1.3 names what must deliberately **not**
+be designed (a staff declarations tab, a sugar name on the queue card, a guest-order screen, any
+admin screen).
 
 Ask for the *states*, not just the happy path: shortage warning that does not disable, an order
 sitting in `Ready`, empty catalogue, expired token.

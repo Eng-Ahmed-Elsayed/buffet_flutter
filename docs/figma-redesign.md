@@ -2,8 +2,7 @@
 
 **Status:** decided 2026-09-24; being built on `feat/figma-redesign`.
 **Source:** Figma file `bKHrXIl431VsFoghgKyDBu` ("DEFI - Kitchen app"), Design and Components pages.
-**Exports:** `design/figma/` (**not added yet**), one PNG per frame at 2x, exported by hand (see
-*Access*).
+**Exports:** `design/figma/`, one PNG per frame at 2x, exported by hand (see *Access*).
 
 This document records what we took from the Figma design, what we remapped onto the business, and
 what we dropped, with the reason for each. It sits beside
@@ -19,56 +18,63 @@ what we dropped, with the reason for each. It sits beside
 The design account is a **View seat on a Professional plan**. Figma caps that seat at about
 6 MCP calls a month, and the first session used them all. So the MCP is not the working channel for
 this design. The frames are exported as PNGs into `design/figma/`, and colours are sampled from
-those. Font names are read off the Figma UI by hand. A Dev or Full seat would restore the MCP.
+those. Font details are read off the Figma UI by hand. A Dev or Full seat would restore the MCP.
 
 ## What the design covers, and what it does not
 
 **Designed:** 8 frames, 390dp, **English/LTR only, light only, happy path only**:
-Splash · Onboarding · Login · Home · Drink Details · Order Summary · Tracking · Settings.
-The Components page adds the logo, a card, add/subtract buttons and two 4-state stepper chips.
+Splash · Onboarding · Login (`Sign Up.png`) · Home · Drink Details · Order Summary · Tracking ·
+Settings. The Components page (not exported) adds the logo, a card, add/subtract buttons and two
+4-state stepper chips. The collapsed "+" and expanded "− n +" states are visible on Order Summary.
 
 **Not designed:** Arabic/RTL (the primary locale) · lock screen · forced change-password · my
-materials and the declare sheet · favourites list · notifications · empty / loading / error /
-expired-session states · shortage warning · guest mode · cancel and the Cancelled state · **the
-whole staff view**.
+materials and the declare sheet · notifications · empty / loading / error / expired-session states ·
+shortage warning · guest mode · cancel and the Cancelled state · **the whole staff view**.
 
-How these get designed is **still open** (see *Open*). CLAUDE.md's "design before Dart" says they
-should be designed and approved before any widget is written.
+These are **built in the same identity and approved from screenshot captures** (D8).
 
 ## Decisions
 
 | # | Question | Decision |
 |---|---|---|
-| D1 | How to read the design | PNG exports in `design/figma/`; font names read by hand |
+| D1 | How to read the design | PNG exports in `design/figma/`; font details read by hand |
 | D2 | Order flow | **(Choose a drink →) Drink Details → Review → Place.** No cart left on Home. See *Ordering* |
 | D3 | Onboarding | **First-launch explainer**: the designed layout, shown once per install, skippable, with copy that explains the service instead of the coffee slogans, and no AI-generated stock photos |
-| D4 | Employee navigation | **Bottom nav: Home · Orders · Materials · Account.** Staff are unchanged: they land on `/queue`, with no bottom nav |
-| D5 | Pickup or delivery | **Both happen**, so the **client's** Ready wording **changes to neutral** ("Your order is ready"). It never says "on its way" or "come and collect it". **This is a change:** today's client copy and guide §4.3 say "collect" (see *Rules this redesign changes*). The server writes its own Ready text, used as the notification row and the push body (`NotificationService.cs:29`): «طلبك رقم N جاهز للاستلام». «للاستلام» means "ready to be received", which is true whether the drink is collected or delivered, so it is left alone and needs no backend request |
-| D6 | Fonts | **The Figma Latin font for English, Cairo for Arabic.** The Latin family is **not confirmed yet**; the screenshots suggest Inter. Bundled as an asset only if its licence allows (Inter is OFL). English UI uses Cairo as the fallback, so Arabic item names still render correctly |
-| D7 | Backend requests | Drink description and menu group ([request](backend-request-drink-description-and-group.md)); `StartedAtUtc` ([request](backend-request-order-started-at.md)). A pickup/delivery field was **not** requested: neutral wording (D5) covers it |
-| D8 | Branch | `feat/figma-redesign`, one commit per phase, never pushed |
+| D4 | Employee navigation | **Bottom nav: Home · Favorites · Orders · Account.** These are the designer's tabs, except that "History" is named **Orders**, because it holds live orders as well as past ones. **My materials moves into Account.** Staff are unchanged: they land on `/queue`, with no bottom nav |
+| D5 | Pickup or delivery | **The employee chooses per order, on Review**: "I'll pick it up at the kitchen" or "Deliver to: [location]". <br>• A location is required only for delivery. <br>• The app remembers the last choice. <br>• Staff see the choice on the queue card while preparing. <br>• The Ready wording follows the choice; an order with no recorded choice uses neutral wording. <br>This **needs the backend** ([request](backend-request-fulfilment-mode.md)) and ships as its own phase once the fields are in the contracts. Until then the Ready wording is neutral, since both happen today |
+| D6 | Who closes a pickup order | **Staff or the employee.** Staff "Mark delivered" as today. The employee may also tap **"I picked it up"** on their own Ready pickup order; this is the designer's green "Pickup Order" button, given a real job. It needs `POST /orders/{id}/collected` (same request) |
+| D7 | Fonts | **Inter for English, Cairo for Arabic.** Inter is confirmed from Figma: the heading sample is 600, 28/36. Both are bundled as assets under the OFL, with no pub dependency. English UI uses Cairo as the fallback, so Arabic item names still render correctly |
+| D8 | Screens Figma does not cover | **Built directly in the same identity**, using the tokens and components taken from Figma. At the end of each phase, **screenshot captures (Arabic and English) are shown for approval before the commit.** This replaces "design before Dart" for screens that follow an already-designed identity (see *Rules this redesign changes*) |
+| D9 | Backend requests | Drink description and menu group ([request](backend-request-drink-description-and-group.md)) · `StartedAtUtc` ([request](backend-request-order-started-at.md)) · **fulfilment mode and employee pickup confirmation** ([request](backend-request-fulfilment-mode.md)). The user implements them in `../buffet_app` |
+| D10 | Branch | `feat/figma-redesign`, one commit per phase, never pushed |
 
 ## Visual language
 
-**Palette:** sampled from the Figma screenshots, to be confirmed against the 2x exports.
+**Palette:** sampled from the 2x exports. Contrast figures are WCAG ratios.
 
 | Role | Value | Contrast | Note |
 |---|---|---|---|
-| Primary: filled buttons, headings, active states | `#1C4C9F` | 8.13 on white, 7.08 on page | from Figma |
-| Page background | `#E7F0FF` | — | from Figma. Every existing semantic colour still passes on it: ok 4.52, warning 4.73, danger 5.73, violet 6.38, muted 4.94 |
+| Primary: filled buttons, headings, active states | `#1B4BA2` | 8.16 on white, 7.11 on page | from Figma. The first, smaller screenshot read `#1C4C9F` |
+| Page background | `#E7F0FF` | — | from Figma. Every kept semantic colour still passes on it: ok 4.52, warning 4.73, danger 5.73, violet 6.38, muted 4.94 |
 | Icon blue: icons, inactive page dot | `#2A71F0` | 3.88 on page | **non-text only** |
 | Link text | `#1563EE` | 4.52 on page, 5.18 on white | Figma's `#2A71F0` fails AA as text (3.88), so darkened, same hue |
 | Input and outline-button border | `#6B8AC1` | 3.04 on page, 3.48 on white | Figma's `#8DA5CF` fails the 3:1 non-text minimum (2.18), so darkened, same hue |
+| Green: Ready, Completed, "I picked it up" | our `ok` `#0E7C5A` | 5.19 with white text | Figma's `#00B67A` carries white text at **2.63**, which fails |
+| Faint text (version line) | our `muted` | 4.94 on page | Figma's `#A1C0E4` is **1.64** on the page, which is not readable |
+| Red: sign out, cancel | our `danger` `#B42318` | 5.73 on page | Figma's `#BA1A1A` also passes (6.46 on white); one red is kept |
 | Violet `accent` | `#6D22D8` | unchanged | **still means "from my own jar" and nothing else.** Figma uses no violet in the UI, so nothing collides |
-| danger / warning / ok | unchanged | see above | Figma has no semantic colours; ours are kept |
+| warning | unchanged | | Figma has no warning colour |
+
+**Type:** Inter (English) and Cairo (Arabic). Arabic keeps line height 1.7; English takes Figma's
+leading (heading 28/36 at 600, the other styles measured from the exports).
 
 **Shape:** pill-shaped primary and outline buttons (55dp in Figma), rounded white cards on the
 pale-blue page, circular icon buttons. Radii and spacing are taken from the exports and go into
 `lib/theme/dimens.dart`. The 4px spacing scale is kept unless the design contradicts it.
 
-**Chrome:** a light top bar (logo, bell with unread badge, initials avatar) replaces the navy bar.
-`accentBright` existed to mark position on the navy bar and becomes unused. It is removed rather
-than repurposed.
+**Chrome:** a light top bar (logo, bell with unread badge; a back arrow on pushed screens) replaces
+the navy bar. `accentBright` existed to mark position on the navy bar and becomes unused. It is
+removed rather than repurposed.
 
 ## Screen mapping
 
@@ -79,8 +85,11 @@ The pale gradient and centred logo lockup.
 
 ### Onboarding 🔁 (D3)
 The layout is kept (hero card, dots, Next / Sign in, Skip). The three slides explain the service:
-order from where you are; staff prepare it and you are told when it is ready; bring your own
-materials and draw on them. Shown once per install. Skip and Sign in both go to login.
+- order from where you are;
+- staff prepare it, and you pick it up or have it delivered;
+- bring your own materials and draw on them.
+
+Shown once per install. Skip and Sign in both go to login.
 
 ### Login ✅ layout
 - ❌ **Register** (primary button and footer link). Admins create accounts; there is no sign-up.
@@ -94,12 +103,12 @@ materials and draw on them. Shown once per install. Skip and Sign in both go to 
 ### Home 🔁
 | Figma | Ours |
 |---|---|
-| Logo · bell · settings · avatar | Logo · bell (unread badge) · initials avatar. No settings icon, because the Account tab covers it: one destination, one control |
+| Logo · bell | ✅ logo · bell (unread badge). The metadata also had settings and avatar buttons, but they are not in the export, and the Account tab covers them |
 | "Good Morning, Salma" | ✅ time-of-day greeting with `displayName` |
 | Tagline "Boost your metabolism…" | ❌ a health claim with no data behind it |
 | Search | ✅ client-side over `/catalogue`, matching `nameAr` and `nameEn` |
 | Category chips | 🔁 Filters over the menu. The menu itself **keeps guide §7.1's source sections in every case: «من موادي» first** (violet, only when the user owns something), **then «من البوفيه»** (neutral). The chips are the menu groups once the backend ships them, with drinks that have no group under «أخرى» / "Other"; they filter within both sections. Until then, the chips are the two source sections themselves, as jump links |
-| "Popular" cards | 🔁 **Favourites.** Each card shows a sugar count, so it is a saved order. The existing strip rules still hold (4 most recent, "See all" only when `/favourites` exists, retired items marked) |
+| "Popular" cards | 🔁 **Favourites.** Popularity does not exist, and the favourites are the user's own one-tap repeats. The strip rules still hold (4 most recent, measured two per row, retired items marked). **No "See all" on Home**: the Favorites tab is that destination, and a link to it would be a second control for the same place |
 | "Recommended for you" | 🔁 **the full menu**: image, name, description (once shipped) |
 | "OUT OF STOCK" badge | 🔁 `inStock == false` shows a **warning badge and the row stays tappable**. Shortages never block |
 | — | ➕ outstanding-order card (above everything while an order is live) · ➕ guest order entry (when `canOrderForGuests`) |
@@ -107,6 +116,7 @@ materials and draw on them. Shown once per install. Skip and Sign in both go to 
 ### Drink Details 🔁
 | Figma | Ours |
 |---|---|
+| Top bar with no back arrow | ➕ **back arrow**. It is a pushed screen |
 | Hero image, title | ✅ `imageUrl`, with the `ItemImage` fallback glyph |
 | ★ rating | ❌ no ratings exist |
 | Description | ✅ once the backend ships it; otherwise omitted |
@@ -115,29 +125,42 @@ materials and draw on them. Shown once per install. Skip and Sign in both go to 
 | Sugar chip-stepper **and** sugar slider | 🔁 **one** stepper; 0 is an explicit "no sugar". A slider cannot make zero a stated choice |
 | "Mint leaves" slider | ❌ an extra is one fixed serving; there is no amount |
 | — | ➕ source choice, only when `hasOwnStock`: «من موادي» in **violet**, «من البوفيه» **neutral**. Violet never marks the buffet |
-| Quantity stepper | 🔁 shown **only when this drink has room for more than one line**. The room is whatever the controller already computes; nothing is hard-coded. There is no per-line quantity, so the stepper adds identical lines. The two caps: <br>• `maxLines` applies to every line. <br>• The buffet cap applies to every line that **resolves** to buffet stock (`drinkFromOwn == false`, or `ownServingsLeft <= 0`). It is `maxBuffetDrinks`, or `maxLines` when `capIsLifted`. <br>At the cap it states why and does not silently stop |
+| Quantity stepper | 🔁 There is no per-line quantity, so the stepper sets how many **identical lines** the draft becomes. Nothing is hard-coded, and **only structural limits decide whether it is shown; a stock reading never does**: <br>• It is shown when `maxLines` leaves room for more than one line **and** the line's **requested** source structurally allows more than one: own jar (`drinkFromOwn == true`), or buffet when `maxBuffetDrinks > 1` or `capIsLifted`. Lines already added do not enter this test, because some of them count as buffet only on a stock reading. <br>• An own-jar drink whose jar reads empty (`ownServingsLeft <= 0`) **keeps the stepper**. Its lines resolve to buffet stock and count against the buffet cap (guide §7.1.1), but that is a stock reading, so the cap is enforced at the point of adding, **with the reason stated**, and never by hiding or disabling. <br>• **This needs a quantity-aware gate** (Phase 5): today `draftWouldExceedBuffetCap` (`composer_controller.dart:291`) and `addLine` (`:534`) treat the draft as exactly one line, and the buffet-cap banner (`composer_screen.dart:485`) follows them. The controller gains a draft quantity: `addLine` commits N identical lines, and the gate and the banner count the draft as N. Existing controller tests stay untouched; new ones cover the quantity |
 | "Add to Orders" | 🔁 **Continue** → Review |
 
 ### Review order (Figma "Order Summary") 🔁
-- ✅ Lines with thumbnails, the location card, notes, **Place order**.
+- ✅ Lines with thumbnails, notes, **Place order**.
+- 🔁 "Delivery To / Change" becomes the **fulfilment choice** (D5): pick up at the kitchen, or
+  deliver to a location. Until the backend ships it, this stays the free-text location field of
+  today.
+- 🔁 The per-line "+" / "− n +" stepper follows the same rule as the Drink Details stepper:
+  identical lines, within the caps.
 - ❌ Payment, promo code and price breakdown. They are already hidden in the Figma frame, and there
   is no money in this system.
+- ❌ "The final step to your elevated ritual." Plain wording instead.
 - ➕ Removable lines; "Add another drink" while `lines < maxLines` (it returns to **Choose a
   drink**; the buffet cap is enforced when the line is added, as today); save-as-favourite; the
   guest's name, shown as a statement. It was entered first, on Choose a drink (see *Ordering*).
 - A favourite tap seeds the flow and lands **directly on Review**.
 
-### Tracking 🔁
+### Orders tab and Tracking 🔁
+- The tab's **Process / Done** segments (from the Tracking frame) split live orders from past ones.
 - Figma has 5 steps; we have 4 statuses. "Kitchen takes order" and "Preparing" are both
   `InProgress`, so the timeline is **Sent → Being prepared → Ready → Completed**.
-- `Ready` is the loudest state and is never shown by colour alone.
+- `Ready` is the loudest state, in `ok` green with its word, never colour alone. Its wording is
+  neutral until the fulfilment mode ships, then it follows the mode (D5).
+- 🔁 The green **"Pickup Order"** button becomes **"I picked it up"**. It is shown only on the
+  caller's own Ready pickup order, once the backend ships `/collected` (D6).
+- 🔁 **"NEW ORDER"** becomes New order.
 - ❌ "Receipt Order": no money.
-- ➕ Cancelled state, Cancel (Pending only), Order again.
-- The line summary follows the Figma pattern: preparation · N spoons · extras.
+- ➕ Cancelled state, Cancel (Pending only).
+- The line summary follows the Figma pattern: preparation · N spoons · extras. "×3" is identical
+  lines grouped for display.
 
 ### Account (Figma "Settings") 🔁
-- ✅ Name, Logout, Version.
+- ✅ Name, Logout (in `danger`), Version (in `muted`, not Figma's unreadable tint).
 - 🔁 "Member since" becomes **department**, which we have.
+- ➕ **My materials** row. It opens the materials screen and the declare sheet (D4).
 - ❌ Order History (duplicates the Orders tab), Payment Methods, Notifications (the bell already
   reaches it), Help Center (no content), Share.
 - ➕ Language, biometric toggle, change password, and the admin-on-web note.
@@ -147,7 +170,8 @@ materials and draw on them. Shown once per install. Skip and Sign in both go to 
 The composer is split into three pushed screens sharing one `ComposerController`, whose lifetime is
 the flow:
 
-1. **Choose a drink.** Search, the favourites strip and the menu list: the same widgets as Home.
+1. **Choose a drink.** Search, the favourites strip (with "See all", since there is no nav bar
+   here) and the menu list: the same widgets as Home.
    - It is where the flow starts for **staff** (the queue's "order for myself"), for **guest mode**
      (Home's guest entry), and for **"Add another drink"**.
    - In guest mode the **guest name is its first field**. That preserves "guest mode asks for the
@@ -158,7 +182,8 @@ the flow:
    - Employees ordering for themselves skip this screen: tapping a menu row on Home opens Drink
      Details directly.
 2. **Drink Details** edits the current line.
-3. **Review** holds all the lines, plus location, notes, save-as-favourite and Place order.
+3. **Review** holds all the lines, plus location (the fulfilment choice once shipped), notes,
+   save-as-favourite and Place order.
 
 Everything the controller guarantees today still holds, and its tests are unchanged:
 
@@ -168,29 +193,30 @@ Everything the controller guarantees today still holds, and its tests are unchan
 - `mode` and the favourite fields stay in both `ComposerState` constructor calls.
 - The buffet cap is enforced when a line is added.
 - Place order is never disabled. The guest name gates it by revealing the error on the field.
-  Leaving Choose a drink in guest mode is gated the same way (above).
+  Leaving Choose a drink in guest mode is gated the same way (above). A delivery order without a
+  location is gated the same way once D5 ships.
 
 Guide §7.1 ("ordering — one screen") **will be** updated to describe the steps in the phase that
-builds them (Phase 5).
+builds them.
 
 ## Rules this redesign changes (CLAUDE.md is updated as each lands)
 
 | Old rule | New rule |
 |---|---|
-| The employee landing screen is the home hub with a permission-aware action grid | The landing screen is the **Home tab** of a bottom-nav shell: outstanding order, favourites, menu |
+| The employee landing screen is the home hub with a permission-aware action grid | The landing screen is the **Home tab** of a bottom-nav shell (**Home · Favorites · Orders · Account**): outstanding order, favourites, menu. My materials is reached from Account |
 | `home_screen_test`: "New order" reachable without scrolling at 320dp | The outstanding order (when live) and the first menu row are reachable without scrolling at 320dp |
-| Notifications and settings live in the home app bar only | The bell lives in the top bar; settings lives in the Account tab. Still one control per destination |
+| Notifications and settings live in the home app bar only | The bell lives in the top bar; settings is the Account tab. Still one control per destination |
+| The favourites strip truncates only when a "show all" destination exists, which it links to | On Home the destination is the **Favorites tab**, so the strip carries no link of its own. On Choose a drink (no nav bar) the "See all" link stays |
 | Ordering is one screen (guide §7.1) | Ordering is (Choose a drink →) Drink Details → Review |
 | The favourites strip lives on the composer as well as the hub, because staff never see the hub | It lives on **Choose a drink** as well as Home, for the same reason |
 | Guest mode asks for the name first | Unchanged in substance: the name is the first field of Choose a drink |
-| Ready is the "come and collect it" moment (guide §4.3; `readyBody`, `outstandingReadyBody`, `alertReadyBody`, `channelReadyDescription`, `handoverTab`, `noHandoversBody` in the ARB files) | Ready is still the loudest state, but the wording is neutral (D5). Reworded in Phase 6. Android should update an existing channel's *description* when the channel is re-created with the same id, which the `@channelReadyName` note ("frozen") does not cover; **verify on a device** |
+| Ready is the "come and collect it" moment (guide §4.3; `readyBody`, `outstandingReadyBody`, `alertReadyBody`, `channelReadyDescription`, `handoverTab`, `noHandoversBody` in the ARB files) | Ready is still the loudest state, but its wording is **neutral** until the fulfilment mode ships, then **per mode** (D5). Android should update an existing channel's *description* when the channel is re-created with the same id, which the `@channelReadyName` note ("frozen") does not cover; **verify on a device** |
+| Only staff close an order | Staff close any order; the employee may also close their own **Ready pickup** order (D6, once shipped) |
 | Theme tokens are ported verbatim from the web's `site.css` (CLAUDE.md, guide §2.2) | Tokens come from Figma, fixed for contrast. **The app and the web app now differ in palette** unless the web is restyled too |
-| Design before Dart | Still the rule. How the screens Figma does not cover get designed is open (see *Open*) |
+| Design before Dart: every screen is designed and approved before widgets are written | The identity is designed (Figma plus this file). Screens Figma lacks **follow it and are approved from screenshot captures before the phase's commit** (D8) |
 
 ## Open
 
-- **Design for the screens Figma does not cover** (the list at the top). Either the designer adds
-  them to Figma (and the Arabic/RTL versions), or they are drafted here as a design canvas and
-  approved before any Dart is written. Building first and reviewing screenshots afterwards would
-  break "design before Dart", so it is not the default.
-- **The Latin font family** and the exact colours, from the exports.
+Nothing blocks the client work. The phase that builds pickup or delivery, and "I picked it up",
+waits on [backend-request-fulfilment-mode.md](backend-request-fulfilment-mode.md); the client
+never sends or reads a field before it is in `docs/contracts/`.

@@ -34,6 +34,12 @@ The gaps were *behavioural*. They fall into three kinds, and the kind determines
 | 7 | Arabic notes stored as `?` | — | ⬜ **Deployed DB schema**, not code (see §7) | None |
 | 8 | No double-portion warning | **B** | ✅ `variants[].ingredientItemIds` | Mark chip + hint |
 | 9 | Can't declare an unlisted item | **B** | ✅ `POST /materials/declare-new` | "الصنف غير مدرج" form |
+| 10 | Drinks have no description and no menu group (Figma redesign) | **C** | ⬜ [request](backend-request-drink-description-and-group.md) | Menu rows, Drink Details, Home chips |
+| 11 | Tracking cannot time "being prepared" | **C** | ⬜ [request](backend-request-order-started-at.md): `StartedAtUtc` exists, not on the wire | Timeline step time |
+| 12 | Pickup vs delivery is not recorded; the employee cannot confirm a pickup | **C** | ⬜ [request](backend-request-fulfilment-mode.md) | Review choice, Ready wording, "I picked it up", queue badge |
+
+Rows 10–12 were added on 2026-09-24 by the Figma redesign ([figma-redesign.md](figma-redesign.md)).
+They are **open on the backend**, so the "backend side is done" status above covers rows 1–9 only.
 
 ### What shipped on the backend
 
