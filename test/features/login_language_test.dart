@@ -77,7 +77,7 @@ void main() {
 
       expect(find.text('انتهت الجلسة'), findsNothing);
       // Anchored, so this cannot pass on a blank screen.
-      expect(find.text('تسجيل الدخول'), findsWidgets);
+      expect(find.text('مرحبًا بعودتك'), findsWidgets);
     });
   });
 
@@ -108,13 +108,13 @@ void main() {
       await pump(tester);
 
       // Arabic is the default, whatever the device says.
-      expect(find.text('تسجيل الدخول'), findsWidgets);
+      expect(find.text('مرحبًا بعودتك'), findsWidgets);
 
       await tester.tap(find.text('English'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign in'), findsWidgets);
-      expect(find.text('تسجيل الدخول'), findsNothing);
+      expect(find.text('Welcome back'), findsWidgets);
+      expect(find.text('مرحبًا بعودتك'), findsNothing);
     });
 
     testWidgets('the switch flips the whole screen to LTR and back', (
@@ -141,6 +141,33 @@ void main() {
         Directionality.of(tester.element(find.byType(LoginScreen))),
         TextDirection.rtl,
       );
+    });
+  });
+
+  group('Forgot? explains the reset rather than faking one', () {
+    testWidgets('it says the buffet admin resets passwords', (tester) async {
+      // There is no reset endpoint and deliberately no email, so a reset
+      // flow could only fail. The design's "Forgot?" says who can help.
+      await pump(tester);
+      final l10n = await AppLocalizations.delegate.load(const Locale('ar'));
+
+      await tester.tap(find.text(l10n.forgotPassword));
+      await tester.pumpAndSettle();
+
+      expect(find.text(l10n.forgotPasswordBody), findsOneWidget);
+
+      await tester.tap(find.text(l10n.gotIt));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.forgotPasswordBody), findsNothing);
+    });
+
+    testWidgets('there is no sign-up anywhere on the screen', (tester) async {
+      // The design's "Register" buttons are dropped: admins create accounts.
+      await pump(tester);
+      final l10n = await AppLocalizations.delegate.load(const Locale('ar'));
+
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, l10n.signIn), findsOneWidget);
     });
   });
 }

@@ -47,6 +47,7 @@ import 'package:buffet_app/features/auth/splash_screen.dart';
 import 'package:buffet_app/features/home/home_screen.dart';
 import 'package:buffet_app/features/materials/my_materials_screen.dart';
 import 'package:buffet_app/features/notifications/notifications_screen.dart';
+import 'package:buffet_app/features/onboarding/onboarding_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/favourites_controller.dart';
 import 'package:buffet_app/features/order/favourites_screen.dart';
@@ -337,7 +338,6 @@ class _Shot {
     this.build, {
     this.overrides = const [],
     this.after,
-    this.expectSpinner = false,
     this.height,
   });
 
@@ -349,9 +349,6 @@ class _Shot {
   /// Drives the screen into a state only reachable by interaction — tapping
   /// "serve", opening a sheet, filling a field.
   final Future<void> Function(WidgetTester)? after;
-
-  /// Splash is the one screen whose spinner IS the design.
-  final bool expectSpinner;
 
   /// A taller viewport for screens that are meant to scroll, so the reviewer
   /// sees the whole composition rather than a cropped fold.
@@ -397,7 +394,8 @@ void main() {
 
   final shots = <_Shot>[
     // ---------------------------------------------------------------- entry
-    const _Shot('01-entry-splash', SplashScreen.new, expectSpinner: true),
+    const _Shot('01-entry-splash', SplashScreen.new),
+    const _Shot('01-entry-onboarding', OnboardingScreen.new),
     const _Shot('02-entry-login', LoginScreen.new),
     _Shot(
       '03-entry-login-session-expired',
@@ -674,13 +672,11 @@ void main() {
 
         // A capture of a spinner or a stack trace looks like a design decision
         // to whoever opens the folder. Fail instead of shipping one.
-        if (!shot.expectSpinner) {
-          expect(
-            find.byType(CircularProgressIndicator),
-            findsNothing,
-            reason: '${shot.name} never finished loading',
-          );
-        }
+        expect(
+          find.byType(CircularProgressIndicator),
+          findsNothing,
+          reason: '${shot.name} never finished loading',
+        );
         expect(
           t.takeException(),
           isNull,

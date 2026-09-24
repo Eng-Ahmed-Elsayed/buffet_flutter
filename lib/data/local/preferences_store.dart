@@ -26,6 +26,7 @@ class PreferencesStore {
   static const _guestsKey = 'pref_can_order_for_guests';
   static const _languageKey = 'pref_language';
   static const _biometricsKey = 'pref_biometrics';
+  static const _onboardingKey = 'pref_onboarding_seen';
 
   /// The last successfully used email, so the second sign-in is password-only
   /// and biometric-only after that (§5.1). Not a secret, and never the password.
@@ -78,6 +79,14 @@ class PreferencesStore {
       canOrderForGuests: await _storage.read(key: _guestsKey) == 'true',
     );
   }
+
+  /// Whether the first-launch explainer has been seen on this device. A device
+  /// preference, not an account one: it survives sign-out, so the explainer
+  /// shows once per install rather than once per user.
+  Future<bool> readOnboardingSeen() async =>
+      await _storage.read(key: _onboardingKey) == 'true';
+  Future<void> writeOnboardingSeen() =>
+      _storage.write(key: _onboardingKey, value: 'true');
 
   Future<bool> readBiometricsEnabled() async =>
       await _storage.read(key: _biometricsKey) == 'true';

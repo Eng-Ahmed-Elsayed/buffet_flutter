@@ -148,6 +148,15 @@ well, because the same destination twice on one screen (once in the chrome, once
 noise. The unread badge lives on the bell alone for the same reason. Pinned by
 `test/features/home_screen_test.dart`.
 
+**The first-launch explainer (`/welcome`) shows once per install, before the first sign-in, and
+never to someone who already uses the app.** Its flag lives in `PreferencesStore` and survives
+sign-out. **Any session stage (signed in, locked, forced password change) marks it seen**; see
+`onboardingControllerProvider`. Without that, everyone who signed in before it existed would be sent
+through three slides the moment their session ended, burying the "session expired" notice below.
+`signedOutRedirect` holds on the splash while the flag loads. The entry screens (splash, explainer,
+sign-in, lock) share `BrandBackdrop` and `BrandLockup`. **No text sits over the glow's peak**: the
+link blue drops to about 4:1 there, so the explainer's Skip is in ink.
+
 **An expired session says so on the login screen.** A `401` clears the token and drops the user at
 login; `AuthState.sessionExpired` (surfaced by `sessionExpiredProvider`) is what makes that legible,
 since the token lasts 30 days with no refresh endpoint and this lands on somebody mid-task who did

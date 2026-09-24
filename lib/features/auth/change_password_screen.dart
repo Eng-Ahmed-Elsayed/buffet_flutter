@@ -5,6 +5,7 @@ import '../../app/locale_controller.dart';
 import '../../data/api/api_exception.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/field_label.dart';
 import '../../theme/dimens.dart';
 import 'auth_controller.dart';
 
@@ -128,62 +129,89 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   // no security value — worst for exactly the people who hit
                   // it, onboarding from a default on a slip of paper.
                   if (!isForced) ...[
-                    TextFormField(
-                      controller: _currentController,
-                      decoration: InputDecoration(
-                        labelText: l10n.currentPassword,
+                    MergeSemantics(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FieldLabel(label: l10n.currentPassword),
+                          TextFormField(
+                            controller: _currentController,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.lock_outline),
+                            ),
+                            obscureText: _obscure,
+                            textInputAction: TextInputAction.next,
+                            enabled: !_submitting,
+                            validator: (value) =>
+                                (value == null || value.isEmpty) ? '' : null,
+                          ),
+                        ],
                       ),
-                      obscureText: _obscure,
-                      textInputAction: TextInputAction.next,
-                      enabled: !_submitting,
-                      validator: (value) =>
-                          (value == null || value.isEmpty) ? '' : null,
                     ),
-                    const SizedBox(height: Dimens.space4),
+                    const SizedBox(height: Dimens.space5),
                   ],
 
-                  TextFormField(
-                    controller: _newController,
-                    decoration: InputDecoration(
-                      labelText: l10n.newPassword,
-                      helperText: l10n.passwordMinLength,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscure
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
+                  // Merged so a screen reader names each field by its label;
+                  // without it the field is an unnamed edit box.
+                  MergeSemantics(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        FieldLabel(label: l10n.newPassword),
+                        TextFormField(
+                          controller: _newController,
+                          decoration: InputDecoration(
+                            helperText: l10n.passwordMinLength,
+                            prefixIcon: const Icon(Icons.lock_reset),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscure
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                              tooltip: _obscure
+                                  ? l10n.showPassword
+                                  : l10n.hidePassword,
+                              onPressed: () =>
+                                  setState(() => _obscure = !_obscure),
+                            ),
+                          ),
+                          obscureText: _obscure,
+                          // So the OS password manager offers to save the *new*
+                          // password rather than the seeded one (§5.1).
+                          autofillHints: const [AutofillHints.newPassword],
+                          textInputAction: TextInputAction.next,
+                          enabled: !_submitting,
+                          // Validated locally for instant feedback; the server
+                          // enforces the same minimum and its message wins on a 400.
+                          validator: (value) =>
+                              (value == null || value.length < 8) ? '' : null,
                         ),
-                        tooltip: _obscure
-                            ? l10n.showPassword
-                            : l10n.hidePassword,
-                        onPressed: () => setState(() => _obscure = !_obscure),
-                      ),
+                      ],
                     ),
-                    obscureText: _obscure,
-                    // So the OS password manager offers to save the *new*
-                    // password rather than the seeded one (§5.1).
-                    autofillHints: const [AutofillHints.newPassword],
-                    textInputAction: TextInputAction.next,
-                    enabled: !_submitting,
-                    // Validated locally for instant feedback; the server
-                    // enforces the same minimum and its message wins on a 400.
-                    validator: (value) =>
-                        (value == null || value.length < 8) ? '' : null,
                   ),
-                  const SizedBox(height: Dimens.space4),
+                  const SizedBox(height: Dimens.space5),
 
-                  TextFormField(
-                    controller: _confirmController,
-                    decoration: InputDecoration(
-                      labelText: l10n.confirmPassword,
+                  MergeSemantics(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        FieldLabel(label: l10n.confirmPassword),
+                        TextFormField(
+                          controller: _confirmController,
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                          obscureText: _obscure,
+                          textInputAction: TextInputAction.done,
+                          enabled: !_submitting,
+                          onFieldSubmitted: (_) => _submit(),
+                          validator: (value) => value != _newController.text
+                              ? l10n.passwordsDoNotMatch
+                              : null,
+                        ),
+                      ],
                     ),
-                    obscureText: _obscure,
-                    textInputAction: TextInputAction.done,
-                    enabled: !_submitting,
-                    onFieldSubmitted: (_) => _submit(),
-                    validator: (value) => value != _newController.text
-                        ? l10n.passwordsDoNotMatch
-                        : null,
                   ),
                   const SizedBox(height: Dimens.space6),
 

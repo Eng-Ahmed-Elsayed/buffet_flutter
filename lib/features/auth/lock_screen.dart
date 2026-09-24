@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/local/biometric_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/brand_backdrop.dart';
+import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
@@ -52,81 +54,86 @@ class _LockScreenState extends ConsumerState<LockScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final email = ref.watch(authControllerProvider).rememberedEmail;
+    final text = Theme.of(context).textTheme;
+    final auth = ref.watch(authControllerProvider);
+    // Who is being let back in: the name if we have it, else the email.
+    final who = auth.displayName ?? auth.rememberedEmail;
 
     return ExitConfirmation(
       // The lock has no route beneath it. Back must not quietly close the
       // app: the way past is the explicit "use password instead" button,
       // not a gesture that looks like it dismissed the lock.
       child: Scaffold(
-        backgroundColor: BrandColors.surface,
-        body: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsetsDirectional.all(Dimens.space5),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Direction-neutral: the mark alone, never the Latin lockup.
-                  Image.asset(
-                    'assets/images/logo-defi-mark.png',
-                    width: 72,
-                    height: 72,
-                  ),
-                  const SizedBox(height: Dimens.space6),
+        body: BrandBackdrop(
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: Dimens.gutter,
+                  vertical: Dimens.space5,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // The sign-in screen's layout, so unlocking reads as the
+                    // same door rather than a different app.
+                    const Center(child: BrandLockup(width: 160)),
+                    const SizedBox(height: Dimens.space7),
 
-                  Text(
-                    l10n.lockedTitle,
-                    style: Theme.of(context).textTheme.titleLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  if (email != null) ...[
-                    const SizedBox(height: Dimens.space2),
                     Text(
-                      email,
-                      style: Theme.of(context).textTheme.bodySmall,
+                      l10n.welcomeBackTitle,
                       textAlign: TextAlign.center,
+                      style: text.headlineMedium?.copyWith(
+                        color: BrandColors.brand,
+                      ),
                     ),
-                  ],
-                  const SizedBox(height: Dimens.space5),
+                    if (who != null) ...[
+                      const SizedBox(height: Dimens.space1),
+                      Text(
+                        who,
+                        textAlign: TextAlign.center,
+                        style: text.bodyLarge?.copyWith(
+                          color: BrandColors.brand,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: Dimens.space6),
 
-                  // Locked out is not the same as cancelled: retrying the prompt
-                  // cannot clear it, so the message says so rather than inviting
-                  // a tap that will fail again.
-                  if (_failure != null) ...[
-                    InlineBanner(
-                      tone: BannerTone.danger,
-                      title: _failure == BiometricFailure.lockedOut
-                          ? l10n.biometricLockedOut
-                          : l10n.biometricFailed,
-                    ),
-                    const SizedBox(height: Dimens.space5),
-                  ],
+                    // Locked out is not the same as cancelled: retrying the
+                    // prompt cannot clear it, so the message says so rather
+                    // than inviting a tap that will fail again.
+                    if (_failure != null) ...[
+                      InlineBanner(
+                        tone: BannerTone.danger,
+                        title: _failure == BiometricFailure.lockedOut
+                            ? l10n.biometricLockedOut
+                            : l10n.biometricFailed,
+                      ),
+                      const SizedBox(height: Dimens.space5),
+                    ],
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
+                    // Disabled while a prompt is up, and when the hardware has
+                    // locked out — the banner above says so.
+                    FilledButton.icon(
                       onPressed:
                           _prompting || _failure == BiometricFailure.lockedOut
                           ? null
                           : _prompt,
                       icon: const Icon(Icons.fingerprint),
-                      label: Text(l10n.unlock),
+                      label: Text(l10n.useBiometric),
                     ),
-                  ),
-                  const SizedBox(height: Dimens.space3),
+                    const SizedBox(height: Dimens.space3),
 
-                  // The way past. Always present, never disabled.
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
+                    // The way past. Always present, never disabled.
+                    OutlinedButton(
                       onPressed: () => ref
                           .read(authControllerProvider.notifier)
                           .signOutFromLock(),
                       child: Text(l10n.usePasswordInstead),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

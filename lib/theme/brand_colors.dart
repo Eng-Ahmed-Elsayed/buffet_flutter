@@ -69,6 +69,13 @@ abstract final class BrandColors {
   /// The design's pale-blue page. White cards read as white on it.
   static const page = Color(0xFFE7F0FF);
 
+  /// The soft blue glow at the top of the splash, sign-in and lock screens,
+  /// fading into [page] within the top quarter of the screen. **Decorative
+  /// only**: the logo sits over its peak, and text starts below it, where it
+  /// has faded. At the peak, [ink] still holds 6.5:1, but [brand] only 3.96:1
+  /// (large headings only) and [muted] 2.73:1 (never).
+  static const glow = Color(0xFF95B7E0);
+
   /// 6.57:1 on white, 5.73:1 on the page.
   static const danger = Color(0xFFB42318);
 

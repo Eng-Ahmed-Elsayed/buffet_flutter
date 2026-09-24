@@ -11,6 +11,8 @@ import '../features/auth/splash_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/materials/my_materials_screen.dart';
 import '../features/notifications/notifications_screen.dart';
+import '../features/onboarding/onboarding_controller.dart';
+import '../features/onboarding/onboarding_screen.dart';
 import '../features/order/composer_screen.dart';
 import '../features/order/favourites_screen.dart';
 import '../features/order/my_orders_screen.dart';
@@ -36,6 +38,7 @@ String? signedInRedirect({required UserRole role, required String location}) {
   // Nobody signed in belongs on the splash, login, lock or forced-change
   // screens; send them to their landing screen by role.
   if (location == Routes.splash ||
+      location == Routes.onboarding ||
       location == Routes.login ||
       location == Routes.lock ||
       location == Routes.changePassword) {
@@ -56,6 +59,22 @@ String? signedInRedirect({required UserRole role, required String location}) {
   return null;
 }
 
+/// Where a signed-out user belongs: the first-launch explainer once per
+/// install, then sign-in. Held on the splash while the flag is still being
+/// read (`onboardingSeen == null`), so someone who has seen the explainer
+/// never glimpses it again.
+String? signedOutRedirect({
+  required bool? onboardingSeen,
+  required String location,
+}) {
+  final target = switch (onboardingSeen) {
+    null => Routes.splash,
+    false => Routes.onboarding,
+    true => Routes.login,
+  };
+  return location == target ? null : target;
+}
+
 /// Implements the §5 auth state machine as a redirect guard.
 ///
 /// All four decisions live here rather than in the screens, because a screen
@@ -68,9 +87,20 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
   ref.onDispose(notifier.dispose);
 
+  // The first-launch flag is read from storage alongside the session; the
+  // router re-runs its redirect when either arrives or changes.
+  final onboarding = ValueNotifier<bool?>(
+    ref.read(onboardingControllerProvider),
+  );
+  ref.listen<bool?>(
+    onboardingControllerProvider,
+    (_, next) => onboarding.value = next,
+  );
+  ref.onDispose(onboarding.dispose);
+
   return GoRouter(
     initialLocation: Routes.splash,
-    refreshListenable: notifier,
+    refreshListenable: Listenable.merge([notifier, onboarding]),
 
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
@@ -83,7 +113,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           return location == Routes.splash ? null : Routes.splash;
 
         case AuthStage.signedOut:
-          return location == Routes.login ? null : Routes.login;
+          return signedOutRedirect(
+            onboardingSeen: ref.read(onboardingControllerProvider),
+            location: location,
+          );
 
         // A stored token exists but nothing is revealed until the prompt
         // succeeds. Every route bounces here, exactly as mustChangePassword
@@ -108,6 +141,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: Routes.splash,
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: Routes.onboarding,
+        builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(
         path: Routes.login,

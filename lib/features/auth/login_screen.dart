@@ -7,7 +7,10 @@ import '../../app/locale_controller.dart';
 import '../../data/api/api_exception.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/brand_backdrop.dart';
+import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/exit_confirmation.dart';
+import '../../shared/widgets/field_label.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'auth_controller.dart';
@@ -76,170 +79,233 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  /// There is no self-service reset: no endpoint, and deliberately no email.
+  /// Say who can reset it rather than offering a flow that cannot exist.
+  Future<void> _explainForgotPassword() {
+    final l10n = AppLocalizations.of(context);
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(
+            Dimens.gutter,
+            0,
+            Dimens.gutter,
+            Dimens.space5,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l10n.forgotPasswordTitle,
+                style: Theme.of(sheetContext).textTheme.titleLarge,
+              ),
+              const SizedBox(height: Dimens.space2),
+              Text(
+                l10n.forgotPasswordBody,
+                style: Theme.of(sheetContext).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: Dimens.space5),
+              FilledButton(
+                onPressed: () => Navigator.of(sheetContext).pop(),
+                child: Text(l10n.gotIt),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
 
     return ExitConfirmation(
       // Nothing sits beneath the login screen, so back would close the app
       // mid-sign-in — including on a typo the user was about to fix.
       child: Scaffold(
-        backgroundColor: BrandColors.surface,
-        body: SafeArea(
-          child: AutofillGroup(
-            child: Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsetsDirectional.symmetric(
-                  horizontal: Dimens.space5,
-                  vertical: Dimens.space6,
-                ),
-                children: [
-                  // The lockup is Latin-only and reads left-to-right. It stays
-                  // LTR inside the RTL layout rather than being mirrored (§2.1).
-                  Center(
-                    child: Directionality(
-                      textDirection: TextDirection.ltr,
-                      child: Image.asset(
-                        'assets/images/logo-defi.png',
-                        width: 208,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
+        body: BrandBackdrop(
+          child: SafeArea(
+            child: AutofillGroup(
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsetsDirectional.symmetric(
+                    horizontal: Dimens.gutter,
+                    vertical: Dimens.space5,
                   ),
-                  const SizedBox(height: Dimens.space7),
+                  children: [
+                    const Center(child: BrandLockup(width: 160)),
+                    const SizedBox(height: Dimens.space7),
 
-                  Text(
-                    l10n.signInTitle,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  Text(
-                    l10n.appTitle,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: Dimens.space6),
-
-                  // The session was cleared because the device's biometric
-                  // enrolment changed. Say so: being dropped at a sign-in
-                  // screen with no explanation reads as a bug rather than as
-                  // the safeguard it is (§6).
-                  if (ref
-                      .watch(authControllerProvider)
-                      .signedOutByEnrolmentChange) ...[
-                    InlineBanner(
-                      tone: BannerTone.info,
-                      title: l10n.biometricsChangedTitle,
-                      body: l10n.biometricsChangedBody,
-                    ),
-                    const SizedBox(height: Dimens.space4),
-                  ],
-
-                  // The 30-day token ran out, or the server rejected it. Said
-                  // for the same reason as the enrolment-change notice above:
-                  // this lands on somebody who did nothing wrong and was in
-                  // the middle of something.
-                  //
-                  // Suppressed once a sign-in attempt has failed, so the two
-                  // banners never stack — the newer message is the one that
-                  // describes what just happened.
-                  if (_errorMessage == null &&
-                      ref.watch(sessionExpiredProvider)) ...[
-                    InlineBanner(
-                      tone: BannerTone.info,
-                      title: l10n.sessionExpiredTitle,
-                      body: l10n.sessionExpiredBody,
-                    ),
-                    const SizedBox(height: Dimens.space4),
-                  ],
-
-                  if (_errorMessage != null) ...[
-                    InlineBanner(
-                      tone: BannerTone.danger,
-                      title: _errorMessage!,
-                    ),
-                    const SizedBox(height: Dimens.space4),
-                  ],
-
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: InputDecoration(labelText: l10n.email),
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    autofillHints: const [AutofillHints.username],
-                    autocorrect: false,
-                    enabled: !_submitting,
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty) ? '' : null,
-                  ),
-                  const SizedBox(height: Dimens.space4),
-
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: l10n.password,
-                      hintText: l10n.passwordHint,
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_outlined
-                              : Icons.visibility_off_outlined,
-                        ),
-                        tooltip: _obscurePassword
-                            ? l10n.showPassword
-                            : l10n.hidePassword,
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                      ),
-                    ),
-                    obscureText: _obscurePassword,
-                    autofillHints: const [AutofillHints.password],
-                    textInputAction: TextInputAction.done,
-                    enabled: !_submitting,
-                    onFieldSubmitted: (_) => _submit(),
-                    validator: (value) =>
-                        (value == null || value.isEmpty) ? '' : null,
-                  ),
-                  const SizedBox(height: Dimens.space6),
-
-                  FilledButton(
-                    onPressed: _submitting ? null : _submit,
-                    child: _submitting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.4,
-                              color: BrandColors.surface,
-                            ),
-                          )
-                        : Text(l10n.signIn),
-                  ),
-
-                  const SizedBox(height: Dimens.space6),
-
-                  // The language switch belongs HERE as well as in settings,
-                  // because settings is behind the sign-in this screen gates.
-                  // The app opens in Arabic by default regardless of the
-                  // device language (§2.4), so an English-speaking user with
-                  // no session had no way to read the screen they were being
-                  // asked to sign in on — the one screen where being unable to
-                  // change the language is unrecoverable rather than annoying.
-                  //
-                  // It also sets `Accept-Language`, so it changes the language
-                  // of the sign-in errors the server returns, which is the
-                  // other half of why it has to be reachable before signing in.
-                  const _LanguageToggle(),
-
-                  const SizedBox(height: Dimens.space5),
-                  Center(
-                    child: Text(
-                      l10n.adminWorkOnWeb,
+                    Text(
+                      l10n.welcomeBackTitle,
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.labelSmall,
+                      style: text.headlineMedium?.copyWith(
+                        color: BrandColors.brand,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: Dimens.space1),
+                    Text(
+                      l10n.welcomeBackSubtitle,
+                      textAlign: TextAlign.center,
+                      style: text.bodyLarge?.copyWith(color: BrandColors.brand),
+                    ),
+                    const SizedBox(height: Dimens.space6),
+
+                    // The session was cleared because the device's biometric
+                    // enrolment changed. Say so: being dropped at a sign-in
+                    // screen with no explanation reads as a bug rather than as
+                    // the safeguard it is (§6).
+                    if (ref
+                        .watch(authControllerProvider)
+                        .signedOutByEnrolmentChange) ...[
+                      InlineBanner(
+                        tone: BannerTone.info,
+                        title: l10n.biometricsChangedTitle,
+                        body: l10n.biometricsChangedBody,
+                      ),
+                      const SizedBox(height: Dimens.space4),
+                    ],
+
+                    // The 30-day token ran out, or the server rejected it. Said
+                    // for the same reason as the enrolment-change notice above:
+                    // this lands on somebody who did nothing wrong and was in
+                    // the middle of something.
+                    //
+                    // Suppressed once a sign-in attempt has failed, so the two
+                    // banners never stack — the newer message is the one that
+                    // describes what just happened.
+                    if (_errorMessage == null &&
+                        ref.watch(sessionExpiredProvider)) ...[
+                      InlineBanner(
+                        tone: BannerTone.info,
+                        title: l10n.sessionExpiredTitle,
+                        body: l10n.sessionExpiredBody,
+                      ),
+                      const SizedBox(height: Dimens.space4),
+                    ],
+
+                    if (_errorMessage != null) ...[
+                      InlineBanner(
+                        tone: BannerTone.danger,
+                        title: _errorMessage!,
+                      ),
+                      const SizedBox(height: Dimens.space4),
+                    ],
+
+                    // Label above the field, as the design draws it; merged
+                    // with the field so a screen reader names the field by it.
+                    MergeSemantics(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          FieldLabel(label: l10n.email),
+                          TextFormField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.mail_outline),
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.username],
+                            autocorrect: false,
+                            enabled: !_submitting,
+                            validator: (value) =>
+                                (value == null || value.trim().isEmpty)
+                                ? ''
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: Dimens.space5),
+
+                    // Not merged: the label row carries its own control, the
+                    // "Forgot?" link, which must stay separately focusable.
+                    FieldLabel(
+                      label: l10n.password,
+                      trailing: TextButton(
+                        onPressed: _explainForgotPassword,
+                        child: Text(l10n.forgotPassword),
+                      ),
+                    ),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        hintText: l10n.passwordHint,
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                          ),
+                          tooltip: _obscurePassword
+                              ? l10n.showPassword
+                              : l10n.hidePassword,
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                        ),
+                      ),
+                      obscureText: _obscurePassword,
+                      autofillHints: const [AutofillHints.password],
+                      textInputAction: TextInputAction.done,
+                      enabled: !_submitting,
+                      onFieldSubmitted: (_) => _submit(),
+                      validator: (value) =>
+                          (value == null || value.isEmpty) ? '' : null,
+                    ),
+                    const SizedBox(height: Dimens.space6),
+
+                    // Disabled only while the request is in flight, and the
+                    // spinner in its place says why.
+                    FilledButton(
+                      onPressed: _submitting ? null : _submit,
+                      child: _submitting
+                          ? const SizedBox(
+                              width: Dimens.space5,
+                              height: Dimens.space5,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: BrandColors.surface,
+                              ),
+                            )
+                          : Text(l10n.signIn),
+                    ),
+
+                    const SizedBox(height: Dimens.space6),
+
+                    // The language switch belongs HERE as well as in settings,
+                    // because settings is behind the sign-in this screen gates.
+                    // The app opens in Arabic by default regardless of the
+                    // device language (§2.4), so an English-speaking user with
+                    // no session had no way to read the screen they were being
+                    // asked to sign in on — the one screen where being unable
+                    // to change the language is unrecoverable rather than
+                    // annoying.
+                    //
+                    // It also sets `Accept-Language`, so it changes the
+                    // language of the sign-in errors the server returns, which
+                    // is the other half of why it has to be reachable before
+                    // signing in.
+                    const _LanguageToggle(),
+
+                    const SizedBox(height: Dimens.space5),
+                    Center(
+                      child: Text(
+                        l10n.adminWorkOnWeb,
+                        textAlign: TextAlign.center,
+                        style: text.labelSmall,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

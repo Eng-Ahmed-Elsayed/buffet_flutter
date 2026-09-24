@@ -27,6 +27,7 @@ import 'package:buffet_app/features/auth/login_screen.dart';
 import 'package:buffet_app/features/home/home_screen.dart';
 import 'package:buffet_app/features/materials/my_materials_screen.dart';
 import 'package:buffet_app/features/notifications/notifications_screen.dart';
+import 'package:buffet_app/features/onboarding/onboarding_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/favourites_controller.dart';
 import 'package:buffet_app/features/order/favourites_screen.dart';
@@ -247,6 +248,9 @@ void main() {
     // scripts and cannot be shortened — the shape that has overflowed here
     // before.
     'login': const LoginScreen(),
+    // Three slides whose copy must fit a card at 2x in both scripts; the card
+    // scrolls rather than overflowing.
+    'onboarding': const OnboardingScreen(),
     // Full-width cards carrying a long server-composed name plus the
     // unavailable mark — the widest thing a favourite ever renders.
     'favourites': const FavouritesScreen(),

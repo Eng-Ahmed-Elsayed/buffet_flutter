@@ -96,4 +96,50 @@ void main() {
       }
     });
   });
+
+  group('signed out: the explainer once, then sign-in', () {
+    test('a first launch sees the explainer, from wherever it starts', () {
+      for (final from in [Routes.splash, Routes.login, Routes.home]) {
+        expect(
+          signedOutRedirect(onboardingSeen: false, location: from),
+          Routes.onboarding,
+        );
+      }
+    });
+
+    test('once seen, it is sign-in, and the explainer cannot be reached', () {
+      expect(
+        signedOutRedirect(onboardingSeen: true, location: Routes.onboarding),
+        Routes.login,
+      );
+      expect(
+        signedOutRedirect(onboardingSeen: true, location: Routes.login),
+        isNull,
+      );
+    });
+
+    test('while the flag is still being read, it holds on the splash', () {
+      // Otherwise someone who has seen the explainer would glimpse it on a
+      // cold start before the flag arrived.
+      expect(
+        signedOutRedirect(onboardingSeen: null, location: Routes.login),
+        Routes.splash,
+      );
+      expect(
+        signedOutRedirect(onboardingSeen: null, location: Routes.splash),
+        isNull,
+      );
+    });
+
+    test('a signed-in user is moved off the explainer like off login', () {
+      expect(
+        redirectFor(role: UserRole.employee, location: Routes.onboarding),
+        Routes.home,
+      );
+      expect(
+        redirectFor(role: UserRole.staff, location: Routes.onboarding),
+        Routes.queue,
+      );
+    });
+  });
 }

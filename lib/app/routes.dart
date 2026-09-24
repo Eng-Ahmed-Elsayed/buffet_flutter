@@ -5,6 +5,10 @@ abstract final class Routes {
   static const changePassword = '/change-password';
   static const lock = '/lock';
 
+  /// The first-launch explainer, shown once per install before the first
+  /// sign-in.
+  static const onboarding = '/welcome';
+
   // Employee — the four tabs of the bottom-nav shell, in tab order.
   /// The employee landing tab: outstanding order, favourites, ordering.
   static const home = '/home';

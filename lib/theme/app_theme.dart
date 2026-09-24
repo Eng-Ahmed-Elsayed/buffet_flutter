@@ -172,6 +172,27 @@ abstract final class AppTheme {
         ),
       ),
 
+      // The language switch on sign-in: pills like the chips, selected in the
+      // bright blue with white text (4.65:1).
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? BrandColors.brandBright
+                : BrandColors.surface,
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? BrandColors.surface
+                : BrandColors.ink,
+          ),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: BrandColors.outline),
+          ),
+          textStyle: WidgetStatePropertyAll(font(text.labelLarge!)),
+        ),
+      ),
+
       // The design's bottom bar: white, icons and labels only, no pill behind
       // the active item. Active is the primary blue; inactive the bright blue,
       // which holds AA on the white bar.
