@@ -112,6 +112,30 @@ void main() {
       expect(find.textContaining('عرض الكل'), findsNothing);
     });
 
+    testWidgets('caps without a link when the tab bar already holds the rest', (
+      tester,
+    ) async {
+      // Under Home, the Favourites tab IS the "show all" destination. The
+      // strip still stops at four, because the rest have somewhere to live,
+      // but a link to a place the tab bar already shows would be a second
+      // control for the same destination.
+      await tester.pumpWidget(
+        _wrap(
+          FavouritesStrip(
+            favourites: [
+              for (var i = 1; i <= 9; i++) _favourite(id: i, name: 'طلب $i'),
+            ],
+            onReplay: (_) {},
+            onDelete: (_) {},
+            restReachableElsewhere: true,
+          ),
+        ),
+      );
+
+      expect(find.byType(FavouriteCard), findsNWidgets(4));
+      expect(find.textContaining('عرض الكل'), findsNothing);
+    });
+
     testWidgets('leads with the most recently USED, not the newest saved', (
       tester,
     ) async {

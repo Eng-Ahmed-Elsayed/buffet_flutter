@@ -24,6 +24,8 @@ library;
 /// that sit off the happy path. Both locales for every screen, because Arabic
 /// is the primary locale and English is a first-class second — the two wrap
 /// differently and a layout approved in one can be broken in the other.
+import 'package:buffet_app/app/employee_shell.dart';
+import 'package:buffet_app/app/routes.dart';
 import 'package:buffet_app/data/api/api_client.dart';
 import 'package:buffet_app/data/local/biometric_enrolment_guard.dart';
 import 'package:buffet_app/data/local/biometric_service.dart';
@@ -244,7 +246,9 @@ class _Routed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Router.withConfig(
-    config: GoRouter(routes: [GoRoute(path: '/', builder: (c, s) => child)]),
+    config: GoRouter(
+      routes: [GoRoute(path: '/', builder: (c, s) => child)],
+    ),
   );
 }
 
@@ -277,6 +281,52 @@ Widget _app(
       GlobalCupertinoLocalizations.delegate,
     ],
     home: home,
+  ),
+);
+
+/// The employee shell on [tab], with the real tab screens behind it.
+///
+/// A nested Router inside the harness's MaterialApp: the shell needs
+/// go_router's StatefulShellRoute, and the harness pumps a plain `home:`.
+Widget _shell(String tab) => Router.withConfig(
+  config: GoRouter(
+    initialLocation: tab,
+    routes: [
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, shell) => EmployeeShell(shell: shell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: Routes.home, builder: (c, s) => const HomeScreen()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.favourites,
+                builder: (c, s) => const FavouritesScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.myOrders,
+                builder: (c, s) => const MyOrdersScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.account,
+                builder: (c, s) => const SettingsScreen(),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
   ),
 );
 
@@ -372,6 +422,10 @@ void main() {
 
     // ------------------------------------------------- employee happy path
     const _Shot('06-employee-home', HomeScreen.new, height: 1000),
+    // The same screens inside the real bottom-nav shell, so the review sees
+    // the chrome a user actually gets — the standalone captures omit it.
+    _Shot('06-employee-shell-home', () => _shell(Routes.home)),
+    _Shot('06-employee-shell-account', () => _shell(Routes.account)),
     _Shot(
       '07-employee-home-no-favourites',
       HomeScreen.new,
@@ -388,7 +442,11 @@ void main() {
       overrides: [myOrdersProvider.overrideWith((r) async => const [])],
       height: 1000,
     ),
-    const _Shot('09-employee-composer-empty-draft', ComposerScreen.new, height: 1200),
+    const _Shot(
+      '09-employee-composer-empty-draft',
+      ComposerScreen.new,
+      height: 1200,
+    ),
     _Shot(
       '10-employee-composer-drink-chosen',
       ComposerScreen.new,
@@ -408,7 +466,9 @@ void main() {
     _Shot(
       '12-employee-composer-empty-catalogue',
       ComposerScreen.new,
-      overrides: [catalogueProvider.overrideWith((r) async => fx.emptyCatalogue)],
+      overrides: [
+        catalogueProvider.overrideWith((r) async => fx.emptyCatalogue),
+      ],
     ),
     const _Shot('13-employee-favourites', FavouritesScreen.new, height: 1000),
     _Shot(
@@ -475,7 +535,11 @@ void main() {
     ),
 
     // ------------------------------------------------------ shared chrome
-    const _Shot('21-shared-notifications', NotificationsScreen.new, height: 1000),
+    const _Shot(
+      '21-shared-notifications',
+      NotificationsScreen.new,
+      height: 1000,
+    ),
     _Shot(
       '22-shared-notifications-empty',
       NotificationsScreen.new,

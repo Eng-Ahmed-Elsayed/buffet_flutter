@@ -376,10 +376,6 @@
   "@homeGuestOrder": { "description": "Home tile shown only when the token carries canOrderForGuests." },
   "homeGuestOrderSubtitle": "Order for a visitor",
   "@homeGuestOrderSubtitle": { "description": "One-line subtitle under the Guest Order tile." },
-  "homeMyOrders": "My orders",
-  "@homeMyOrders": { "description": "Home tile linking to the orders history." },
-  "homeMyMaterials": "My materials",
-  "@homeMyMaterials": { "description": "Home tile linking to the user's own materials." },
 
   "guestOrderTitle": "Guest order",
   "@guestOrderTitle": { "description": "App bar title and header of the composer when opened in guest mode." },
@@ -398,5 +394,10 @@
   "orderPlacedAt": "Placed",
   "@orderPlacedAt": { "description": "Label for the time an order was placed, on the order summary block." },
   "orderReadyAt": "Ready at",
-  "@orderReadyAt": { "description": "Label for the time an order became Ready." }
+  "@orderReadyAt": { "description": "Label for the time an order became Ready." },
+  "navHome": "Home",
+  "navFavourites": "Favourites",
+  "navOrders": "Orders",
+  "navAccount": "Account",
+  "accountMyMaterials": "My materials"
 }

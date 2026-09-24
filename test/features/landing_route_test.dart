@@ -1,28 +1,17 @@
+import 'package:buffet_app/app/router.dart';
 import 'package:buffet_app/app/routes.dart';
 import 'package:buffet_app/data/models/auth_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// The landing decision from `router.dart`, stated once so a test can hold it
-/// to account without standing up a GoRouter and the whole auth machine.
-///
-/// This mirrors the two role guards in the redirect: staff land on the queue
-/// and are bounced off `/home`; everyone else lands on the hub and is bounced
-/// off `/queue`.
-String? redirectFor({required UserRole role, required String location}) {
-  if (location == Routes.splash ||
-      location == Routes.login ||
-      location == Routes.lock ||
-      location == Routes.changePassword) {
-    return role.startsOnQueue ? Routes.queue : Routes.home;
-  }
-  if (location == Routes.queue && !role.startsOnQueue) return Routes.home;
-  if (location == Routes.home && role.startsOnQueue) return Routes.queue;
-  return null;
-}
+/// The signed-in landing rule, tested through the function the router itself
+/// calls. This file used to hold a copy of the rule, which would have kept
+/// passing while the real one drifted.
+String? redirectFor({required UserRole role, required String location}) =>
+    signedInRedirect(role: role, location: location);
 
 void main() {
   group('each role has exactly one landing screen', () {
-    test('an employee lands on the hub, not the drink picker', () {
+    test('an employee lands on the Home tab, not the drink picker', () {
       // The composer used to be the landing screen, which is why the app
       // opened on a question ("which drink?") rather than an answer to
       // "what can I do?".
@@ -32,7 +21,7 @@ void main() {
       );
     });
 
-    test('an admin lands on the hub too', () {
+    test('an admin lands on Home too', () {
       // There are deliberately no admin screens in this app (§5); admin work
       // stays on the web, so an admin gets the ordinary employee view.
       expect(
@@ -60,7 +49,7 @@ void main() {
   });
 
   group('a deep link cannot put a role on the wrong landing screen', () {
-    test('an employee deep-linking the queue is sent to the hub', () {
+    test('an employee deep-linking the queue is sent Home', () {
       // Every call on that screen would 403.
       expect(
         redirectFor(role: UserRole.employee, location: Routes.queue),
@@ -68,20 +57,31 @@ void main() {
       );
     });
 
-    test('a staff member deep-linking the hub is sent to the queue', () {
+    test('a staff member is bounced off every tab of the employee shell', () {
       // The mirror of the rule above: one landing per role is what keeps the
       // exit confirmation unambiguous about which screen closes the app.
-      expect(
-        redirectFor(role: UserRole.staff, location: Routes.home),
-        Routes.queue,
-      );
+      for (final tab in Routes.shellTabs) {
+        expect(
+          redirectFor(role: UserRole.staff, location: tab),
+          Routes.queue,
+          reason: 'staff should not reach $tab',
+        );
+      }
     });
 
-    test('the shared screens are left alone for both roles', () {
+    test('employees and admins reach every tab', () {
+      for (final role in [UserRole.employee, UserRole.admin]) {
+        for (final tab in Routes.shellTabs) {
+          expect(redirectFor(role: role, location: tab), isNull);
+        }
+      }
+    });
+
+    test('the pushed screens are left alone for both roles', () {
       for (final role in UserRole.values) {
         for (final location in [
           Routes.catalogue,
-          Routes.myOrders,
+          Routes.favouritesList,
           Routes.materials,
           Routes.notifications,
           Routes.settings,

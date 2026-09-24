@@ -23,7 +23,12 @@ import '../../theme/brand_colors.dart';
 /// wrapping — with something to pop to, it steps aside and lets the ordinary
 /// pop happen.
 class ExitConfirmation extends StatelessWidget {
-  const ExitConfirmation({super.key, required this.child, this.onExit});
+  const ExitConfirmation({
+    super.key,
+    required this.child,
+    this.onExit,
+    this.interceptBack,
+  });
 
   final Widget child;
 
@@ -34,6 +39,15 @@ class ExitConfirmation extends StatelessWidget {
   /// months and no test could reach it — the confirmation dialog appeared,
   /// the user tapped "exit", and nothing happened.
   final Future<void> Function()? onExit;
+
+  /// Gets the first say on a back gesture that would otherwise ask to exit.
+  /// Return true when it handled the gesture, and nothing is asked.
+  ///
+  /// The employee shell uses it to send back from any tab but Home to Home.
+  /// A tab root has nothing beneath it in its own navigator, so go_router hands
+  /// the gesture to the shell page — which is why the guard lives on the shell
+  /// rather than on each tab.
+  final bool Function()? interceptBack;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +64,7 @@ class ExitConfirmation extends StatelessWidget {
       canPop: hasRouteBeneath,
       onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
+        if (interceptBack?.call() ?? false) return;
 
         final shouldExit = await _confirm(context);
         if (!shouldExit) return;

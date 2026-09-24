@@ -1,3 +1,5 @@
+import 'package:buffet_app/app/employee_shell.dart';
+import 'package:buffet_app/app/routes.dart';
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/data/models/order_models.dart';
@@ -7,10 +9,12 @@ import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/favourites_controller.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
+import 'package:buffet_app/shared/widgets/notification_bell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 OrderSummaryDto _order(int id, String status) => OrderSummaryDto(
   orderId: id,
@@ -60,6 +64,7 @@ Widget _app({
   List<OrderSummaryDto> orders = const [],
   List<FavouriteDto> favourites = const [],
   Locale locale = const Locale('ar'),
+  bool inShell = false,
 }) => ProviderScope(
   overrides: [
     catalogueProvider.overrideWith((ref) async => _catalogue()),
@@ -78,9 +83,39 @@ Widget _app({
       GlobalWidgetsLocalizations.delegate,
       GlobalCupertinoLocalizations.delegate,
     ],
-    home: const HomeScreen(),
+    home: inShell ? _inShell() : const HomeScreen(),
   ),
 );
+
+/// Home as a user actually sees it: the first tab of the real employee shell,
+/// with the tab bar taking its 80dp at the bottom.
+Widget _inShell() {
+  Widget stub(BuildContext c, GoRouterState s) => const SizedBox.shrink();
+  return Router.withConfig(
+    config: GoRouter(
+      initialLocation: Routes.home,
+      routes: [
+        StatefulShellRoute.indexedStack(
+          builder: (context, state, shell) => EmployeeShell(shell: shell),
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: Routes.home,
+                  builder: (c, s) => const HomeScreen(),
+                ),
+              ],
+            ),
+            for (final tab in Routes.shellTabs.skip(1))
+              StatefulShellBranch(
+                routes: [GoRoute(path: tab, builder: stub)],
+              ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
 Future<void> _pumpTall(WidgetTester tester, Widget app) async {
   tester.view.physicalSize = const Size(1200, 3000);
@@ -92,31 +127,33 @@ Future<void> _pumpTall(WidgetTester tester, Widget app) async {
 
 void main() {
   group('the hub names every action the user may take', () {
-    testWidgets('the everyday actions are all present', (tester) async {
+    testWidgets('Home carries ordering; orders and materials live elsewhere', (
+      tester,
+    ) async {
       await _pumpTall(tester, _app());
 
       expect(find.text('طلب جديد'), findsOneWidget);
-      expect(find.text('طلباتي'), findsOneWidget);
-      expect(find.text('موادي'), findsOneWidget);
+      // My orders is the Orders tab and My materials a row on the Account
+      // tab. A tile for either here would be a second control for a
+      // destination the tab bar already shows.
+      expect(find.text('طلباتي'), findsNothing);
+      expect(find.text('موادي'), findsNothing);
     });
 
-    testWidgets('notifications and settings are reachable exactly once', (
-      tester,
-    ) async {
-      // They live in the app bar, and used to ALSO be tiles in the grid — the
-      // same destination on one screen twice, same icon, same route. Pinned
-      // here because the duplication looked deliberate enough to survive
-      // review once already.
+    testWidgets('the bell is here once, and settings is not', (tester) async {
+      // Notifications live in the top bar. Settings is the Account tab now,
+      // so the old settings icon would be the same destination twice on
+      // screen: once in the bar above, once in the tab bar below.
       await _pumpTall(tester, _app());
 
-      expect(find.byIcon(Icons.settings_outlined), findsOneWidget);
-      // The bell is the notification entry point; no grid tile repeats it.
+      expect(find.byType(NotificationBell), findsOneWidget);
+      expect(find.byIcon(Icons.settings_outlined), findsNothing);
       expect(find.text('الإشعارات'), findsNothing);
       expect(find.text('الإعدادات'), findsNothing);
 
-      // Anchored on a tile that IS expected, so this cannot pass by rendering
-      // nothing at all.
-      expect(find.text('طلباتي'), findsOneWidget);
+      // Anchored on an action that IS expected, so this cannot pass by
+      // rendering nothing at all.
+      expect(find.text('طلب جديد'), findsOneWidget);
     });
 
     testWidgets('the guest action is absent without the privilege', (
@@ -195,6 +232,9 @@ void main() {
 
       await tester.pumpWidget(
         _app(
+          // Inside the real shell: the tab bar takes the bottom 80dp, so the
+          // action must clear the bar, not merely the screen's edge.
+          inShell: true,
           orders: [_order(7, 'Ready')],
           favourites: [
             for (var i = 1; i <= 6; i++)
@@ -212,10 +252,11 @@ void main() {
 
       expect(find.text('طلب جديد'), findsOneWidget);
       final bottom = tester.getBottomLeft(find.text('طلب جديد')).dy;
+      final barTop = tester.getTopLeft(find.byType(NavigationBar)).dy;
       expect(
         bottom,
-        lessThan(568),
-        reason: 'New order must be reachable without scrolling',
+        lessThan(barTop),
+        reason: 'New order must be reachable without scrolling, above the bar',
       );
     });
 

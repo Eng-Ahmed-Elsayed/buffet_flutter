@@ -27,6 +27,7 @@ class FavouritesStrip extends StatelessWidget {
     this.availableItemIds,
     this.maxVisible = 4,
     this.onShowAll,
+    this.restReachableElsewhere = false,
     super.key,
   });
 
@@ -54,6 +55,13 @@ class FavouritesStrip extends StatelessWidget {
   /// caller with nowhere to send the user.
   final VoidCallback? onShowAll;
 
+  /// Set when the full list is already one tap away in the chrome — the
+  /// Favorites tab under Home. The strip still truncates, because the rest
+  /// have somewhere to live, but draws no link: a link to a destination the
+  /// tab bar already shows would be a second control for the same place on
+  /// one screen.
+  final bool restReachableElsewhere;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -73,7 +81,7 @@ class FavouritesStrip extends StatelessWidget {
     // Hiding a favourite behind a link that is not there would lose it exactly
     // as silently as filtering a retired one out — the thing this whole
     // feature refuses to do.
-    final canDefer = onShowAll != null;
+    final canDefer = onShowAll != null || restReachableElsewhere;
     final hidden = canDefer ? ordered.length - maxVisible : 0;
     final visible = hidden > 0 ? ordered.take(maxVisible).toList() : ordered;
 
@@ -129,7 +137,7 @@ class FavouritesStrip extends StatelessWidget {
         ),
         // Only when there is genuinely more to see. The count is on the label
         // so the user knows whether it is worth the tap.
-        if (hidden > 0) ...[
+        if (hidden > 0 && onShowAll != null) ...[
           const SizedBox(height: Dimens.space2),
           Align(
             alignment: AlignmentDirectional.centerStart,

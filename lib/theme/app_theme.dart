@@ -69,9 +69,7 @@ abstract final class AppTheme {
         centerTitle: false,
         toolbarHeight: Dimens.topBarHeight,
         titleTextStyle: font(text.titleLarge!),
-        shape: const Border(
-          bottom: BorderSide(color: BrandColors.brandLight),
-        ),
+        shape: const Border(bottom: BorderSide(color: BrandColors.brandLight)),
       ),
 
       cardTheme: CardThemeData(
@@ -212,9 +210,8 @@ abstract final class AppTheme {
 
       snackBarTheme: SnackBarThemeData(
         backgroundColor: BrandColors.ink,
-        contentTextStyle: font(
-          text.bodyMedium!,
-        ).copyWith(color: BrandColors.surface),
+        contentTextStyle: font(text.bodyMedium!)
+            .copyWith(color: BrandColors.surface),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(Dimens.radius),
         ),

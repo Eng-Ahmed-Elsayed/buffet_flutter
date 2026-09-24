@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/models/auth_models.dart';
 import '../features/auth/auth_controller.dart';
 import '../features/auth/change_password_screen.dart';
 import '../features/auth/lock_screen.dart';
@@ -17,7 +18,43 @@ import '../features/order/order_mode.dart';
 import '../features/order/order_status_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/staff_queue/queue_screen.dart';
+import 'employee_shell.dart';
 import 'routes.dart';
+
+/// Where a signed-in user belongs, or null to let them through.
+///
+/// Public so `landing_route_test.dart` holds the real rule to account, rather
+/// than a copy of it that could drift.
+///
+/// Each role has exactly one landing screen, and the router bounces the other
+/// role off it:
+/// - staff land on the queue and are bounced off every tab of the employee
+///   shell;
+/// - everyone else (employees and admins) lands on Home and is bounced off
+///   the queue.
+String? signedInRedirect({required UserRole role, required String location}) {
+  // Nobody signed in belongs on the splash, login, lock or forced-change
+  // screens; send them to their landing screen by role.
+  if (location == Routes.splash ||
+      location == Routes.login ||
+      location == Routes.lock ||
+      location == Routes.changePassword) {
+    return role.startsOnQueue ? Routes.queue : Routes.home;
+  }
+
+  // The queue is staff-only. An employee reaching it by deep link goes home
+  // rather than seeing a screen whose every call 403s.
+  if (location == Routes.queue && !role.startsOnQueue) return Routes.home;
+
+  // And the mirror: the shell is the EMPLOYEE's. Staff have one landing, the
+  // queue, and push what they need from there — which keeps ExitConfirmation
+  // unambiguous about which screen closes the app.
+  if (Routes.shellTabs.contains(location) && role.startsOnQueue) {
+    return Routes.queue;
+  }
+
+  return null;
+}
 
 /// Implements the §5 auth state machine as a redirect guard.
 ///
@@ -63,30 +100,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               : Routes.changePassword;
 
         case AuthStage.signedIn:
-          // Nobody signed in belongs on the splash, login or forced-change
-          // screens; send them to their landing screen by role.
-          if (location == Routes.splash ||
-              location == Routes.login ||
-              location == Routes.lock ||
-              location == Routes.changePassword) {
-            return auth.role.startsOnQueue ? Routes.queue : Routes.home;
-          }
-
-          // The queue is staff-only. An employee reaching it by deep link goes
-          // to the hub rather than seeing a screen whose every call 403s.
-          if (location == Routes.queue && !auth.role.startsOnQueue) {
-            return Routes.home;
-          }
-
-          // And the mirror of it: /home is the EMPLOYEE landing screen. Staff
-          // have one landing, the queue, and reach the composer by pushing it
-          // from there — which is what keeps ExitConfirmation unambiguous about
-          // which screen closes the app.
-          if (location == Routes.home && auth.role.startsOnQueue) {
-            return Routes.queue;
-          }
-
-          return null;
+          return signedInRedirect(role: auth.role, location: location);
       }
     },
 
@@ -107,9 +121,45 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.changePassword,
         builder: (context, state) => const ChangePasswordScreen(),
       ),
-      GoRoute(
-        path: Routes.home,
-        builder: (context, state) => const HomeScreen(),
+      // The employee's four tabs. Each branch keeps its own stack and scroll
+      // position; everything that is a step in a task is a top-level route
+      // below, pushed on the root navigator above the bar.
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, shell) => EmployeeShell(shell: shell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.home,
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.favourites,
+                builder: (context, state) => const FavouritesScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.myOrders,
+                builder: (context, state) => const MyOrdersScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: Routes.account,
+                builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
       GoRoute(
         path: Routes.catalogue,
@@ -125,18 +175,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.orderStatus,
-        builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['orderId'] ?? '');
-          if (id == null) return const HomeScreen();
-          return OrderStatusScreen(orderId: id);
-        },
+        // A malformed id goes Home — through the redirect, so staff land on
+        // the queue — rather than rendering a screen outside its shell.
+        redirect: (context, state) =>
+            int.tryParse(state.pathParameters['orderId'] ?? '') == null
+            ? Routes.home
+            : null,
+        builder: (context, state) => OrderStatusScreen(
+          orderId: int.parse(state.pathParameters['orderId']!),
+        ),
       ),
       GoRoute(
-        path: Routes.myOrders,
-        builder: (context, state) => const MyOrdersScreen(),
-      ),
-      GoRoute(
-        path: Routes.favourites,
+        path: Routes.favouritesList,
         builder: (context, state) => const FavouritesScreen(),
       ),
       GoRoute(

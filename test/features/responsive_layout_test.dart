@@ -14,6 +14,8 @@ library;
 /// 320dp is the floor: it is the narrowest width Android reports on a phone in
 /// portrait, and Arabic is checked alongside English because the two wrap at
 /// different lengths.
+import 'package:buffet_app/app/employee_shell.dart';
+import 'package:buffet_app/app/routes.dart';
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/data/models/material_models.dart';
@@ -233,6 +235,9 @@ void main() {
 
   final screens = <String, Widget>{
     'home': const HomeScreen(),
+    // Home inside the real shell, so the 80dp tab bar and its labels are
+    // measured too — the labels are in two scripts and cannot shorten.
+    'shell-home': const _ShellHome(),
     'composer-self': const ComposerScreen(),
     'composer-guest': const ComposerScreen(
       seed: ComposerSeed(mode: OrderMode.guest),
@@ -326,10 +331,7 @@ void main() {
               orderRepositoryProvider.overrideWithValue(_StatusRepo(status)),
               catalogueProvider.overrideWith((r) async => _cat),
             ],
-            child: testApp(
-              home: const _RoutedStatus(),
-              textScale: scale,
-            ),
+            child: testApp(home: const _RoutedStatus(), textScale: scale),
           ),
         );
         await t.pump();
@@ -343,4 +345,47 @@ void main() {
       });
     }
   }
+}
+
+/// Home inside the real employee shell. The router is built in initState, not
+/// at `main()` time: constructing a GoRouter before the test binding exists
+/// initialises the wrong binding and fails the whole file on load.
+class _ShellHome extends StatefulWidget {
+  const _ShellHome();
+
+  @override
+  State<_ShellHome> createState() => _ShellHomeState();
+}
+
+class _ShellHomeState extends State<_ShellHome> {
+  late final GoRouter _router = GoRouter(
+    initialLocation: Routes.home,
+    routes: [
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, shell) => EmployeeShell(shell: shell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(path: Routes.home, builder: (c, s) => const HomeScreen()),
+            ],
+          ),
+          for (final tab in Routes.shellTabs.skip(1))
+            StatefulShellBranch(
+              routes: [
+                GoRoute(path: tab, builder: (c, s) => const SizedBox.shrink()),
+              ],
+            ),
+        ],
+      ),
+    ],
+  );
+
+  @override
+  void dispose() {
+    _router.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Router.withConfig(config: _router);
 }

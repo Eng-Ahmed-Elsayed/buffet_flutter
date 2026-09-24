@@ -494,10 +494,6 @@
   "@homeGuestOrder": { "description": "Home tile shown only when the token carries canOrderForGuests." },
   "homeGuestOrderSubtitle": "اطلب لزائر",
   "@homeGuestOrderSubtitle": { "description": "One-line subtitle under the Guest Order tile." },
-  "homeMyOrders": "طلباتي",
-  "@homeMyOrders": { "description": "Home tile linking to the orders history." },
-  "homeMyMaterials": "موادي",
-  "@homeMyMaterials": { "description": "Home tile linking to the user's own materials." },
 
   "guestOrderTitle": "طلب لضيف",
   "@guestOrderTitle": { "description": "App bar title and header of the composer when opened in guest mode." },
@@ -516,5 +512,15 @@
   "orderPlacedAt": "وقت الطلب",
   "@orderPlacedAt": { "description": "Label for the time an order was placed, on the order summary block." },
   "orderReadyAt": "جاهز في",
-  "@orderReadyAt": { "description": "Label for the time an order became Ready." }
+  "@orderReadyAt": { "description": "Label for the time an order became Ready." },
+  "navHome": "الرئيسية",
+  "@navHome": { "description": "Bottom navigation tab: the employee's landing screen." },
+  "navFavourites": "المفضلة",
+  "@navFavourites": { "description": "Bottom navigation tab: the saved-orders list." },
+  "navOrders": "طلباتي",
+  "@navOrders": { "description": "Bottom navigation tab: the employee's live and past orders." },
+  "navAccount": "حسابي",
+  "@navAccount": { "description": "Bottom navigation tab: account and settings." },
+  "accountMyMaterials": "موادي",
+  "@accountMyMaterials": { "description": "Row on the account screen that opens the employee's own materials (their jar)." }
 }

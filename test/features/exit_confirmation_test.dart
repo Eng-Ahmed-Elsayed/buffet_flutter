@@ -137,4 +137,42 @@ void main() {
       expect(exited, isFalse);
     });
   });
+
+  group('another screen may claim the gesture first', () {
+    testWidgets('a claimed back asks nothing and closes nothing', (
+      tester,
+    ) async {
+      // The employee shell claims back on any tab but Home, to go Home.
+      var exited = false;
+      var claimed = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ar'),
+          supportedLocales: const [Locale('ar'), Locale('en')],
+          localizationsDelegates: const [
+            AppLocalizations.delegate,
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          home: ExitConfirmation(
+            onExit: () async => exited = true,
+            interceptBack: () {
+              claimed++;
+              return true;
+            },
+            child: const Scaffold(body: Text('landing')),
+          ),
+        ),
+      );
+
+      await pressBack(tester);
+
+      final l10n = await AppLocalizations.delegate.load(const Locale('ar'));
+      expect(claimed, 1);
+      expect(find.text(l10n.exitAppTitle), findsNothing);
+      expect(exited, isFalse);
+      expect(find.text('landing'), findsOneWidget);
+    });
+  });
 }

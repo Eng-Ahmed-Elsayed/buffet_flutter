@@ -10,7 +10,6 @@ import '../../data/local/order_alerts.dart';
 import '../../data/models/favourite_models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
-import '../../shared/widgets/exit_confirmation.dart';
 import '../../shared/widgets/notification_bell.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
@@ -128,152 +127,108 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         .toSet();
     final canOrderForGuests = ref.watch(canOrderForGuestsProvider);
 
-    return ExitConfirmation(
-      // A landing screen: nothing sits beneath it in the stack, so back
-      // would otherwise close the app outright.
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(l10n.homeTitle),
-          actions: const [NotificationBell(), _SettingsAction()],
-        ),
-        body: RefreshIndicator(
-          onRefresh: () async {
-            ref
-              ..invalidate(myOrdersProvider)
-              ..invalidate(catalogueProvider)
-              ..invalidate(favouritesProvider);
-          },
-          child: ListView(
-            padding: const EdgeInsetsDirectional.all(Dimens.space4),
-            children: [
-              // The password change worked but the token refresh did not.
-              // Shown here because this is where the user lands afterwards.
-              if (ref.watch(sessionNotRefreshedProvider)) ...[
-                InlineBanner(
-                  tone: BannerTone.warning,
-                  title: l10n.sessionNotRefreshed,
-                ),
-                const SizedBox(height: Dimens.space4),
-              ],
+    // No ExitConfirmation here: Home is a tab root inside the employee shell,
+    // and back from a tab root is handled by the shell (EmployeeShell).
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(l10n.homeTitle),
+        // The bell only. Settings is the Account tab now — an icon for it
+        // here would be a second control for a destination the tab bar
+        // already shows.
+        actions: const [NotificationBell()],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          ref
+            ..invalidate(myOrdersProvider)
+            ..invalidate(catalogueProvider)
+            ..invalidate(favouritesProvider);
+        },
+        child: ListView(
+          padding: const EdgeInsetsDirectional.all(Dimens.space4),
+          children: [
+            // The password change worked but the token refresh did not.
+            // Shown here because this is where the user lands afterwards.
+            if (ref.watch(sessionNotRefreshedProvider)) ...[
+              InlineBanner(
+                tone: BannerTone.warning,
+                title: l10n.sessionNotRefreshed,
+              ),
+              const SizedBox(height: Dimens.space4),
+            ],
 
-              // Above everything: a drink already owed to the user outranks
-              // placing another. Closing the app while waiting is normal, and
-              // on the next launch this screen is where they land.
-              if (outstanding.isNotEmpty) ...[
-                OutstandingOrderCard(
-                  order: outstanding.first,
-                  othersCount: outstanding.length - 1,
-                  onTap: () => context.push(
-                    Routes.orderStatusFor(outstanding.first.orderId),
-                  ),
+            // Above everything: a drink already owed to the user outranks
+            // placing another. Closing the app while waiting is normal, and
+            // on the next launch this screen is where they land.
+            if (outstanding.isNotEmpty) ...[
+              OutstandingOrderCard(
+                order: outstanding.first,
+                othersCount: outstanding.length - 1,
+                onTap: () => context.push(
+                  Routes.orderStatusFor(outstanding.first.orderId),
                 ),
-                const SizedBox(height: Dimens.space4),
-              ],
+              ),
+              const SizedBox(height: Dimens.space4),
+            ],
 
-              // One tap from launch to the same coffee as yesterday — for an
-              // order the user chose to keep, not one guessed from their last.
-              // Seeds the composer rather than placing outright, so they still
-              // see and confirm what they are ordering.
-              //
-              // Absent rather than empty when nothing is saved: a heading over
-              // no cards is noise on the screen people open to order a drink.
-              if (favourites.isNotEmpty) ...[
-                FavouritesStrip(
-                  favourites: favourites,
-                  availableItemIds: availableItemIds,
-                  onReplay: (favourite) =>
-                      _openComposer(mode: OrderMode.self, favourite: favourite),
-                  onDelete: (favourite) => unawaited(
-                    confirmDeleteFavourite(context, ref, favourite),
-                  ),
-                  onShowAll: () => context.push(Routes.favourites),
-                ),
-                const SizedBox(height: Dimens.space4),
-              ],
+            // One tap from launch to the same coffee as yesterday — for an
+            // order the user chose to keep, not one guessed from their last.
+            // Seeds the composer rather than placing outright, so they still
+            // see and confirm what they are ordering.
+            //
+            // Absent rather than empty when nothing is saved: a heading over
+            // no cards is noise on the screen people open to order a drink.
+            if (favourites.isNotEmpty) ...[
+              FavouritesStrip(
+                favourites: favourites,
+                availableItemIds: availableItemIds,
+                onReplay: (favourite) =>
+                    _openComposer(mode: OrderMode.self, favourite: favourite),
+                onDelete: (favourite) =>
+                    unawaited(confirmDeleteFavourite(context, ref, favourite)),
+                // The Favourites tab holds the rest, so the strip still
+                // stops at four but draws no link of its own.
+                restReachableElsewhere: true,
+              ),
+              const SizedBox(height: Dimens.space4),
+            ],
 
-              // The primary action spans the full width: there is exactly one
-              // thing most people open this app to do, and a grid that gave it
-              // the same weight as "my materials" would hide it in plain sight.
+            // The primary action spans the full width: there is exactly one
+            // thing most people open this app to do, and a grid that gave it
+            // the same weight as "my materials" would hide it in plain sight.
+            _PrimaryActionTile(
+              icon: Icons.add_circle_outline,
+              label: l10n.homeNewOrder,
+              subtitle: l10n.homeNewOrderSubtitle,
+              onTap: () => _openComposer(mode: OrderMode.self),
+            ),
+            const SizedBox(height: Dimens.space3),
+
+            // Shown only when the token carries the privilege. The server
+            // reads it from the token's claims, not the body — a client
+            // cannot grant itself this, and offering the action to someone
+            // without it would produce an unexplained rejection.
+            if (canOrderForGuests) ...[
               _PrimaryActionTile(
-                icon: Icons.add_circle_outline,
-                label: l10n.homeNewOrder,
-                subtitle: l10n.homeNewOrderSubtitle,
-                onTap: () => _openComposer(mode: OrderMode.self),
+                icon: Icons.person_add_alt_outlined,
+                label: l10n.homeGuestOrder,
+                subtitle: l10n.homeGuestOrderSubtitle,
+                // Brand, never accent: violet means "from my own jar", and a
+                // guest order is if anything the opposite of that.
+                emphasised: false,
+                onTap: () => _openComposer(mode: OrderMode.guest),
               ),
               const SizedBox(height: Dimens.space3),
-
-              // Shown only when the token carries the privilege. The server
-              // reads it from the token's claims, not the body — a client
-              // cannot grant itself this, and offering the action to someone
-              // without it would produce an unexplained rejection.
-              if (canOrderForGuests) ...[
-                _PrimaryActionTile(
-                  icon: Icons.person_add_alt_outlined,
-                  label: l10n.homeGuestOrder,
-                  subtitle: l10n.homeGuestOrderSubtitle,
-                  // Brand, never accent: violet means "from my own jar", and a
-                  // guest order is if anything the opposite of that.
-                  emphasised: false,
-                  onTap: () => _openComposer(mode: OrderMode.guest),
-                ),
-                const SizedBox(height: Dimens.space3),
-              ],
-
-              // Notifications and settings are DELIBERATELY not here. They sit
-              // in the app bar, and having them in both places put the same
-              // destination on one screen twice — two controls, same icon,
-              // same route, a few hundred pixels apart. The grid is for the
-              // things this screen is *about*: the user's orders and their
-              // materials. Chrome that follows the user between screens
-              // belongs in the chrome.
-              //
-              // A LayoutBuilder-sized Wrap rather than a GridView: a grid's
-              // childAspectRatio fixes the tile HEIGHT, so a label that needs
-              // more room than the ratio allows overflows rather than growing
-              // — which it did at the DEFAULT text scale on a 320dp phone,
-              // and badly at the accessibility scales. Tiles now size to their
-              // content and simply get taller.
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final tileWidth = (constraints.maxWidth - Dimens.space3) / 2;
-                  return Wrap(
-                    spacing: Dimens.space3,
-                    runSpacing: Dimens.space3,
-                    children: [
-                      _ActionTile(
-                        width: tileWidth,
-                        icon: Icons.receipt_long_outlined,
-                        label: l10n.homeMyOrders,
-                        onTap: () => context.push(Routes.myOrders),
-                      ),
-                      _ActionTile(
-                        width: tileWidth,
-                        icon: Icons.inventory_2_outlined,
-                        label: l10n.homeMyMaterials,
-                        onTap: () => context.push(Routes.materials),
-                      ),
-                    ],
-                  );
-                },
-              ),
             ],
-          ),
+
+            // My orders and my materials used to be tiles here. They are a
+            // tab (Orders) and a row on the Account tab now, and notifications
+            // and settings live in the chrome: one control per destination.
+          ],
         ),
       ),
     );
   }
-}
-
-/// Pulled out so the app bar's action list can stay `const`.
-class _SettingsAction extends StatelessWidget {
-  const _SettingsAction();
-
-  @override
-  Widget build(BuildContext context) => IconButton(
-    icon: const Icon(Icons.settings_outlined),
-    tooltip: AppLocalizations.of(context).settings,
-    onPressed: () => context.push(Routes.settings),
-  );
 }
 
 /// A full-width action, for the things people came here to do.
@@ -351,64 +306,4 @@ class _PrimaryActionTile extends StatelessWidget {
       ),
     );
   }
-}
-
-/// One square in the secondary grid.
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.width,
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  /// Half the row, measured by the parent. The tile sets its own height from
-  /// its content, so a long label or a large text scale makes it taller rather
-  /// than overflowing it.
-  final double width;
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: label,
-    child: Material(
-      color: BrandColors.surface,
-      borderRadius: BorderRadius.circular(Dimens.radiusLg),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-        child: Container(
-          width: width,
-          constraints: const BoxConstraints(minHeight: Dimens.minTarget * 1.6),
-          padding: const EdgeInsetsDirectional.all(Dimens.space3),
-          decoration: BoxDecoration(
-            border: Border.all(color: BrandColors.brandLight),
-            borderRadius: BorderRadius.circular(Dimens.radiusLg),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // No badge here any more: the unread count lives on the app
-              // bar's bell, which is now the only way to notifications. Two
-              // counts from one provider were still two things to keep
-              // agreeing for no gain.
-              Icon(icon, size: 24, color: BrandColors.brand),
-              const SizedBox(height: Dimens.space2),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.titleSmall,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
 }

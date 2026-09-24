@@ -83,11 +83,24 @@ Two rules from that work that a future edit must not undo:
 **The Flutter SDK lives at `C:\src\flutter` and is not on `PATH`** — invoke it by full path
 (`C:\src\flutter\bin\flutter.bat`).
 
-**The employee landing screen is the home hub (`/home`)**, not the composer. It is the answer to
-"what can I do from here?": an outstanding-order card, the one-tap usual, and a permission-aware
-grid of actions. Staff still land on `/queue` and reach the composer by pushing it from there; each
-role has exactly one landing screen and the router bounces the other role off it. The composer is
-now always a **pushed** screen — it carries no `ExitConfirmation` and no app-bar action cluster.
+**Employees land in a bottom-nav shell** (`lib/app/employee_shell.dart`, a
+`StatefulShellRoute`): **Home · Favourites · Orders · Account** at `/home`, `/favourites`,
+`/orders`, `/account`. Home carries the outstanding-order card, the favourites strip and the
+ordering actions; My materials is a row on Account. Staff still land on `/queue`, with no bar, and
+push what they need from there. Each role has exactly one landing, and `signedInRedirect` (in
+`router.dart`, tested directly by `landing_route_test.dart`) bounces staff off every tab and
+employees off the queue. Three rules a future edit must not undo:
+
+- **Back is handled by the shell, never by a tab.** go_router asks a tab's own navigator only when
+  it can pop; a tab root cannot, so the gesture goes straight to the shell page. From any tab but
+  Home it returns Home; on Home, `ExitConfirmation` asks. A guard placed on a tab screen is never
+  asked, and the app simply closes. `employee_shell_test.dart` drives this through the real
+  `handlePopRoute`; keep it that way.
+- **Steps in a task are pushed above the shell, on the root navigator**: the composer, order
+  status, notifications, My materials, `/favourites-list`, `/settings` (staff). Never push a tab's
+  path from inside a flow; that would stack a second shell.
+- **Never build a `GoRouter` at test-file load time.** It initialises the wrong binding and fails
+  the whole file. Build it in `initState` or inside `testWidgets`.
 
 **The catalogue's `usual` is gone and must not come back.** It was the caller's last
 non-cancelled order presented as a habit — no frequency, no weighting — and it moved under the user
@@ -109,15 +122,17 @@ that two shortcuts side by side, one silently moving, is worse than either alone
   constructor calls, exactly like `mode`.
 - **`maxFavourites` is the one cap that may disable a control**, because it is structural — the
   server refuses past it — and only ever with the banner beside it saying so. Never a stock reading.
-- **The strip shows four *most recently used*, then defers to `/favourites`** — and truncates **only
-  when a "show all" destination exists**, since hiding a favourite behind a link that is not there
-  loses it as silently as filtering a retired one out. Sorted by `lastUsedAtUtc`, which is what that
+- **The strip shows four *most recently used*, then defers to the full list** — and truncates
+  **only when a "show all" destination exists**, since hiding a favourite behind a link that is not
+  there loses it as silently as filtering a retired one out. On Home that destination is the
+  **Favourites tab**, so the strip passes `restReachableElsewhere` and draws no link. On the
+  composer it links to `/favourites-list`. Sorted by `lastUsedAtUtc`, which is what that
   field is published for.
 - **The strip's tiles are measured two-per-row, never a fixed `maxWidth`.** A 220dp cap put one card
   per row on a 320dp phone, and four favourites pushed "New order" — the primary action of the whole
   app — out of the built viewport entirely. The responsive suite did **not** catch it, because it
   checks for overflow and nothing overflowed; `home_screen_test.dart` now asserts the primary action
-  is reachable without scrolling.
+  is reachable without scrolling, **above the tab bar**, with Home inside the real shell.
 - **A favourite whose item an admin retired is shown and marked, never hidden or disabled.** The
   server does not filter these (§7.6), and it is right not to: one that vanished silently would
   leave the user nothing to act on and no way to delete what they cannot see. It still taps — the
@@ -127,11 +142,11 @@ that two shortcuts side by side, one silently moving, is worse than either alone
   jar, so two saves of the same coffee are one favourite. The action is **replaced by a statement**,
   never greyed out.
 
-**One destination, one control per screen.** Notifications and settings live in the home app bar
-**only** — they were also tiles in the action grid, which put the same icon and the same route on
-one screen twice. The grid is for what the screen is *about* (the user's orders, their materials);
-chrome that follows the user between screens stays in the chrome. The unread badge lives on the
-bell alone for the same reason. Pinned by `test/features/home_screen_test.dart`.
+**One destination, one control per screen.** The bell lives in Home's top bar **only**; settings
+is the Account tab, and My orders is the Orders tab. None of them has a tile or an icon on Home as
+well, because the same destination twice on one screen (once in the chrome, once in the body) is
+noise. The unread badge lives on the bell alone for the same reason. Pinned by
+`test/features/home_screen_test.dart`.
 
 **An expired session says so on the login screen.** A `401` clears the token and drops the user at
 login; `AuthState.sessionExpired` (surfaced by `sessionExpiredProvider`) is what makes that legible,

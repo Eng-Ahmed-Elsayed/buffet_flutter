@@ -5,16 +5,28 @@ abstract final class Routes {
   static const changePassword = '/change-password';
   static const lock = '/lock';
 
-  // Employee
-  /// The employee landing screen — the hub of actions, not a drink picker.
+  // Employee — the four tabs of the bottom-nav shell, in tab order.
+  /// The employee landing tab: outstanding order, favourites, ordering.
   static const home = '/home';
-  static const catalogue = '/order';
-  static const orderStatus = '/order/:orderId';
+
+  /// The full saved-orders list, as a tab. Home shows only the first few.
+  static const favourites = '/favourites';
   static const myOrders = '/orders';
 
-  /// The full saved-orders list. The hub and composer show only the first few;
-  /// this is where the rest live and where the list gets tidied.
-  static const favourites = '/favourites';
+  /// Settings and account, as a tab. Staff reach the same screen at
+  /// [settings], pushed from the queue.
+  static const account = '/account';
+
+  /// The shell's tabs. Employee-only: staff are bounced off every one.
+  static const shellTabs = [home, favourites, myOrders, account];
+
+  // Pushed above the shell (or the queue), reachable by both roles.
+  static const catalogue = '/order';
+  static const orderStatus = '/order/:orderId';
+
+  /// The full saved-orders list when it is pushed — from the composer, which
+  /// staff reach too and which has no tab bar to offer [favourites] from.
+  static const favouritesList = '/favourites-list';
   static const materials = '/materials';
   static const notifications = '/notifications';
   static const settings = '/settings';

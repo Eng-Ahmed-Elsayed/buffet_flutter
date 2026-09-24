@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/locale_controller.dart';
+import '../../app/routes.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../theme/brand_colors.dart';
@@ -12,6 +14,10 @@ import '../auth/auth_controller.dart';
 import 'biometric_tile.dart';
 
 /// Settings: the language switch and sign-out.
+///
+/// For an employee this is the **Account** tab of the shell, and it also
+/// carries the way into their own materials. Staff reach the same screen
+/// pushed from the queue, without that row.
 ///
 /// The language choice drives both the UI strings and the `Accept-Language`
 /// header, so switching it also changes the language of server-side error
@@ -38,6 +44,33 @@ class SettingsScreen extends ConsumerWidget {
             _AccountCard(
               displayName: auth.displayName!,
               department: auth.department ?? '',
+            ),
+            const SizedBox(height: Dimens.space5),
+          ],
+
+          // My materials moved here from a home tile when the shell arrived:
+          // it is part of what the account holds, and Home is for ordering.
+          // Employees only — staff never had a materials screen in the app.
+          if (!auth.role.startsOnQueue) ...[
+            AppCard(
+              onTap: () => context.push(Routes.materials),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.inventory_2_outlined,
+                    color: BrandColors.iconBlue,
+                  ),
+                  const SizedBox(width: Dimens.space3),
+                  Expanded(
+                    child: Text(
+                      l10n.accountMyMaterials,
+                      style: Theme.of(context).textTheme.titleMedium
+                          ?.copyWith(color: BrandColors.brandSecondary),
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: BrandColors.brand),
+                ],
+              ),
             ),
             const SizedBox(height: Dimens.space5),
           ],
