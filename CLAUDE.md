@@ -4,6 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
+**A Figma redesign is in progress on `feat/figma-redesign`.** The decisions, and the screen-by-screen
+mapping of what was taken, remapped and dropped, are in
+[docs/figma-redesign.md](docs/figma-redesign.md). Read it before touching any screen. The headline
+changes:
+
+- Employees get a bottom-nav shell: Home · Orders · Materials · Account.
+- Ordering becomes (Choose a drink →) Drink Details → Review.
+- The palette moves to the Figma blues, fixed for contrast.
+- English text uses the Figma Latin font, with Cairo for Arabic.
+
+Until each phase lands, the rules below describe the app as it stands; the "Rules this redesign
+changes" table in that document says which are about to move. Figma MCP is capped on the current
+seat, so the design is read from PNG exports, which go into `design/figma/` (not added yet).
+
 **Scaffolded and building.** The five screens from §1.2 exist, in both locales, on branch
 `feat/app-scaffold`. `flutter analyze` is clean and `flutter test` passes.
 
@@ -157,9 +171,12 @@ models (the wire is `camelCase` via System.Text.Json defaults).
   §12 (definition of done, usable as a review checklist).
 - [docs/archive/staff-api-spec.md](docs/archive/staff-api-spec.md) — staff endpoints, plus the four documented
   deviations at the end.
+- [docs/figma-redesign.md](docs/figma-redesign.md) — the redesign decisions: what was taken from
+  Figma, what was remapped onto the business, what was dropped, and why.
 
 These documents are authoritative for **meaning and behaviour**. A design (see below) is
-authoritative only for layout and dimension.
+authoritative only for layout and dimension. Where the Figma design and the guide disagree,
+`figma-redesign.md` records the decision.
 
 ## Workflow: design before Dart
 
