@@ -444,8 +444,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                 l10n.orderCount(
                   (_tabController.index == 0 ? _queue : _handovers).length,
                 ),
+                // Muted on the white bar (5.67:1). It was white on the navy
+                // bar, which is gone.
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: BrandColors.surface,
+                  color: BrandColors.muted,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
@@ -464,13 +466,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
               onPressed: () => context.push(Routes.settings),
             ),
           ],
+          // Colours come from the theme's TabBarTheme: primary label, muted
+          // unselected label, blue indicator — all readable on the white bar.
           bottom: TabBar(
             controller: _tabController,
-            // accentBright marks position on the navy bar — non-text UI only,
-            // never carrying a label (§2.2).
-            indicatorColor: BrandColors.accentBright,
-            labelColor: BrandColors.surface,
-            unselectedLabelColor: BrandColors.accentBright,
             tabs: [
               Tab(text: l10n.queueTab),
               Tab(text: l10n.handoverTab),

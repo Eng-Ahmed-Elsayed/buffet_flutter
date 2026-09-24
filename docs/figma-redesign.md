@@ -50,20 +50,24 @@ These are **built in the same identity and approved from screenshot captures** (
 
 ## Visual language
 
-**Palette:** sampled from the 2x exports. Contrast figures are WCAG ratios.
+**Palette:** sampled from the 2x exports; contrast figures are WCAG ratios. The code is
+`lib/theme/brand_colors.dart`, where every figure is repeated beside its constant.
 
-| Role | Value | Contrast | Note |
-|---|---|---|---|
-| Primary: filled buttons, headings, active states | `#1B4BA2` | 8.16 on white, 7.11 on page | from Figma. The first, smaller screenshot read `#1C4C9F` |
-| Page background | `#E7F0FF` | — | from Figma. Every kept semantic colour still passes on it: ok 4.52, warning 4.73, danger 5.73, violet 6.38, muted 4.94 |
-| Icon blue: icons, inactive page dot | `#2A71F0` | 3.88 on page | **non-text only** |
-| Link text | `#1563EE` | 4.52 on page, 5.18 on white | Figma's `#2A71F0` fails AA as text (3.88), so darkened, same hue |
-| Input and outline-button border | `#6B8AC1` | 3.04 on page, 3.48 on white | Figma's `#8DA5CF` fails the 3:1 non-text minimum (2.18), so darkened, same hue |
-| Green: Ready, Completed, "I picked it up" | our `ok` `#0E7C5A` | 5.19 with white text | Figma's `#00B67A` carries white text at **2.63**, which fails |
-| Faint text (version line) | our `muted` | 4.94 on page | Figma's `#A1C0E4` is **1.64** on the page, which is not readable |
-| Red: sign out, cancel | our `danger` `#B42318` | 5.73 on page | Figma's `#BA1A1A` also passes (6.46 on white); one red is kept |
-| Violet `accent` | `#6D22D8` | unchanged | **still means "from my own jar" and nothing else.** Figma uses no violet in the UI, so nothing collides |
-| warning | unchanged | | Figma has no warning colour |
+| Token | Value | Role | Contrast | Note |
+|---|---|---|---|---|
+| `brand` | `#1C4B9F` | Filled buttons, **input and outline-button borders**, field labels, headings, the active nav item | 8.21 white, 7.16 page | Figma's primary. The first 1x screenshot misread the input border as `#8DA5CF`; the 2x export shows it is this blue |
+| `brandSecondary` | `#285EBE` | Card titles, **links** ("Change", "Forgot?"), the tracking timeline | 6.11 white, 5.33 page | Figma's own link and title blue. It replaces the `#1563EE` this file first proposed |
+| `brandBright` | `#3871D7` | The selected chip's fill (white text), inactive nav labels on the white bar | 4.65 white | **Never text on the page** (4.06) |
+| `iconBlue` | `#2A71F0` | Icons, the tab indicator, the inactive page dot, the input focus ring | 4.45 white, 3.88 page | **Non-text only** |
+| `ink` | `#1C2F4B` | Headings and body text | 13.48 white, 11.75 page | Figma's dark text |
+| `page` | `#E7F0FF` | Page background | — | Every kept semantic colour still passes on it: ok 4.52, warning 4.73, danger 5.73, violet 6.38, muted 4.94 |
+| `brandLight` | `#D0DFF2` | Card borders, dividers, the top bar's edge | 1.35 white, 1.18 page | **Decorative only.** Figma's hairline |
+| `outline` | `#6B8AC1` | The edge of an interactive non-primary control: an unselected chip, a stepper | 3.48 white, 3.04 page | Figma's chip edge `#B4CDEC` measured 1.42, so darkened, same hue |
+| `muted` | `#5C6780` | Secondary text, hints, placeholders, the inactive tab label, the version line | 5.67 white, 4.94 page | Replaces Figma's greys, each measured on the ground it sat on: `#ACACAC` 2.27 and `#BEBEBE` 1.86 on white; `#8CBCF9` 1.71 and `#A1C0E4` 1.64 on the page |
+| `ok` | `#0E7C5A` | Ready, Completed, "I picked it up" | 5.19 with white | Figma's `#00B67A` carried white text at 2.63 |
+| `warning` | `#B54708` | Shortages, **the out-of-stock badge** | 4.73 page | Figma's grey badge (`#919191` on `#E2E2E2`) measured 2.43, and "out of stock" is a warning anyway |
+| `danger` | `#B42318` | Sign out, cancel, errors | 5.73 page | Figma's `#BA1A1A` also passes; one red is kept |
+| `accent` | `#6D22D8` | **"From my own jar", and nothing else** | 7.32 with white | Figma uses no violet in its UI. The input focus ring and the colour scheme's `secondary` were violet and are now blue, so violet appears nowhere else |
 
 **Type:** Inter (English) and Cairo (Arabic). Arabic keeps line height 1.7; English takes Figma's
 leading (heading 28/36 at 600, the other styles measured from the exports).

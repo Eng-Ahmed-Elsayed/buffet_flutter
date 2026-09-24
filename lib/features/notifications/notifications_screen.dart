@@ -194,7 +194,11 @@ class _NotificationRow extends StatelessWidget {
                     const SizedBox(height: Dimens.space1),
                     Text(
                       Formatters.dateTime(notification.createdAtUtc, locale),
-                      style: Theme.of(context).textTheme.labelSmall,
+                      // Muted fails on the unread row's blue (4.19:1); the
+                      // brand blue holds 6.07:1 there.
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: notification.isRead ? null : BrandColors.brand,
+                      ),
                     ),
                   ],
                 ),

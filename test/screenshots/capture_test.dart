@@ -24,8 +24,6 @@ library;
 /// that sit off the happy path. Both locales for every screen, because Arabic
 /// is the primary locale and English is a first-class second — the two wrap
 /// differently and a layout approved in one can be broken in the other.
-import 'dart:io';
-
 import 'package:buffet_app/data/api/api_client.dart';
 import 'package:buffet_app/data/local/biometric_enrolment_guard.dart';
 import 'package:buffet_app/data/local/biometric_service.dart';
@@ -68,6 +66,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 
+import '../helpers/app_harness.dart';
 import 'fixtures.dart' as fx;
 
 /// A 390x844 logical phone — an iPhone 14 / Pixel-class viewport, which is what
@@ -267,7 +266,7 @@ Widget _app(
   ],
   child: MaterialApp(
     // The real theme, so the captures show the shipped palette and type.
-    theme: AppTheme.light,
+    theme: AppTheme.forLocale(locale),
     debugShowCheckedModeBanner: false,
     locale: locale,
     supportedLocales: const [Locale('ar'), Locale('en')],
@@ -315,35 +314,12 @@ void main() {
   // test. Answer every call with "nothing stored", which is the cold-start
   // state these captures want anyway: signed out, and Arabic by default.
   setUpAll(() async {
-    // Without this every glyph renders as a tofu box: the test binding ships a
-    // placeholder font with no real glyphs, which would make an Arabic-first
-    // app's captures unreadable — and unreadable captures are worse than none,
+    // The bundled fonts (Cairo, Inter) and the Material icons. Without them
+    // every glyph renders as a tofu box: the test binding ships a placeholder
+    // font with no real glyphs, which would make an Arabic-first app's
+    // captures unreadable — and unreadable captures are worse than none,
     // because the layout still looks plausible.
-    Future<void> loadFont(String family, String path) async {
-      final loader = FontLoader(family)
-        ..addFont(
-          File(path).readAsBytes().then((b) => ByteData.view(b.buffer)),
-        );
-      await loader.load();
-    }
-
-    await loadFont('Cairo', 'assets/fonts/Cairo.ttf');
-
-    // The Material icon font too, or every icon captures as an empty box and
-    // the reviewer cannot tell a bell from a cup.
-    //
-    // It ships inside the SDK rather than this repo, so the path is resolved
-    // from the running toolchain instead of hardcoded: the test binary is
-    // `…/bin/cache/artifacts/engine/<platform>/flutter_tester.exe`, which puts
-    // the font two directories up. A missing one is skipped rather than
-    // failing the run — the layout is still reviewable without icons.
-    final artifacts = File(Platform.resolvedExecutable).parent.parent.parent;
-    final icons = File(
-      '${artifacts.path}/material_fonts/materialicons-regular.otf',
-    );
-    if (icons.existsSync()) {
-      await loadFont('MaterialIcons', icons.path);
-    }
+    await loadAppFonts();
 
     final messenger =
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;

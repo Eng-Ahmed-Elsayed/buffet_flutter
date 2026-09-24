@@ -57,3 +57,10 @@ flutter:
     - family: Cairo
       fonts:
         - asset: assets/fonts/Cairo.ttf
+    # Inter is the Figma design's Latin face, used for the English UI with Cairo
+    # as its fallback so Arabic item names still render. Variable font with a
+    # wght axis (100..900) and an opsz axis (14..32), from google/fonts.
+    # Licence: SIL Open Font License 1.1 — assets/fonts/Inter-OFL.txt
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf

@@ -24,7 +24,7 @@ enum CardTone {
 
 /// The app's one card.
 ///
-/// The same white-surface, hairline-bordered, `radiusLg` container had been
+/// The same white-surface, hairline-bordered, rounded container had been
 /// hand-rolled in six screens. They agreed by coincidence rather than by
 /// construction, which meant a palette edit had to find all six — and the
 /// moment one drifted, the app stopped looking like one product.
@@ -70,7 +70,7 @@ class AppCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: background,
         border: Border.all(color: border),
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
+        borderRadius: BorderRadius.circular(Dimens.radius),
       ),
       child: onTap == null
           ? body
@@ -89,7 +89,7 @@ class AppCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(Dimens.radiusLg),
+          borderRadius: BorderRadius.circular(Dimens.radius),
           child: decorated,
         ),
       ),

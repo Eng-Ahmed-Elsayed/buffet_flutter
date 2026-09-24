@@ -30,10 +30,12 @@ class InlineBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (background, border, foreground, icon) = switch (tone) {
+      // White on the pale-blue page, like every other card in the design;
+      // the page colour itself would vanish against the page.
       BannerTone.info => (
-        BrandColors.page,
+        BrandColors.surface,
         BrandColors.brandLight,
-        BrandColors.ink,
+        BrandColors.brand,
         Icons.info_outline,
       ),
       BannerTone.warning => (

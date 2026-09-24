@@ -23,7 +23,8 @@ class SectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colour = accent;
-    final style = Theme.of(context).textTheme.labelLarge
+    // The design's section heading ("Categories", "Popular"): 16 at 600, ink.
+    final style = Theme.of(context).textTheme.titleMedium
         ?.copyWith(color: colour ?? BrandColors.ink);
 
     if (colour == null) {

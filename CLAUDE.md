@@ -255,10 +255,24 @@ directory layout is spelled out in §3.
 
 ## Theme tokens
 
-Ported verbatim from the backend's `site.css` into `lib/theme/`. The palette is *sampled from the
-logo gradient* — never recolour the logo to match a theme. Keep the contrast-ratio comments on the
-colour constants; a palette edit is exactly when those silently stop holding. Two traps:
-`accentBright` is non-text only (2.72:1), and exits are always faster than entrances (§2.3).
+The palette comes from the Figma design, **fixed for contrast**. The semantic colours (danger,
+warning, ok) and the violet `accent` are kept from the web's `site.css`, so **the app and the web
+now differ in palette** ([docs/figma-redesign.md](docs/figma-redesign.md)). Never recolour the
+logo to match a theme. Keep the contrast-ratio comments on the colour constants; a palette edit
+is exactly when those silently stop holding.
+
+`AppTheme.forLocale(locale)` builds one theme per script: Cairo at 1.7 leading for Arabic, and
+Inter (with Cairo as fallback) at the design's leading for English. **Never give Arabic text
+letter spacing**; it breaks the joins.
+
+The traps:
+- **`iconBlue` is non-text only** (3.88:1 on the page).
+- **`brandBright` never carries text on the page** (4.06:1).
+- **`brandLight` is the decorative hairline** (1.18:1 on the page). Nothing a user must find may
+  depend on it; interactive outlines use `outline`.
+- **A chip that overrides `selectedColor` must override its label and checkmark too.** The
+  theme's selected label is white, for its bright-blue fill, and white on a pale fill vanishes.
+- **Exits are always faster than entrances** (§2.3).
 
 ## Standing rules
 

@@ -546,6 +546,13 @@ class _ComposerBody extends ConsumerWidget {
                         // Brand, not accent: this is a preparation choice,
                         // not a statement about whose jar it comes from.
                         selectedColor: BrandColors.brandLight,
+                        // The theme's selected label and checkmark are white,
+                        // for its bright-blue fill. On this pale fill white
+                        // would vanish (1.35:1), so both are set here.
+                        labelStyle: Theme.of(
+                          context,
+                        ).chipTheme.labelStyle?.copyWith(color: BrandColors.ink),
+                        checkmarkColor: BrandColors.brand,
                       ),
                   ],
                 ),
@@ -954,6 +961,22 @@ class _ExtraChip extends StatelessWidget {
         checkmarkColor: extra.hasOwnStock
             ? BrandColors.accent
             : BrandColors.brand,
+        // The theme's white selected label is for its bright-blue fill; on
+        // these pale fills it would vanish, so the label stays ink.
+        labelStyle: Theme.of(
+          context,
+        ).chipTheme.labelStyle?.copyWith(color: BrandColors.ink),
+        // Selected, the own-jar chip is edged in violet rather than the
+        // theme's blue — its whole meaning is "from my own jar".
+        side: extra.hasOwnStock
+            ? WidgetStateBorderSide.resolveWith(
+                (states) => BorderSide(
+                  color: states.contains(WidgetState.selected)
+                      ? BrandColors.accent
+                      : BrandColors.outline,
+                ),
+              )
+            : null,
       ),
     );
   }

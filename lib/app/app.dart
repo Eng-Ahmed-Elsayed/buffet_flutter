@@ -95,7 +95,9 @@ class _BuffetAppState extends ConsumerState<BuffetApp> {
       onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
       debugShowCheckedModeBanner: false,
 
-      theme: AppTheme.light,
+      // One theme per script: Cairo for Arabic, Inter for English. Switching
+      // language switches the typeface with it.
+      theme: AppTheme.forLocale(locale),
 
       // Arabic first (§2.4). Flutter flips the whole layout from the locale's
       // direction, which is why every widget uses start/end rather than

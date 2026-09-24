@@ -33,12 +33,12 @@ import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/features/order/order_status_screen.dart';
 import 'package:buffet_app/features/settings/settings_screen.dart';
 import 'package:buffet_app/features/staff_queue/widgets/queue_card.dart';
-import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+
+import '../helpers/app_harness.dart';
 
 CatalogueItemDto _d(int id, String n) => CatalogueItemDto(
   itemId: id,
@@ -111,22 +111,9 @@ Widget _wrap(Widget home, double scale, Locale locale) => ProviderScope(
     myMaterialsProvider.overrideWith((r) async => _materials),
     notificationsProvider.overrideWith((r) async => _notifications),
   ],
-  child: MaterialApp(
-    locale: locale,
-    supportedLocales: const [Locale('ar'), Locale('en')],
-    localizationsDelegates: const [
-      AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
-    ],
-    builder: (c, child) => MediaQuery.withClampedTextScaling(
-      minScaleFactor: scale,
-      maxScaleFactor: scale,
-      child: child!,
-    ),
-    home: home,
-  ),
+  // The real theme and fonts: measuring Flutter's default theme with a
+  // placeholder font would pass layouts the shipped app overflows.
+  child: testApp(home: home, locale: locale, textScale: scale),
 );
 
 final _staffOrder = StaffOrderDto(
@@ -242,6 +229,8 @@ final _notifications = [
 ];
 
 void main() {
+  setUpAll(loadAppFonts);
+
   final screens = <String, Widget>{
     'home': const HomeScreen(),
     'composer-self': const ComposerScreen(),
@@ -337,21 +326,9 @@ void main() {
               orderRepositoryProvider.overrideWithValue(_StatusRepo(status)),
               catalogueProvider.overrideWith((r) async => _cat),
             ],
-            child: MaterialApp(
-              locale: const Locale('ar'),
-              supportedLocales: const [Locale('ar'), Locale('en')],
-              localizationsDelegates: const [
-                AppLocalizations.delegate,
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
-              builder: (c, child) => MediaQuery.withClampedTextScaling(
-                minScaleFactor: scale,
-                maxScaleFactor: scale,
-                child: child!,
-              ),
+            child: testApp(
               home: const _RoutedStatus(),
+              textScale: scale,
             ),
           ),
         );

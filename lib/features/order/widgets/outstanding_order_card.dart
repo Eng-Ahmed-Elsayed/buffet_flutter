@@ -50,7 +50,9 @@ class OutstandingOrderCard extends StatelessWidget {
             l10n.outstandingReadyBody,
           )
         : (
-            BrandColors.page,
+            // White, like every card on the design's pale-blue page. The page
+            // colour itself would vanish against the page.
+            BrandColors.surface,
             BrandColors.brandLight,
             BrandColors.ink,
             Icons.hourglass_bottom_outlined,
