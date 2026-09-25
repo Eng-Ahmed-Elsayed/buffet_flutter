@@ -187,15 +187,65 @@ class DrinkDetailsStep extends ConsumerWidget {
                                 selected: composer.extraItemIds.contains(
                                   extra.itemId,
                                 ),
+                                fromOwn: composer.ownExtraItemIds.contains(
+                                  extra.itemId,
+                                ),
                                 // Follows the PREPARATION, not the drink.
                                 doublesUp: composer.extraDoublesUp(
                                   extra.itemId,
                                 ),
-                                onTap: () =>
-                                    controller.toggleExtra(extra.itemId),
+                                // An extra the user owns and has servings of
+                                // comes from their jar unless they switch it
+                                // below. One with none left defaults to the
+                                // buffet rather than into a known shortage,
+                                // and can still be switched, never blocked.
+                                onTap: () => controller.toggleExtra(
+                                  extra.itemId,
+                                  fromOwn:
+                                      extra.hasOwnStock &&
+                                      extra.ownServingsLeft > 0,
+                                ),
                               ),
                           ],
                         ),
+                        // The jar for each ticked extra the user owns, said
+                        // and chosen the same way as the drink's above. This is
+                        // what decides `ownExtraItemIds`; the chip's violet
+                        // only reports it.
+                        for (final extra in extras)
+                          if (extra.hasOwnStock &&
+                              composer.extraItemIds.contains(extra.itemId)) ...[
+                            const SizedBox(height: Dimens.space3),
+                            _Label(extra.localisedName(language)),
+                            Wrap(
+                              spacing: Dimens.space2,
+                              runSpacing: Dimens.space2,
+                              children: [
+                                _SourceChip(
+                                  label: l10n.sectionMyMaterials,
+                                  selected: composer.ownExtraItemIds.contains(
+                                    extra.itemId,
+                                  ),
+                                  own: true,
+                                  onSelected: () => controller.setExtraFromOwn(
+                                    extra.itemId,
+                                    true,
+                                  ),
+                                ),
+                                _SourceChip(
+                                  label: l10n.sectionBuffet,
+                                  selected: !composer.ownExtraItemIds.contains(
+                                    extra.itemId,
+                                  ),
+                                  own: false,
+                                  onSelected: () => controller.setExtraFromOwn(
+                                    extra.itemId,
+                                    false,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         // A warning, never a block: a double portion is a
                         // legitimate thing to order.
                         if (composer.doubledExtraItemIds.isNotEmpty) ...[
@@ -315,20 +365,25 @@ List<CatalogueItemDto> _visibleExtras(
 /// An extras chip, carrying two independent markings that must not be
 /// confused:
 ///
-/// - **Violet** means the extra comes from the user's own jar. Never a generic
-///   selected state (rule 3).
+/// - **Violet** means this extra, ticked, is drawn from the user's own jar
+///   ([fromOwn]), not merely that they own some. Never a generic selected
+///   state (rule 3).
 /// - **A warning mark** means the chosen preparation already pours this, so
 ///   ticking it is a second portion. It annotates, never filters.
 class _ExtraChip extends StatelessWidget {
   const _ExtraChip({
     required this.extra,
     required this.selected,
+    required this.fromOwn,
     required this.doublesUp,
     required this.onTap,
   });
 
   final CatalogueItemDto extra;
   final bool selected;
+
+  /// Whether the order draws this extra from the user's own jar.
+  final bool fromOwn;
   final bool doublesUp;
   final VoidCallback onTap;
 
@@ -358,17 +413,18 @@ class _ExtraChip extends StatelessWidget {
         ),
         selected: selected,
         onSelected: (_) => onTap(),
-        selectedColor: extra.hasOwnStock
+        // Violet only when the order really draws it from the user's jar. It
+        // used to follow ownership alone, and an owned extra went out as buffet
+        // stock under a violet chip that said otherwise.
+        selectedColor: fromOwn
             ? BrandColors.accentSurface
             : BrandColors.brandLight,
-        checkmarkColor: extra.hasOwnStock
-            ? BrandColors.accent
-            : BrandColors.brand,
+        checkmarkColor: fromOwn ? BrandColors.accent : BrandColors.brand,
         // The theme's white selected label is for its bright-blue fill; on
         // these pale fills it would vanish, so the label stays ink.
         labelStyle: Theme.of(context).chipTheme.labelStyle
             ?.copyWith(color: BrandColors.ink),
-        side: extra.hasOwnStock
+        side: fromOwn
             ? WidgetStateBorderSide.resolveWith(
                 (states) => BorderSide(
                   color: states.contains(WidgetState.selected)

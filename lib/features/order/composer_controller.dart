@@ -523,16 +523,34 @@ class ComposerController extends StateNotifier<ComposerState> {
   void setSugarSpoons(int spoons) =>
       state = state.copyWith(sugarSpoons: spoons.clamp(0, 10));
 
-  void toggleExtra(int itemId) {
+  /// Ticks or unticks an extra.
+  ///
+  /// [fromOwn] is where a newly ticked extra is drawn from. The caller passes
+  /// true for an extra the user owns and has servings of: the chip is violet
+  /// exactly when that is so, and [setExtraFromOwn] switches it back to the
+  /// buffet. The Details step passes true only for an extra the user owns;
+  /// a favourite replays whatever jar it recorded (see [applyFavourite]).
+  void toggleExtra(int itemId, {bool fromOwn = false}) {
     final next = Set<int>.from(state.extraItemIds);
-    if (!next.remove(itemId)) next.add(itemId);
+    final adding = !next.remove(itemId);
+    if (adding) next.add(itemId);
 
     // An extra that is no longer selected cannot still be sourced from the
     // user's own jar.
     final ownNext = Set<int>.from(state.ownExtraItemIds)
       ..removeWhere((id) => !next.contains(id));
+    if (adding && fromOwn) ownNext.add(itemId);
 
     state = state.copyWith(extraItemIds: next, ownExtraItemIds: ownNext);
+  }
+
+  /// Which jar a ticked extra is drawn from. Ignored for an extra that is not
+  /// ticked, since there is nothing to source.
+  void setExtraFromOwn(int itemId, bool fromOwn) {
+    if (!state.extraItemIds.contains(itemId)) return;
+    final own = Set<int>.from(state.ownExtraItemIds);
+    fromOwn ? own.add(itemId) : own.remove(itemId);
+    state = state.copyWith(ownExtraItemIds: own);
   }
 
   /// Changes the jar for the drink already in the draft.
