@@ -50,12 +50,20 @@ it; there is a test asserting the endpoint writes ledger rows rather than stampi
 
 ## 1. Designing the screens before writing code
 
-Screens are designed and approved **before** any Dart is written. The route is Claude Code's
-`/design` skill: it produces a canvas of artboards published as an Artifact, reviewed and adjusted
-directly in the browser, and only then translated into widgets.
+Screens are designed and approved **before** any Dart is written.
 
-This replaces the Claude-design → export → Figma → Figma-MCP round trip that an earlier draft of
-this document assumed. That path still works, but it loses the thing that matters most.
+**The identity is now designed in Figma** ("DEFI - Kitchen app"). It is read from the PNG exports in
+`design/figma/`, because Figma MCP is capped on the current seat. Every decision about what was
+taken, remapped or dropped is in [figma-redesign.md](figma-redesign.md). A screen Figma covers is
+built to its export. A screen it does not cover (Arabic/RTL, the staff view, My materials, the lock
+screen, the states) is built in the same identity and approved from the screenshot captures
+(`flutter test test/screenshots --update-goldens`) before its phase is committed.
+
+The earlier `/design` canvas (`design/*.dc.html`, `design/canvas.json`) is **superseded**. It is
+kept for history only; its palette and layouts no longer describe the app.
+
+The rest of this section still holds: it is why intent lives in this document and not in the
+design, whichever tool produced the design.
 
 ### 1.1 Why the round trip loses information
 
@@ -107,8 +115,10 @@ rather than re-exporting or re-drawing:
 
 | File | What it is | Use in the app |
 |---|---|---|
-| `logo-defi.png` | Full lockup: circuit mark + "DIGITAL EGYPT FOR INVESTMENT" wordmark | Login screen, about screen |
-| `logo-defi-mark.png` | The mark alone | App bar, splash, notification icon |
+| `logo-defi.png` | Full lockup: circuit mark + "DIGITAL EGYPT FOR INVESTMENT" wordmark | Splash, explainer, sign-in, lock, and the top bar of both landing screens (Home and the staff queue), via `BrandLockup` |
+| `logo-defi-mark.png` | The mark alone | The source of the launcher icons (`tool/generate_launcher_icons.py`); no screen draws it since the Account redesign |
+
+`logo-defi.png` is now the high-resolution crop of the Figma export (`design/figma/logo.png`).
 
 The mark is a navy-to-violet circuit trace rising over a peak. **The palette is sampled from it** —
 that is why `--brand` and `--accent` are the two ends of its gradient. Never recolour the logo to
@@ -120,45 +130,27 @@ use the mark alone, which is direction-neutral and the safer default in app bars
 
 ### 2.2 Colour
 
-Ported verbatim from `site.css`. The comments are the contrast measurements — keep them, because
-a palette edit is exactly when those silently stop holding.
+**The palette comes from the Figma design, fixed for contrast.** It lives in
+`lib/theme/brand_colors.dart`, where each constant carries its measured contrast ratios; keep them,
+because a palette edit is exactly when those silently stop holding. The table of every value, what
+it is for, and what it replaced is in [figma-redesign.md](figma-redesign.md) (*Palette*).
 
-```dart
-// lib/theme/brand_colors.dart
-abstract final class BrandColors {
-  /// Logo gradient, deep-blue mid-stroke. 10.98:1 with white text.
-  static const brand = Color(0xFF123A7A);
-  /// The wordmark navy. 16.13:1 with white text.
-  static const brandDark = Color(0xFF0B1E4B);
-  /// Tinted from brand, not picked — keeps chips in one hue family.
-  static const brandLight = Color(0xFFE9EFF9);
-  /// The violet end of the gradient. A *fill*: 7.32:1 with white text.
-  static const accent = Color(0xFF6D22D8);
-  /// Lightened until it clears 3:1 on the navy bar. Non-text UI only —
-  /// at 2.72:1 it must never carry white text.
-  static const accentBright = Color(0xFFA78BFA);
-  static const focus = Color(0xFF5417B0);
-  static const ink = Color(0xFF141B2E);
-  /// Holds AA on both white (5.67:1) and the page background (5.24:1).
-  static const muted = Color(0xFF5C6780);
-  static const surface = Color(0xFFFFFFFF);
-  /// Neutral cooled toward the brand hue so cards read as white on it.
-  static const page = Color(0xFFF4F6FA);
-  static const danger = Color(0xFFB42318);
-  static const warning = Color(0xFFB54708);
-  /// Deliberately green, not brand-blue: "healthy stock" loses its meaning
-  /// if the level colours are all one hue. 5.19:1 on white.
-  static const ok = Color(0xFF0E7C5A);
-}
-```
+The blues are the design's: `brand` `#1C4B9F` for primary fills and headings, `brandSecondary`
+`#285EBE` for links and row titles, `ink` `#1C2F4B` for text, and `page` `#E7F0FF` for the ground.
+The semantic colours (`ok`, `warning`, `danger`) and the violet `accent` are kept from the web's
+`site.css`, so **the app and the web now differ in palette**.
 
-Two rules carried over from the web, both easy to break in Flutter:
+Rules that are easy to break:
 
-- **`accentBright` is non-text.** It marks position on the navy app bar. Putting a label on it
-  fails AA at 2.72:1.
-- **Violet means "mine".** Personal materials — an employee's own jar — are marked in `accent`
-  throughout the web app. Do not reuse violet for a generic selection state, or "from my
-  materials" stops being readable at a glance.
+- **Violet means "mine".** Personal materials, an employee's own jar, are marked in `accent`
+  everywhere. Do not reuse violet for a generic selection state, or "from my materials" stops being
+  readable at a glance. The design itself uses no violet.
+- **`iconBlue` is non-text only** (3.88:1 on the page), and **`brandBright` never carries text on
+  the page** (4.06:1).
+- **`brandLight` is the decorative hairline** (1.18:1 on the page). Nothing a user must find may
+  depend on it; interactive outlines use `outline`.
+- **A chip that overrides `selectedColor` must override its label and checkmark too.** The theme's
+  selected label is white, for its bright-blue fill, and white on a pale fill vanishes.
 
 ### 2.3 Shape, elevation, spacing, motion
 
@@ -206,10 +198,12 @@ flips the layout automatically. Do not hand-place widgets with `left`/`right`; u
 `start`/`end` (`EdgeInsetsDirectional`, `AlignmentDirectional`) throughout, or the layout breaks
 the moment someone switches to English.
 
-The web deliberately uses system Arabic faces so it works offline with no CDN. Match that:
-bundle **Cairo** or **Tajawal** as an asset font (both are open-licensed and cover Arabic well),
-rather than fetching at runtime. `line-height: 1.7` on the web → `height: 1.7` in Flutter's
-`TextStyle`; Arabic needs the extra leading and it is not the Material default.
+Two faces are bundled as assets, both under the OFL, never fetched at runtime:
+**Cairo** for Arabic and **Inter** for English. `AppTheme.forLocale(locale)` builds one theme per
+script. Arabic uses Cairo at `height: 1.7`, since Arabic needs the extra leading and it is not the
+Material default. English uses Inter at the design's leading (headings 600, 28/36), with Cairo as
+its fallback so an Arabic item name inside English text still renders. **Never give Arabic text
+letter spacing**; it breaks the joins.
 
 Numbers in lists and tables use tabular figures — `fontFeatures: [FontFeature.tabularFigures()]`.
 
@@ -926,7 +920,7 @@ the exception.
 ## 12. Definition of done
 
 - [ ] Palette, radii, spacing and motion tokens ported and used — no ad-hoc hex values
-- [ ] Both logo assets bundled; mark used in the app bar, lockup on login
+- [ ] Both logo assets bundled; the lockup on the entry screens and both landing top bars, the mark as the launcher icon (§2.1)
 - [ ] RTL verified on every screen; no `left`/`right`, only `start`/`end`
 - [ ] Quantity + unit strings bidi-isolated
 - [ ] Reduced-motion honoured; all targets ≥ 44px; text ≥ 4.5:1
@@ -939,7 +933,7 @@ the exception.
 - [ ] Sugar stepper allows explicit 0
 - [ ] Location accepts free text
 - [ ] Personal materials in violet; toggle appears only when relevant
-- [ ] Declaration confirmation says "awaiting staff confirmation"
+- [ ] Declaration confirmation says "awaiting confirmation" — an admin confirms receipt, never "added"
 - [ ] Shortages warn, never block, never disable a button
 - [ ] Order status compared by **name**, never ordinal
 - [ ] UTC timestamps converted for display
