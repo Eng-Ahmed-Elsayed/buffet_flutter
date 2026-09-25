@@ -25,6 +25,7 @@ library;
 /// is the primary locale and English is a first-class second — the two wrap
 /// differently and a layout approved in one can be broken in the other.
 import 'package:buffet_app/app/employee_shell.dart';
+import 'package:buffet_app/app/locale_controller.dart';
 import 'package:buffet_app/app/routes.dart';
 import 'package:buffet_app/data/api/api_client.dart';
 import 'package:buffet_app/data/local/biometric_enrolment_guard.dart';
@@ -270,6 +271,10 @@ Widget _app(
   List<Override> overrides = const [],
 }) => ProviderScope(
   overrides: [
+    // The app's own language setting, matched to the capture's locale. Some
+    // screens format dates from it rather than from the MaterialApp, so
+    // without this every English capture showed Arabic dates.
+    localeControllerProvider.overrideWith((r) => _FixedLocale(locale)),
     catalogueProvider.overrideWith((r) async => fx.catalogue),
     favouritesProvider.overrideWith(
       (r) async => FavouritesResponse(favourites: fx.favourites),
@@ -792,3 +797,11 @@ Override _signedInAs(String role) => authControllerProvider.overrideWith(
     pinned: true,
   ),
 );
+
+/// The language setting held at one locale, as the user would have chosen it.
+class _FixedLocale extends LocaleController {
+  _FixedLocale(Locale locale)
+    : super(const PreferencesStore(FlutterSecureStorage())) {
+    state = locale;
+  }
+}

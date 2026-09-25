@@ -145,7 +145,7 @@
   "@refresh": { "description": "Generic refresh action." },
   "ownStockShortTitle": "جرتك أوشكت على الانتهاء",
   "@ownStockShortTitle": { "description": "Shortage warning heading. Warns, never blocks." },
-  "ownStockShortBody": "يمكنك إتمام الطلب — سيتولى الموظف التسوية لاحقًا.",
+  "ownStockShortBody": "يمكنك إتمام الطلب — سيتولى المسؤول التسوية لاحقًا.",
   "@ownStockShortBody": { "description": "Makes explicit that the order still goes through." },
 
   "myOrdersTitle": "طلباتي",
@@ -197,8 +197,8 @@
 
   "myMaterialsTitle": "موادي",
   "@myMaterialsTitle": { "description": "App bar title of the my-materials screen." },
-  "awaitingConfirmation": "بانتظار تأكيد الموظف",
-  "@awaitingConfirmation": { "description": "A declaration returns 202 Accepted. Never say 'added' — nothing exists until staff confirm." },
+  "awaitingConfirmation": "بانتظار التأكيد",
+  "@awaitingConfirmation": {"description": "A declaration returns 202 Accepted. Never say 'added': nothing exists until an admin confirms receipt."},
   "declarationSentBody": "تم إرسال الإقرار — لا يُحتسب في رصيدك قبل التأكيد.",
   "@declarationSentBody": { "description": "Makes the 202 semantics explicit to the user." },
   "confirmedBalance": "الرصيد المؤكَّد",

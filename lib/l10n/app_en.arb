@@ -88,7 +88,7 @@
   "retry": "Try again",
   "refresh": "Refresh",
   "ownStockShortTitle": "Your jar is running low",
-  "ownStockShortBody": "You can still place the order — staff will reconcile it later.",
+  "ownStockShortBody": "You can still place the order — the admin will reconcile it later.",
 
   "myOrdersTitle": "My orders",
   "@myOrdersTitle": { "description": "Title of the order history screen." },
@@ -127,7 +127,7 @@
   },
 
   "myMaterialsTitle": "My materials",
-  "awaitingConfirmation": "Awaiting staff confirmation",
+  "awaitingConfirmation": "Awaiting confirmation",
   "declarationSentBody": "Declaration sent — it does not count towards your balance until confirmed.",
   "confirmedBalance": "Confirmed balance",
   "declareMaterials": "Declare new materials",

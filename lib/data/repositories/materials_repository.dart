@@ -59,7 +59,7 @@ class MaterialsRepository {
   /// catalogue entry for it. Returns normally on `202 Accepted`.
   ///
   /// The item is created **unpublished** and will not appear in `/catalogue`
-  /// until staff confirm the jar arrived — so refetching the catalogue to show
+  /// until an admin confirms the jar arrived — so refetching the catalogue to show
   /// it off shows nothing, and that is correct rather than a failed write.
   Future<void> declareNew({
     required DeclareNewMaterialRequest request,

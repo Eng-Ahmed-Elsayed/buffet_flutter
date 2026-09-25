@@ -204,13 +204,13 @@ class _NotificationRow extends StatelessWidget {
                 ),
               ),
               if (orderId != null)
-                // Directional: this points "onward", which is left in Arabic
-                // and right in English.
+                // Points "onward": left in Arabic, right in English. The icon
+                // mirrors with the ambient direction on its own; forcing RTL
+                // here made it point backwards in English.
                 const Icon(
                   Icons.chevron_right,
                   size: 18,
                   color: BrandColors.muted,
-                  textDirection: TextDirection.rtl,
                 ),
             ],
           ),

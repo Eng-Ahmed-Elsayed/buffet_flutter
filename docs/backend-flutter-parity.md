@@ -479,5 +479,5 @@ retires it, matching the web's own cleanup.
 
 **Flutter:** add «الصنف غير مدرج» as the picker's last entry — last so the common case, topping up
 something known, stays the default — revealing the five fields. On success say
-"بانتظار تأكيد الموظف", and do **not** refetch `/catalogue` expecting the item to appear.
+"بانتظار التأكيد" (an admin confirms, §8.2), and do **not** refetch `/catalogue` expecting the item to appear.
 
