@@ -146,6 +146,18 @@ confirmation. Forced, it never asks for the current password and never lets the 
 forced stage bounces every route, `/password` included, so rule 10 holds without a special case.
 The design's Version line waits on a decision: a dependency, or a build-time define.
 
+**An extra's violet follows the jar it is drawn from, not ownership.** Ticking an extra the user
+owns, with servings left, puts it in `ownExtraItemIds`. A source row under the extras (the same
+`_SourceChip` as the drink's) switches it to the buffet. The chip used to be violet whenever the
+user owned some, while the order sent it as buffet stock. **There is no sugar jar toggle**,
+deliberately: the UI never picks a sugar item (the server auto-resolves it), and `sugarFromOwn`
+with no sugar item is unverified against the server. `composer_own_extras_test.dart`.
+
+**Route transitions and bottom sheets stop moving under reduced motion.**
+`ReducedMotionPageTransitionsBuilder` wraps Android's, Windows' and Linux's transitions, and every
+`showModalBottomSheet` passes `sheetAnimationStyle: Motion.sheet(context)`. iOS keeps Cupertino's,
+because bypassing it removes the edge swipe back. `test/theme/reduced_motion_test.dart`.
+
 **The catalogue's `usual` is gone and must not come back.** It was the caller's last
 non-cancelled order presented as a habit — no frequency, no weighting — and it moved under the user
 every time they ordered for a visitor. **Favourites** (`GET`/`POST`/`DELETE /favourites`, §7.6)
@@ -207,6 +219,20 @@ through three slides the moment their session ended, burying the "session expire
 `signedOutRedirect` holds on the splash while the flag loads. The entry screens (splash, explainer,
 sign-in, lock) share `BrandBackdrop` and `BrandLockup`. **No text sits over the glow's peak**: the
 link blue drops to about 4:1 there, so the explainer's Skip is in ink.
+
+**The forced password change survives a relaunch** (rule 10). `pref_must_change_password` is
+written by login *before* the token, restored on cold start **ahead of** the biometric lock, and
+released only by set-initial-password's `204`. Before this, killing the app and reopening it was a
+way past the block. The forced screen therefore has one exit, **Sign out**, which removes the token
+and the flag together. `session_restore_test.dart` pins all of it. Two rules from the same fix:
+
+- **A 401 ends only the session it belongs to.** The interceptor acts only when the failing
+  request's bearer is the token stored *now*. A slow request on an old token must not end the
+  session the user has just signed into. `unauthorized_interceptor_test.dart`.
+- **An ended session leaves nothing behind.** A real 401, and a token found expired at cold start,
+  clear what sign-out clears: the biometrics flag, the enrolment sentinel, the identity and the
+  forced-change flag. Otherwise the next person to sign in inherits the previous one's fingerprint
+  lock. The cleanup is best-effort: sign-in waits for it but never fails on it.
 
 **An expired session says so on the login screen.** A `401` clears the token and drops the user at
 login; `AuthState.sessionExpired` (surfaced by `sessionExpiredProvider`) is what makes that legible,

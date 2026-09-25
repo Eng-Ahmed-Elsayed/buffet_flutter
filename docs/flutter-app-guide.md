@@ -391,12 +391,23 @@ The state machine the router guard must implement:
                     role == Staff ? queue : catalogue
 ```
 
-Three rules:
+Four rules:
 
 1. **`mustChangePassword` is not dismissible.** The token works, so a careless client could skip
    the screen and order anyway. Block navigation until `204` comes back from
    `/auth/set-initial-password`. Everyone starts on the shared seeded password (`DEFI@2026`) —
    until they change it, their account is not theirs.
+
+   **It must survive a relaunch.** A restored token carries no login response, so the flag is
+   stored beside the token (written *before* it) and read on cold start. That check comes
+   **before** the biometric unlock, not after it as the diagram draws: killing the app and
+   reopening it used to be a way past the block. The forced screen's one exit is **Sign out**,
+   which removes the token and the flag together.
+4. **A session that ends leaves nothing behind.** A `401` for the token held now, or a token found
+   expired at cold start, clears the same account state as sign-out: the biometrics flag, the
+   enrolment sentinel, the cached identity and the forced-change flag. A `401` for an older token
+   (a request still in flight after the user signed in again) is ignored, so it cannot end the new
+   session.
 2. **Role decides the landing screen**, from the login response. `Staff` → queue,
    `Employee` → catalogue. An `Admin` signing in should land on the catalogue with a quiet note
    that admin work is on the web; do not build admin screens.
@@ -664,10 +675,12 @@ the category glyph without surfacing anything to the user.
 `POST /materials/declare` returns **`202 Accepted`, not `201`** — and the wording of the
 confirmation must reflect that:
 
-> **Employee declares, staff confirms.** Stock only exists once staff confirm the jar physically
-> arrived. A declaration alone creates nothing.
+> **Employee declares, an admin confirms.** The jar is handed to the buffet staff, but stock only
+> exists once an admin confirms on the web that it arrived (§8.2: a staff token gets `403` on the
+> declaration endpoints). A declaration alone creates nothing.
 
-Say "تم إرسال الإقرار — بانتظار تأكيد الموظف", never "تمت الإضافة". The user will otherwise
+Say "تم إرسال الإقرار — بانتظار التأكيد" ("awaiting confirmation"), never "تمت الإضافة". Name no
+confirmer: an earlier wording said «الموظف», which contradicted §8.2. The user will otherwise
 believe they have stock they do not have, and the first order that draws on it will surprise them.
 
 #### The item the buffet does not carry
@@ -698,9 +711,9 @@ Three traps, in the order they will bite:
    field "عدد العبوات". Fractions are fine for a part-used packet. Getting this wrong is
    silent — it declares 2g and nothing errors.
 2. **The new item will not appear in `/catalogue`.** It is created *unpublished* and stays
-   invisible even to its own owner until staff confirm the jar arrived. Refetching the catalogue
-   to show it off will show nothing; treat that as correct, not as a failed write. Same
-   "بانتظار تأكيد الموظف" wording as above.
+   invisible even to its own owner until an admin confirms the jar arrived. Refetching the
+   catalogue to show it off will show nothing; treat that as correct, not as a failed write. Same
+   "بانتظار التأكيد" wording as above.
 3. **`category` by name**, as with order status and role. `"Drink"`, not `0` — an ordinal `0`
    is indistinguishable from an unset field, so the server rejects it with `400`.
 
