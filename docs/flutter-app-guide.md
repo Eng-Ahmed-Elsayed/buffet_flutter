@@ -343,8 +343,18 @@ Claims on the token: `sub`, `jti`, name, `role`, `department`, `must_change_pass
 in workflow order (`Ready = 4`) — **always send and compare the string name**, never the integer.
 
 `Ready` means the drink was physically made; `Completed` means it was handed over. The app should
-say so: `Ready` is the "come and collect it" moment and deserves the notification and the loudest
-visual state, not `Completed`.
+say so: `Ready` is the moment the user needs to know about, and deserves the notification and the
+loudest visual state, not `Completed`.
+
+**The Ready wording is neutral**: "it's ready for you", never "come and collect it". Today the
+buffet both delivers and lets people collect, and the client cannot tell which applies to an
+order. Once the fulfilment mode ships, the wording follows the order's mode
+([docs/figma-redesign.md](figma-redesign.md) D5). In English, `Completed` reads "Received".
+
+The tracking screen shows a four-step timeline: Sent → Being prepared → Ready → Received, each
+with its time where the API has one. The design's "Kitchen takes order" and "Preparing" are both
+`InProgress`, so they are one step. That step has no time until `StartedAtUtc` ships
+([request](backend-request-order-started-at.md)). A cancelled order stops at Sent → Cancelled.
 
 `OrderSummaryDto.isReady` is computed server-side; mirror it as a getter rather than a field.
 
@@ -832,7 +842,7 @@ Constraints the backend holds, and the app must not work around:
 - **Never disable an action on a stock shortage.** `/ready` returns `200` with a `warnings` array —
   surface it on the card after serving; do not treat it as a failure.
 - **Handovers need a second list.** The default queue is `Pending` + `InProgress` only, so an order
-  marked `Ready` disappears from it. Fetch `?status=Ready` for the "waiting to be collected" list —
+  marked `Ready` disappears from it. Fetch `?status=Ready` for the "ready for handover" list —
   unless you used `deliverNow`, which serves and completes in one call and never enters that state.
 - **No declarations tab.** Those endpoints are admin-only (§8.2).
 

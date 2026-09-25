@@ -76,7 +76,44 @@ final _orders = [
     locationText: 'الدور الثالث، مكتب ٣١٢',
     onBehalfOfName: 'ضيف الوزارة',
     notes: 'بدون لبن',
-    lines: const [],
+    lines: const [
+      OrderLineDto(
+        drinkItemId: 1,
+        drinkNameAr: 'قهوة تركي سادة',
+        sugarSpoons: 2,
+        variantId: null,
+        sugarItemId: null,
+        extraItemIds: [],
+        lineNote: null,
+        drinkFromOwn: false,
+        sugarFromOwn: false,
+        ownExtraItemIds: [],
+      ),
+      OrderLineDto(
+        drinkItemId: 1,
+        drinkNameAr: 'قهوة تركي سادة',
+        sugarSpoons: 2,
+        variantId: null,
+        sugarItemId: null,
+        extraItemIds: [],
+        lineNote: null,
+        drinkFromOwn: false,
+        sugarFromOwn: false,
+        ownExtraItemIds: [],
+      ),
+      OrderLineDto(
+        drinkItemId: 2,
+        drinkNameAr: 'شاي بالنعناع',
+        sugarSpoons: 0,
+        variantId: null,
+        sugarItemId: null,
+        extraItemIds: [],
+        lineNote: null,
+        drinkFromOwn: false,
+        sugarFromOwn: false,
+        ownExtraItemIds: [],
+      ),
+    ],
   ),
   OrderSummaryDto(
     orderId: 8,
@@ -339,6 +376,20 @@ void main() {
             reason:
                 '${entry.key} overflows at ${scale}x in ${locale.languageCode}',
           );
+
+          // My orders keeps its finished orders on a second tab, which the
+          // first pass never builds.
+          if (entry.key == 'my-orders') {
+            await t.tap(find.byType(Tab).last);
+            await t.pumpAndSettle();
+            expect(
+              t.takeException(),
+              isNull,
+              reason:
+                  'my-orders Earlier overflows at ${scale}x in '
+                  '${locale.languageCode}',
+            );
+          }
         });
       }
     }

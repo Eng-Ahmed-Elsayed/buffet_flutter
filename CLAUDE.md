@@ -124,6 +124,19 @@ Rules a future edit must not undo:
 - **Home and Choose a drink render the same `DrinkMenu`**, so the two can never list drinks
   differently. It must sit in a non-lazy scroll view (see Home).
 
+**The Orders tab has the design's two tabs**: In progress (Ready first, then Pending and
+InProgress) and Earlier (Completed and Cancelled). The tracking screen shows a vertical four-step
+timeline (Sent → Being prepared → Ready → Received) and carries the order's times, so the summary
+card does not repeat them. Rules a future edit must not undo:
+
+- **Ready wording is neutral** («جاهز لك», "it's ready for you") until the fulfilment mode ships
+  (D5). Both pickup and delivery happen today, and "come and collect it" was wrong for the
+  delivered half.
+- **An order row names its drinks from the catalogue in the reader's language**, exactly as the
+  status screen does, falling back to the stored `drinkNameAr`. `OrderSummaryDto` carries Arabic
+  names only, and a row saying «قهوة» that opens onto "Coffee" names one drink two ways.
+  `order_tracking_test.dart` pins it in English.
+
 **The catalogue's `usual` is gone and must not come back.** It was the caller's last
 non-cancelled order presented as a habit — no frequency, no weighting — and it moved under the user
 every time they ordered for a visitor. **Favourites** (`GET`/`POST`/`DELETE /favourites`, §7.6)

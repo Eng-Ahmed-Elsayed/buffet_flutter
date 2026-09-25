@@ -1,6 +1,7 @@
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/data/models/order_models.dart';
+import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/favourites_controller.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
@@ -55,6 +56,16 @@ Widget _app({
     favouritesProvider.overrideWith(
       (ref) async => FavouritesResponse(favourites: favourites),
     ),
+    // The rows name their drinks from the menu; none here, so they fall back
+    // to the stored name.
+    catalogueProvider.overrideWith(
+      (ref) async => const CatalogueResponse(
+        drinks: [],
+        sugars: [],
+        extras: [],
+        locations: [],
+      ),
+    ),
   ],
   child: const MaterialApp(
     locale: Locale('ar'),
@@ -77,12 +88,20 @@ Future<void> _pump(WidgetTester tester, Widget app) async {
   await tester.pumpAndSettle();
 }
 
+/// Pumps [app] and opens the Earlier tab, where finished orders — the only
+/// ones that can be saved — are listed.
+Future<void> _pumpEarlier(WidgetTester tester, Widget app) async {
+  await _pump(tester, app);
+  await tester.tap(find.text('سابقًا'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   group('saving a past order asks what to call it', () {
     testWidgets('tapping save opens a name dialog rather than saving at once', (
       tester,
     ) async {
-      await _pump(tester, _app(orders: [_order()]));
+      await _pumpEarlier(tester, _app(orders: [_order()]));
 
       await tester.tap(find.text('احفظ كطلب مفضل'));
       await tester.pumpAndSettle();
@@ -96,7 +115,7 @@ void main() {
     ) async {
       // Blank is an ordinary choice — the server names it after the drinks —
       // so demanding a name would turn a one-tap action into a typing task.
-      await _pump(tester, _app(orders: [_order()]));
+      await _pumpEarlier(tester, _app(orders: [_order()]));
 
       await tester.tap(find.text('احفظ كطلب مفضل'));
       await tester.pumpAndSettle();
@@ -108,7 +127,7 @@ void main() {
     });
 
     testWidgets('cancelling the dialog saves nothing', (tester) async {
-      await _pump(tester, _app(orders: [_order()]));
+      await _pumpEarlier(tester, _app(orders: [_order()]));
 
       await tester.tap(find.text('احفظ كطلب مفضل'));
       await tester.pumpAndSettle();
@@ -125,7 +144,10 @@ void main() {
     testWidgets('a matching favourite replaces the action with a statement', (
       tester,
     ) async {
-      await _pump(tester, _app(orders: [_order()], favourites: [_favourite()]));
+      await _pumpEarlier(
+        tester,
+        _app(orders: [_order()], favourites: [_favourite()]),
+      );
 
       expect(find.text('محفوظ في المفضلة'), findsOneWidget);
       // Replaced, not disabled: a greyed control with no reason is a dead end.
@@ -133,7 +155,7 @@ void main() {
     });
 
     testWidgets('a different order still offers to save', (tester) async {
-      await _pump(
+      await _pumpEarlier(
         tester,
         _app(
           orders: [
@@ -152,7 +174,7 @@ void main() {
       // action here would take the user through a naming dialog to reach a
       // guaranteed rejection. The backend guards against zero-line orders
       // explicitly, so they exist.
-      await _pump(tester, _app(orders: [_order(lines: const [])]));
+      await _pumpEarlier(tester, _app(orders: [_order(lines: const [])]));
 
       expect(find.text('احفظ كطلب مفضل'), findsNothing);
       expect(find.text('محفوظ في المفضلة'), findsNothing);

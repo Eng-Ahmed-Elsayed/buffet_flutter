@@ -149,8 +149,17 @@ Shown once per install. Skip and Sign in both go to login.
 
 ### Orders tab and Tracking 🔁
 - The tab's **Process / Done** segments (from the Tracking frame) split live orders from past ones.
+  They are labelled «قيد التنفيذ» / «سابقًا» ("In progress" / "Earlier"). **Ready sits under In
+  progress**, first, because the order has not stopped moving. Each tab has its own empty state and
+  pull-to-refresh. Save-as-favourite stays on finished orders only.
+- 🔁 The design's tracking frame holds a single order's lines. The tab holds a **list** of orders
+  instead, since a user can have several at once. Each row is titled by its drinks («قهوة ×2،
+  شاي») **in the reader's language, from the catalogue**, the same names the status screen shows.
+  The status word sits under the title, then the date and place.
 - Figma has 5 steps; we have 4 statuses. "Kitchen takes order" and "Preparing" are both
-  `InProgress`, so the timeline is **Sent → Being prepared → Ready → Completed**.
+  `InProgress`, so the timeline is **Sent → Being prepared → Ready → Completed** ("Received" in
+  English). It is vertical, as in the design, with each step's time where the API has one. The
+  summary card no longer repeats the placed and ready times.
 - `Ready` is the loudest state, in `ok` green with its word, never colour alone. Its wording is
   neutral until the fulfilment mode ships, then it follows the mode (D5).
 - 🔁 The green **"Pickup Order"** button becomes **"I picked it up"**. It is shown only on the

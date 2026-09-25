@@ -72,7 +72,6 @@
   },
   "addSpoon": "Add a spoon",
   "removeSpoon": "Remove a spoon",
-  "fromMyMaterials": "From my own materials",
   "servingsLeft": "{count, plural, =0{None left} =1{1 serving left} other{{count} servings left}}",
   "@servingsLeft": {
     "description": "How many servings remain in the user's own jar.",
@@ -105,17 +104,17 @@
   "statusPending": "Pending",
   "statusInProgress": "In progress",
   "statusReady": "Ready",
-  "statusCompleted": "Collected",
+  "statusCompleted": "Received",
   "statusCancelled": "Cancelled",
   "pendingBody": "We have your order — it has not been started yet",
   "inProgressBody": "Your drink is being made now",
-  "readyBody": "Your drink is ready — come and collect it",
+  "readyBody": "The buffet has made it — it's ready for you",
   "cancelOrder": "Cancel order",
   "orderAgain": "Order again",
 
   "outstandingReadyTitle": "Your drink is ready",
   "@outstandingReadyTitle": { "description": "Home-screen banner title when the user has an order sitting in Ready, waiting to be collected." },
-  "outstandingReadyBody": "Waiting at the buffet for you to collect",
+  "outstandingReadyBody": "It's ready for you now",
   "@outstandingReadyBody": { "description": "Body of the home-screen banner for a Ready order." },
   "outstandingLiveTitle": "You have an order in progress",
   "@outstandingLiveTitle": { "description": "Home-screen banner title when the user has a Pending or InProgress order." },
@@ -148,7 +147,7 @@
 
   "queueTitle": "Orders",
   "queueTab": "Queue",
-  "handoverTab": "Ready to collect",
+  "handoverTab": "Ready for handover",
   "orderCount": "{count, plural, =0{No orders} =1{1 order} other{{count} orders}}",
   "@orderCount": {
     "description": "Number of orders in the queue.",
@@ -170,7 +169,7 @@
   "@alertReadyTitle": {
     "description": "Local notification title when an order turns Ready."
   },
-  "alertReadyBody": "Order {orderId} is waiting to be collected.",
+  "alertReadyBody": "Order {orderId} is ready.",
   "@alertReadyBody": {
     "description": "Local notification body when an order turns Ready.",
     "placeholders": { "orderId": { "type": "int" } }
@@ -186,7 +185,7 @@
   },
   "channelReadyName": "Drink ready",
   "@channelReadyName": { "description": "Android channel name. Frozen at first creation." },
-  "channelReadyDescription": "Tells you the moment a drink is ready to collect.",
+  "channelReadyDescription": "Tells you the moment your drink is ready.",
   "@channelReadyDescription": { "description": "Android channel description." },
   "channelCancelledName": "Order cancelled",
   "@channelCancelledName": { "description": "Android channel name. Frozen at first creation." },
@@ -260,7 +259,7 @@
   "emptyQueueTitle": "No orders",
   "emptyQueueBody": "New orders appear here automatically.",
   "noHandoversTitle": "Nothing ready",
-  "noHandoversBody": "Orders waiting to be collected appear here.",
+  "noHandoversBody": "Orders ready for handover appear here.",
 
   "notifications": "Notifications",
   "noNotifications": "No notifications",
@@ -380,10 +379,6 @@
   "keepOrder": "Keep order",
   "@keepOrder": { "description": "The dismissive action on the cancel-order dialog — leaves the order standing." },
 
-  "orderPlacedAt": "Placed",
-  "@orderPlacedAt": { "description": "Label for the time an order was placed, on the order summary block." },
-  "orderReadyAt": "Ready at",
-  "@orderReadyAt": { "description": "Label for the time an order became Ready." },
   "navHome": "Home",
   "navFavourites": "Favourites",
   "navOrders": "Orders",
@@ -433,5 +428,11 @@
   "reviewEmptyTitle": "No drink in this order",
   "reviewEmptyBody": "Choose a drink to place the order.",
   "chooseADrink": "Choose a drink",
-  "removeOneCup": "Remove one cup"
+  "removeOneCup": "Remove one cup",
+  "timelineSent": "Order sent",
+  "noLiveOrders": "Nothing on the way",
+  "noPastOrders": "No earlier orders",
+  "noLiveOrdersBody": "Orders being made appear here until you receive them.",
+  "noPastOrdersBody": "Received and cancelled orders appear here.",
+  "listSeparator": ", "
 }

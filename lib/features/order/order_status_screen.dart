@@ -17,6 +17,7 @@ import '../../shared/formatters.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/source_chip.dart';
+import '../../theme/app_theme.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'composer_screen.dart';
@@ -279,7 +280,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
                       guestName: order.onBehalfOfName,
                     ),
                     const SizedBox(height: Dimens.space5),
-                    _StatusTrack(status: order.orderStatus),
+                    _Timeline(order: order),
                     const SizedBox(height: Dimens.space5),
 
                     // Where and when, once for the whole order. These are
@@ -470,92 +471,211 @@ class _StatusHeader extends StatelessWidget {
   }
 }
 
-/// The four-step progress track. Cancelled orders have no track — they left
-/// the workflow.
-class _StatusTrack extends StatelessWidget {
-  const _StatusTrack({required this.status});
+/// The design's tracking timeline: Sent → Being prepared → Ready → Received,
+/// one step per row, each with the time it happened when the API has one.
+///
+/// The design draws five steps; the order has four statuses. "Kitchen takes
+/// order" and "Preparing" are both `InProgress`, so they are one step here —
+/// and that step has no time, because `StartedAtUtc` is not on the wire yet
+/// (`docs/backend-request-order-started-at.md`).
+///
+/// A cancelled order stops after Sent, with a Cancelled step in danger red.
+/// Every step carries its word, never colour alone (§2.5).
+class _Timeline extends StatelessWidget {
+  const _Timeline({required this.order});
 
-  final OrderStatus status;
+  final OrderSummaryDto order;
 
   @override
   Widget build(BuildContext context) {
-    if (status == OrderStatus.cancelled) return const SizedBox.shrink();
-
     final l10n = AppLocalizations.of(context);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final status = order.orderStatus;
+    String? at(DateTime? utc) =>
+        utc == null ? null : Formatters.timeOfDay(utc, locale);
 
     // Compared by name via the enum — the server's ordinals are not in
     // workflow order (Ready = 4).
-    const order = [
-      OrderStatus.pending,
-      OrderStatus.inProgress,
-      OrderStatus.ready,
-      OrderStatus.completed,
-    ];
-    final currentIndex = order.indexOf(status);
-
-    final labels = [
-      l10n.statusPending,
-      l10n.statusInProgress,
-      l10n.statusReady,
-      l10n.statusCompleted,
-    ];
-
-    // Every step takes an equal share of whatever width there is, and the
-    // connectors take what is left. The four steps used to be fixed at 72dp
-    // each, which overflowed below roughly 360dp — a width plenty of phones
-    // still have.
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < order.length; i++) ...[
-          if (i > 0)
-            Expanded(
-              child: Container(
-                height: Dimens.borderSelected,
-                margin: const EdgeInsetsDirectional.only(top: Dimens.space2),
-                color: i <= currentIndex
-                    ? (currentIndex >= 2 ? BrandColors.ok : BrandColors.brand)
-                    : BrandColors.brandLight,
-              ),
+    final steps = status == OrderStatus.cancelled
+        ? [
+            _Step(
+              l10n.timelineSent,
+              Icons.receipt_long_outlined,
+              at(order.createdAtUtc),
             ),
-          Expanded(
-            flex: 3,
+            _Step(
+              l10n.statusCancelled,
+              Icons.cancel_outlined,
+              at(order.handledAtUtc),
+            ),
+          ]
+        : [
+            _Step(
+              l10n.timelineSent,
+              Icons.receipt_long_outlined,
+              at(order.createdAtUtc),
+            ),
+            _Step(l10n.statusInProgress, Icons.coffee_maker_outlined, null),
+            _Step(
+              l10n.statusReady,
+              Icons.local_cafe_outlined,
+              at(order.readyAtUtc),
+            ),
+            _Step(
+              l10n.statusCompleted,
+              Icons.check_circle_outline,
+              status == OrderStatus.completed ? at(order.handledAtUtc) : null,
+            ),
+          ];
+
+    final current = switch (status) {
+      OrderStatus.pending => 0,
+      OrderStatus.inProgress => 1,
+      OrderStatus.ready => 2,
+      OrderStatus.completed => 3,
+      OrderStatus.cancelled => 1,
+    };
+
+    // Ready and Received are the good news, in green; a cancellation is red;
+    // everything reached before them is the primary blue.
+    Color reachedColour(int i) {
+      if (status == OrderStatus.cancelled && i == 1) return BrandColors.danger;
+      if (i >= 2) return BrandColors.ok;
+      return BrandColors.brand;
+    }
+
+    return AppCard(
+      padding: const EdgeInsetsDirectional.all(Dimens.space4),
+      child: Column(
+        children: [
+          for (final (i, step) in steps.indexed)
+            _TimelineRow(
+              step: step,
+              reached: i <= current,
+              isCurrent: i == current,
+              isLast: i == steps.length - 1,
+              colour: reachedColour(i),
+              // The connector below a step is coloured once the NEXT step is
+              // reached, so the line fills as the order moves.
+              connectorColour: i + 1 <= current
+                  ? reachedColour(i + 1)
+                  : BrandColors.brandLight,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Step {
+  const _Step(this.label, this.icon, this.time);
+
+  final String label;
+  final IconData icon;
+  final String? time;
+}
+
+class _TimelineRow extends StatelessWidget {
+  const _TimelineRow({
+    required this.step,
+    required this.reached,
+    required this.isCurrent,
+    required this.isLast,
+    required this.colour,
+    required this.connectorColour,
+  });
+
+  final _Step step;
+  final bool reached;
+  final bool isCurrent;
+  final bool isLast;
+  final Color colour;
+  final Color connectorColour;
+
+  static const _dot = Dimens.space6;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+
+    // IntrinsicHeight so the connector runs the full height of a label that
+    // wraps at a large text scale, rather than stopping short of it.
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: _dot,
             child: Column(
               children: [
                 Container(
-                  width: i == currentIndex ? Dimens.space5 : Dimens.space4,
-                  height: i == currentIndex ? Dimens.space5 : Dimens.space4,
+                  width: _dot,
+                  height: _dot,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: i > currentIndex
-                        ? BrandColors.brandLight
-                        : (currentIndex >= 2 && i >= 2
-                              ? BrandColors.ok
-                              : BrandColors.brand),
+                    // The current step is filled; one already passed is a
+                    // ring in its colour; one still to come is a pale ring.
+                    color: isCurrent ? colour : BrandColors.surface,
+                    border: Border.all(
+                      color: reached ? colour : BrandColors.outline,
+                      width: Dimens.borderSelected,
+                    ),
+                  ),
+                  child: Icon(
+                    step.icon,
+                    size: Dimens.space4,
+                    color: isCurrent
+                        ? BrandColors.surface
+                        : (reached ? colour : BrandColors.outline),
                   ),
                 ),
-                const SizedBox(height: Dimens.space1),
-                Text(
-                  labels[i],
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    fontWeight: i == currentIndex
-                        ? FontWeight.w700
-                        : FontWeight.w400,
-                    color: i == currentIndex
-                        ? (currentIndex >= 2
-                              ? BrandColors.ok
-                              : BrandColors.brand)
-                        : BrandColors.muted,
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: Dimens.borderSelected,
+                      constraints: const BoxConstraints(
+                        minHeight: Dimens.space5,
+                      ),
+                      color: connectorColour,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
+          const SizedBox(width: Dimens.space3),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(
+                top: Dimens.space1,
+                bottom: isLast ? 0 : Dimens.space4,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      step.label,
+                      style: text.titleSmall?.copyWith(
+                        color: reached ? colour : BrandColors.muted,
+                        fontWeight: isCurrent
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (step.time case final String time) ...[
+                    const SizedBox(width: Dimens.space2),
+                    Text(
+                      time,
+                      style: text.bodySmall?.merge(AppTheme.tabularFigures),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ],
-      ],
+      ),
     );
   }
 }
@@ -596,8 +716,10 @@ class _OrderLineCard extends ConsumerWidget {
               // could pick "فاتح" and never see it confirmed anywhere.
               if (variantName != null) DetailChip(label: variantName),
               DetailChip(label: l10n.spoons(line.sugarSpoons)),
+              // The user's own jar, said plainly. The staff chip's "X's jar"
+              // form read "From my own materials's jar" here.
               if (line.drinkFromOwn)
-                SourceChip(label: l10n.drink, ownerName: _ownLabel(context)),
+                _OwnJarChip(label: l10n.sectionMyMaterials),
             ],
           ),
           // Location and times used to be repeated here, once per drink. They
@@ -637,9 +759,33 @@ class _OrderLineCard extends ConsumerWidget {
     }
     return null;
   }
+}
 
-  String _ownLabel(BuildContext context) =>
-      AppLocalizations.of(context).fromMyMaterials;
+/// Violet: this cup came from the user's own jar (rule 3), and only that.
+class _OwnJarChip extends StatelessWidget {
+  const _OwnJarChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: BoxDecoration(
+      color: BrandColors.accentSurface,
+      border: Border.all(color: BrandColors.accent),
+      borderRadius: BorderRadius.circular(Dimens.radiusLg),
+    ),
+    child: Padding(
+      padding: const EdgeInsetsDirectional.symmetric(
+        horizontal: Dimens.space3,
+        vertical: Dimens.space1,
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall
+            ?.copyWith(color: BrandColors.accent, fontWeight: FontWeight.w700),
+      ),
+    ),
+  );
 }
 
 /// Where the order is going and when it moved — stated once, for the order.
@@ -655,7 +801,6 @@ class _OrderSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final locale = Localizations.localeOf(context).toLanguageTag();
 
     return AppCard(
       child: Column(
@@ -673,24 +818,8 @@ class _OrderSummary extends StatelessWidget {
                 // direction (§2.4).
                 : Formatters.isolate(order.locationText),
           ),
-          const SizedBox(height: Dimens.space2),
-          _SummaryRow(
-            icon: Icons.schedule,
-            label: l10n.orderPlacedAt,
-            // UTC in, local out — never render a raw ...Utc value.
-            value: Formatters.timeOfDay(order.createdAtUtc, locale),
-            tabular: true,
-          ),
-          if (order.readyAtUtc case final DateTime readyAt) ...[
-            const SizedBox(height: Dimens.space2),
-            _SummaryRow(
-              icon: Icons.check_circle_outline,
-              label: l10n.orderReadyAt,
-              value: Formatters.timeOfDay(readyAt, locale),
-              tone: BrandColors.ok,
-              tabular: true,
-            ),
-          ],
+          // The times live on the timeline above, one per step, so they
+          // are not repeated here.
           if (order.notes.trim().isNotEmpty) ...[
             const SizedBox(height: Dimens.space2),
             _SummaryRow(
@@ -705,48 +834,20 @@ class _OrderSummary extends StatelessWidget {
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({
-    required this.icon,
-    required this.value,
-    this.label,
-    this.tone,
-    this.tabular = false,
-  });
+  const _SummaryRow({required this.icon, required this.value});
 
   final IconData icon;
   final String value;
-  final String? label;
-  final Color? tone;
-
-  /// Times and counts line up column-wise when several are stacked.
-  final bool tabular;
 
   @override
   Widget build(BuildContext context) {
-    final colour = tone ?? BrandColors.muted;
-    final text = Theme.of(context).textTheme;
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: colour),
+        Icon(icon, size: 16, color: BrandColors.muted),
         const SizedBox(width: Dimens.space2),
-        if (label case final String label) ...[
-          Text(
-            label,
-            style: text.bodySmall?.copyWith(color: BrandColors.muted),
-          ),
-          const SizedBox(width: Dimens.space2),
-        ],
         Expanded(
-          child: Text(
-            value,
-            style: tabular
-                ? text.bodySmall?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  )
-                : text.bodySmall,
-          ),
+          child: Text(value, style: Theme.of(context).textTheme.bodySmall),
         ),
       ],
     );

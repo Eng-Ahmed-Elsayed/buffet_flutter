@@ -120,8 +120,6 @@
   "@addSpoon": { "description": "Accessibility label for the stepper's increment button." },
   "removeSpoon": "إنقاص ملعقة",
   "@removeSpoon": { "description": "Accessibility label for the stepper's decrement button." },
-  "fromMyMaterials": "من موادي الخاصة",
-  "@fromMyMaterials": { "description": "The violet toggle. Violet means 'from my own jar' everywhere." },
   "servingsLeft": "{count, plural, =0{لا يوجد رصيد} =1{متبقٍ كوب واحد} =2{متبقٍ كوبان} few{متبقٍ {count} أكواب} many{متبقٍ {count} كوبًا} other{متبقٍ {count} كوب}}",
   "@servingsLeft": {
     "description": "How many servings remain in the user's own jar.",
@@ -176,7 +174,7 @@
   "@pendingBody": { "description": "Subtitle on the Pending state." },
   "inProgressBody": "جارٍ تحضير مشروبك الآن",
   "@inProgressBody": { "description": "Subtitle on the InProgress state." },
-  "readyBody": "مشروبك جاهز — تفضّل باستلامه",
+  "readyBody": "حضّره البوفيه وهو جاهز لك",
   "@readyBody": { "description": "Subtitle on the Ready state — the loudest moment in the app." },
   "cancelOrder": "إلغاء الطلب",
   "@cancelOrder": { "description": "Cancel action. Pending only; hidden afterwards, never shown disabled." },
@@ -184,7 +182,7 @@
 
   "outstandingReadyTitle": "مشروبك جاهز",
   "@outstandingReadyTitle": { "description": "Home-screen banner title when the user has an order sitting in Ready, waiting to be collected." },
-  "outstandingReadyBody": "بانتظارك في البوفيه لاستلامه",
+  "outstandingReadyBody": "جاهز لك الآن",
   "@outstandingReadyBody": { "description": "Body of the home-screen banner for a Ready order." },
   "outstandingLiveTitle": "لديك طلب قيد التنفيذ",
   "@outstandingLiveTitle": { "description": "Home-screen banner title when the user has a Pending or InProgress order." },
@@ -264,7 +262,7 @@
   "@alertReadyTitle": {
     "description": "Local notification title when an order turns Ready."
   },
-  "alertReadyBody": "الطلب رقم {orderId} بانتظار الاستلام.",
+  "alertReadyBody": "الطلب رقم {orderId} جاهز.",
   "@alertReadyBody": {
     "description": "Local notification body when an order turns Ready.",
     "placeholders": { "orderId": { "type": "int" } }
@@ -280,7 +278,7 @@
   },
   "channelReadyName": "المشروب جاهز",
   "@channelReadyName": { "description": "Android channel name. Frozen at first creation." },
-  "channelReadyDescription": "يبلغك لحظة جهوز مشروبك للاستلام.",
+  "channelReadyDescription": "يبلغك لحظة جهوز مشروبك.",
   "@channelReadyDescription": { "description": "Android channel description." },
   "channelCancelledName": "إلغاء الطلب",
   "@channelCancelledName": { "description": "Android channel name. Frozen at first creation." },
@@ -365,7 +363,7 @@
   "@emptyQueueBody": { "description": "Body of the empty-queue state." },
   "noHandoversTitle": "لا توجد طلبات جاهزة",
   "@noHandoversTitle": { "description": "Empty state for the handover tab." },
-  "noHandoversBody": "الطلبات الجاهزة للاستلام ستظهر هنا.",
+  "noHandoversBody": "الطلبات الجاهزة للتسليم ستظهر هنا.",
   "@noHandoversBody": { "description": "Body of the empty-handover state." },
 
   "notifications": "الإشعارات",
@@ -497,10 +495,6 @@
   "keepOrder": "احتفظ بالطلب",
   "@keepOrder": { "description": "The dismissive action on the cancel-order dialog — leaves the order standing." },
 
-  "orderPlacedAt": "وقت الطلب",
-  "@orderPlacedAt": { "description": "Label for the time an order was placed, on the order summary block." },
-  "orderReadyAt": "جاهز في",
-  "@orderReadyAt": { "description": "Label for the time an order became Ready." },
   "navHome": "الرئيسية",
   "@navHome": { "description": "Bottom navigation tab: the employee's landing screen." },
   "navFavourites": "المفضلة",
@@ -588,5 +582,17 @@
   "chooseADrink": "اختر مشروبًا",
   "@chooseADrink": { "description": "Button on an empty review that goes back to the drink list." },
   "removeOneCup": "احذف كوبًا واحدًا",
-  "@removeOneCup": { "description": "Tooltip on the − beside a group of identical cups on the review step." }
+  "@removeOneCup": { "description": "Tooltip on the − beside a group of identical cups on the review step." },
+  "timelineSent": "تم إرسال الطلب",
+  "@timelineSent": { "description": "First step of the tracking timeline: the order was placed." },
+  "noLiveOrders": "لا يوجد طلب قيد التنفيذ",
+  "@noLiveOrders": { "description": "Empty state of the Orders tab's in-progress list." },
+  "noPastOrders": "لا توجد طلبات سابقة",
+  "@noPastOrders": { "description": "Empty state of the Orders tab's earlier list." },
+  "noLiveOrdersBody": "الطلبات التي يجري تحضيرها تظهر هنا حتى تستلمها.",
+  "@noLiveOrdersBody": { "description": "Body of the Orders tab's empty in-progress list." },
+  "noPastOrdersBody": "الطلبات المستلمة والملغاة تظهر هنا.",
+  "@noPastOrdersBody": { "description": "Body of the Orders tab's empty earlier list." },
+  "listSeparator": "، ",
+  "@listSeparator": { "description": "Joins the drinks of one order in a list row, e.g. 'Coffee ×2, Tea'. Keep the trailing space." }
 }

@@ -5,15 +5,16 @@ import 'package:go_router/go_router.dart';
 import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_exception.dart';
+import '../../data/models/catalogue_models.dart';
 import '../../data/models/order_models.dart';
 import '../../data/repositories/favourites_repository.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
-import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import 'composer_screen.dart';
 import 'favourites_controller.dart';
 import 'widgets/favourite_name_dialog.dart';
 
@@ -67,109 +68,153 @@ class MyOrdersScreen extends ConsumerWidget {
     // error rather than a row that sat disabled for no visible reason.
     final saved =
         ref.watch(favouritesProvider).valueOrNull?.favourites ?? const [];
+    // The order stores Arabic names only; the catalogue has the localised
+    // ones. Null while it loads, which falls back to the stored name — the
+    // list must not wait on the menu either.
+    final catalogue = ref.watch(catalogueProvider).valueOrNull;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(l10n.myOrdersTitle),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: l10n.refresh,
-            onPressed: () => ref.invalidate(myOrdersProvider),
-          ),
-        ],
-      ),
-      body: orders.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => EmptyState(
-          icon: Icons.cloud_off_outlined,
-          title: l10n.genericError,
-          // The server's message, not a generic one: it arrives already
-          // localised, and it is the only part that says what actually
-          // failed (§4).
-          body: error is ApiException ? error.message : l10n.networkError,
-          action: OutlinedButton.icon(
-            onPressed: () => ref.invalidate(myOrdersProvider),
-            icon: const Icon(Icons.refresh),
-            label: Text(l10n.retry),
+    // The design's Process / Done tabs: what is still on its way, and what
+    // is finished. Ready sits under "in progress" — the drink exists but the
+    // order has not stopped moving.
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(l10n.myOrdersTitle),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: l10n.refresh,
+              onPressed: () => ref.invalidate(myOrdersProvider),
+            ),
+          ],
+          bottom: TabBar(
+            tabs: [
+              Tab(text: l10n.liveOrders),
+              Tab(text: l10n.pastOrders),
+            ],
           ),
         ),
-        data: (all) {
-          if (all.isEmpty) {
-            // Stacked over an empty ListView so the pull-to-refresh gesture
-            // still works — the same trick the queue and notification lists
-            // use. An empty list you cannot refresh is a dead end.
-            return RefreshIndicator(
-              onRefresh: () async => ref.invalidate(myOrdersProvider),
-              child: Stack(
-                children: [
-                  ListView(),
-                  EmptyState(
-                    icon: Icons.receipt_long_outlined,
-                    title: l10n.noOrdersTitle,
-                    body: l10n.noOrdersBody,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          // Status is read by NAME through OrderStatus — never by ordinal,
-          // since Ready = 4 sits out of workflow order (rule 5).
-          final live = all.where((o) => o.orderStatus.isLive).toList();
-          final ready = all
-              .where((o) => o.orderStatus == OrderStatus.ready)
-              .toList();
-          // isSettled, not "everything else": only completed and cancelled
-          // orders are finished. Ready belongs above with the live ones — the
-          // drink exists but the order has not stopped moving.
-          final past = all.where((o) => o.orderStatus.isSettled).toList();
-
-          // Ready first: a drink waiting on the counter is the most urgent
-          // thing on this screen.
-          final current = [...ready, ...live];
-
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(myOrdersProvider),
-            child: ListView(
-              padding: const EdgeInsetsDirectional.all(Dimens.space4),
-              children: [
-                if (current.isNotEmpty) ...[
-                  SectionHeader(label: l10n.liveOrders),
-                  const SizedBox(height: Dimens.space2),
-                  for (final order in current) _OrderRow(order: order),
-                  const SizedBox(height: Dimens.space5),
-                ],
-                if (past.isNotEmpty) ...[
-                  SectionHeader(label: l10n.pastOrders),
-                  const SizedBox(height: Dimens.space2),
-                  for (final order in past)
-                    _OrderRow(
-                      order: order,
-                      // Whether this exact order is already saved, so the row
-                      // can say so with a filled star rather than offering to
-                      // save a second copy of it.
-                      alreadySaved:
-                          order.lines.isNotEmpty &&
-                          saved.any((f) => f.orders(order.lines)),
-                      // Only on a finished order. This is the migration path
-                      // for anyone who relied on the old "last order" button:
-                      // the user picks WHICH past order was actually a habit,
-                      // instead of the server assuming the newest one was
-                      // (§7.7).
-                      // An order carrying no lines cannot become a
-                      // favourite — the server refuses an empty one with a
-                      // 400 — so the action is absent rather than offered
-                      // and then rejected after the user has named it.
-                      onSaveAsFavourite: order.lines.isEmpty
-                          ? null
-                          : () => _saveAsFavourite(context, ref, order),
-                    ),
-                ],
-              ],
+        body: orders.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => EmptyState(
+            icon: Icons.cloud_off_outlined,
+            title: l10n.genericError,
+            // The server's message, not a generic one: it arrives already
+            // localised, and it is the only part that says what failed (§4).
+            body: error is ApiException ? error.message : l10n.networkError,
+            action: OutlinedButton.icon(
+              onPressed: () => ref.invalidate(myOrdersProvider),
+              icon: const Icon(Icons.refresh),
+              label: Text(l10n.retry),
             ),
-          );
-        },
+          ),
+          data: (all) {
+            // Status is read by NAME through OrderStatus — never by ordinal,
+            // since Ready = 4 sits out of workflow order (rule 5).
+            final live = all.where((o) => o.orderStatus.isLive).toList();
+            final ready = all
+                .where((o) => o.orderStatus == OrderStatus.ready)
+                .toList();
+            // isSettled, not "everything else": only completed and cancelled
+            // orders are finished.
+            final past = all.where((o) => o.orderStatus.isSettled).toList();
+
+            // Ready first: a drink waiting is the most urgent thing here.
+            final current = [...ready, ...live];
+
+            return TabBarView(
+              children: [
+                _OrderList(
+                  orders: current,
+                  emptyIcon: Icons.local_cafe_outlined,
+                  emptyTitle: all.isEmpty
+                      ? l10n.noOrdersTitle
+                      : l10n.noLiveOrders,
+                  emptyBody: all.isEmpty
+                      ? l10n.noOrdersBody
+                      : l10n.noLiveOrdersBody,
+                  rowFor: (order) =>
+                      _OrderRow(order: order, catalogue: catalogue),
+                ),
+                _OrderList(
+                  orders: past,
+                  emptyIcon: Icons.receipt_long_outlined,
+                  emptyTitle: all.isEmpty
+                      ? l10n.noOrdersTitle
+                      : l10n.noPastOrders,
+                  emptyBody: all.isEmpty
+                      ? l10n.noOrdersBody
+                      : l10n.noPastOrdersBody,
+                  rowFor: (order) => _OrderRow(
+                    order: order,
+                    catalogue: catalogue,
+                    // Whether this exact order is already saved, so the row
+                    // can say so rather than offer to save a second copy.
+                    alreadySaved:
+                        order.lines.isNotEmpty &&
+                        saved.any((f) => f.orders(order.lines)),
+                    // Only on a finished order: the user picks WHICH past
+                    // order was actually a habit (§7.7). An order with no
+                    // lines cannot become a favourite — the server refuses an
+                    // empty one — so the action is absent rather than offered
+                    // and then rejected.
+                    onSaveAsFavourite: order.lines.isEmpty
+                        ? null
+                        : () => _saveAsFavourite(context, ref, order),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// One tab's list, with its own pull-to-refresh and empty state.
+class _OrderList extends ConsumerWidget {
+  const _OrderList({
+    required this.orders,
+    required this.emptyIcon,
+    required this.emptyTitle,
+    required this.emptyBody,
+    required this.rowFor,
+  });
+
+  final List<OrderSummaryDto> orders;
+  final IconData emptyIcon;
+  final String emptyTitle;
+  final String emptyBody;
+  final Widget Function(OrderSummaryDto order) rowFor;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future<void> refresh() async => ref.invalidate(myOrdersProvider);
+
+    if (orders.isEmpty) {
+      // Stacked over an empty ListView so the pull-to-refresh gesture still
+      // works — an empty list you cannot refresh is a dead end.
+      return RefreshIndicator(
+        onRefresh: refresh,
+        child: Stack(
+          children: [
+            ListView(),
+            EmptyState(icon: emptyIcon, title: emptyTitle, body: emptyBody),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: refresh,
+      child: ListView(
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: Dimens.gutter,
+          vertical: Dimens.space4,
+        ),
+        children: [for (final order in orders) rowFor(order)],
       ),
     );
   }
@@ -220,15 +265,55 @@ Future<void> _saveAsFavourite(
   }
 }
 
+/// The drinks on [order], identical ones once with ×N — "Coffee ×2, Tea".
+/// Null for an order that carries no lines.
+///
+/// Named from [catalogue] in the reader's language, as the status screen does,
+/// so the row and the order it opens never name a drink differently. The
+/// stored Arabic name is the floor, for a menu still loading or a drink since
+/// retired. Each name is isolated: admin-entered, in whatever script it was
+/// typed.
+String? _drinks(
+  OrderSummaryDto order,
+  CatalogueResponse? catalogue,
+  AppLocalizations l10n,
+  String languageCode,
+) {
+  if (order.lines.isEmpty) return null;
+  final names = <int, String>{};
+  final counts = <int, int>{};
+  for (final line in order.lines) {
+    names.putIfAbsent(line.drinkItemId, () {
+      for (final item in catalogue?.drinks ?? const <CatalogueItemDto>[]) {
+        if (item.itemId == line.drinkItemId) {
+          return item.localisedName(languageCode);
+        }
+      }
+      return line.drinkNameAr;
+    });
+    counts.update(line.drinkItemId, (n) => n + 1, ifAbsent: () => 1);
+  }
+  return [
+    for (final MapEntry(key: id, value: n) in counts.entries)
+      n > 1
+          ? '${Formatters.isolate(names[id]!)} ×$n'
+          : Formatters.isolate(names[id]!),
+  ].join(l10n.listSeparator);
+}
+
 /// One order in the list. Tapping opens the tracking screen.
 class _OrderRow extends StatelessWidget {
   const _OrderRow({
     required this.order,
+    required this.catalogue,
     this.onSaveAsFavourite,
     this.alreadySaved = false,
   });
 
   final OrderSummaryDto order;
+
+  /// Names the drinks in the reader's language; null while it loads.
+  final CatalogueResponse? catalogue;
 
   /// Offered on finished orders only. Null on a live one — an order still
   /// being made is not yet something the user knows they want again.
@@ -281,37 +366,48 @@ class _OrderRow extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            // locationText is optional — an order stands without
-                            // one, so an empty string is a normal state and must
-                            // read as "none given" rather than as a blank row.
-                            order.locationText.trim().isEmpty
-                                ? l10n.noLocationGiven
-                                // Isolated: user- or admin-entered, and may run
-                                // counter to the page direction (§2.4).
-                                : Formatters.isolate(order.locationText),
-                            style: Theme.of(context).textTheme.titleSmall,
-                            maxLines: 1,
+                            // What was ordered, as the design's rows read:
+                            // identical cups once, with ×N. Falls back to the
+                            // place for an order that carries no lines.
+                            _drinks(
+                                  order,
+                                  catalogue,
+                                  l10n,
+                                  Localizations.localeOf(context).languageCode,
+                                ) ??
+                                (order.locationText.trim().isEmpty
+                                    ? l10n.noLocationGiven
+                                    : Formatters.isolate(order.locationText)),
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(color: BrandColors.brandSecondary),
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
+                          ),
+                          // Under the drinks rather than beside them: beside,
+                          // it split the row with the title and, at a large
+                          // text scale, pushed the chevron off the edge. It
+                          // always shows — colour is never the only signal
+                          // (§2.5).
+                          Text(
+                            label,
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: tone),
                           ),
                           Text(
                             // Converted from UTC — never rendered raw (§4).
-                            Formatters.dateTime(order.createdAtUtc, locale),
+                            // The place, when given, is isolated: user-entered
+                            // and may run counter to the page direction.
+                            [
+                              Formatters.dateTime(order.createdAtUtc, locale),
+                              if (order.lines.isNotEmpty &&
+                                  order.locationText.trim().isNotEmpty)
+                                Formatters.isolate(order.locationText),
+                            ].join(' · '),
                             style: Theme.of(context).textTheme.labelSmall,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(width: Dimens.space2),
-                    // Constrained rather than free: at a large text scale the
-                    // status word alone was wider than the row and pushed the
-                    // chevron off the edge. It still always shows — colour is
-                    // never the only signal (§2.5) — it just wraps instead.
-                    Flexible(
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.labelMedium
-                            ?.copyWith(color: tone),
                       ),
                     ),
                     const Icon(Icons.chevron_right, size: 18),
