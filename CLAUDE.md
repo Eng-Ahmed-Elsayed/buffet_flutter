@@ -194,6 +194,11 @@ well, because the same destination twice on one screen (once in the chrome, once
 noise. The unread badge lives on the bell alone for the same reason. Pinned by
 `test/features/home_screen_test.dart`.
 
+**Both landing screens carry the brand lockup in their top bar**, Home and the staff queue alike.
+Each is named for screen readers (`homeTitle`, `queueTitle`), since the lockup is decorative. The
+queue's lockup scales down so its count and three actions still fit at 320dp
+(`queue_undo_test.dart`).
+
 **The first-launch explainer (`/welcome`) shows once per install, before the first sign-in, and
 never to someone who already uses the app.** Its flag lives in `PreferencesStore` and survives
 sign-out. **Any session stage (signed in, locked, forced password change) marks it seen**; see

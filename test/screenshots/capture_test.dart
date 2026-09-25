@@ -722,6 +722,15 @@ void main() {
         await t.pumpWidget(
           _app(shot.build(), locale: locale, overrides: shot.overrides),
         );
+        // Asset images decode off the fake clock, so a frame count alone can
+        // leave the logo blank: the queue's top bar captured empty that way.
+        // Decode it for real before settling, so every shot shows it.
+        await t.runAsync(
+          () => precacheImage(
+            const AssetImage('assets/images/logo-defi.png'),
+            t.element(find.byType(MaterialApp)),
+          ),
+        );
         await _settle(t);
         if (shot.after != null) await shot.after!(t);
 

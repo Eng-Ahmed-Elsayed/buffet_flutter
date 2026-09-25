@@ -9,6 +9,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../helpers/app_harness.dart';
+
 StaffOrderDto _order(int id, {String? onBehalfOfName}) => StaffOrderDto(
   orderId: id,
   status: 'Pending',
@@ -241,5 +243,44 @@ void main() {
       final l10n = await AppLocalizations.delegate.load(const Locale('ar'));
       expect(find.text(l10n.guestOrder), findsNothing);
     });
+  });
+
+  group('the top bar fits a 320dp phone', () {
+    setUpAll(loadAppFonts);
+
+    for (final locale in const [Locale('ar'), Locale('en')]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets('with the lockup, count and three actions at ${scale}x in '
+            '${locale.languageCode}', (tester) async {
+          tester.view.physicalSize = const Size(320, 800);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.reset);
+
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                queueRepositoryProvider.overrideWithValue(
+                  // Twelve, so the count is two digits wide.
+                  _FakeQueueRepository([
+                    for (var i = 1; i <= 12; i++) _order(i),
+                  ]),
+                ),
+              ],
+              child: testApp(
+                home: const QueueScreen(),
+                locale: locale,
+                textScale: scale,
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(tester.takeException(), isNull);
+          // The lockup is decorative; the bar is named for screen readers.
+          final l10n = await AppLocalizations.delegate.load(locale);
+          expect(find.bySemanticsLabel(l10n.queueTitle), findsOneWidget);
+        });
+      }
+    }
   });
 }

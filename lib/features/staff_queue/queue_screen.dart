@@ -14,6 +14,7 @@ import '../../data/models/staff_models.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../shared/widgets/notification_bell.dart';
 import '../../theme/brand_colors.dart';
@@ -431,7 +432,20 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       // would otherwise close the app outright.
       child: Scaffold(
         appBar: AppBar(
-          title: Text(l10n.queueTitle),
+          // The design's top bar, as on Home — the other landing screen: the
+          // lockup at the start. It is decorative, so the bar carries the
+          // screen's name for screen readers. Scaled down rather than clipped
+          // when the count and three actions leave it less than its width on
+          // a 320dp phone.
+          title: Semantics(
+            header: true,
+            label: l10n.queueTitle,
+            child: const FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: BrandLockup(width: 120),
+            ),
+          ),
           actions: [
             Center(
               child: Text(

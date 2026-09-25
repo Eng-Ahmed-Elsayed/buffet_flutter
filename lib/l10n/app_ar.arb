@@ -233,7 +233,7 @@
   "@noMaterialsBody": { "description": "Body of the empty materials state." },
 
   "queueTitle": "الطلبات",
-  "@queueTitle": { "description": "App bar title of the staff queue — the staff home screen." },
+  "@queueTitle": { "description": "The staff queue's name for screen readers; the top bar itself shows the brand lockup, as on Home." },
   "queueTab": "الطابور",
   "@queueTab": { "description": "Tab showing Pending + InProgress only." },
   "handoverTab": "جاهز للتسليم",
