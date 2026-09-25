@@ -497,10 +497,14 @@ for a fingerprint on a login screen teaches users the prompt is meaningless.
 
 ## 7. The employee view
 
-### 7.1 Ordering — one screen
+### 7.1 Ordering
 
-The web deliberately puts ordering on a single screen. Match it; a wizard on a phone for a cup of
-coffee is worse, not better.
+The web puts ordering on a single screen. **The app now follows the Figma redesign instead**:
+Choose a drink → Drink Details → Review, three steps of one route. The details, and why it is one
+route, are in [figma-redesign.md](figma-redesign.md) (*Ordering*). The common case stays short:
+Home's menu opens a drink directly on its details, and a favourite opens straight on Review, so a
+repeat order is two taps. Every rule below applies across the three steps exactly as it did to
+the one screen.
 
 - **Tappable drink tiles**, image from `CatalogueItemDto.imageUrl` (relative — resolve against the
   API host), falling back to a category emoji when null. Images are uploaded by admins and served

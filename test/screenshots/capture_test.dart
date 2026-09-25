@@ -54,7 +54,6 @@ import 'package:buffet_app/features/order/favourites_screen.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/features/order/order_status_screen.dart';
-import 'package:buffet_app/features/order/widgets/drink_tile.dart';
 import 'package:buffet_app/features/settings/settings_screen.dart';
 import 'package:buffet_app/features/staff_queue/queue_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
@@ -441,20 +440,30 @@ void main() {
       height: 1000,
     ),
     const _Shot(
-      '09-employee-composer-empty-draft',
+      '09-employee-composer-choose-drink',
       ComposerScreen.new,
       height: 1200,
     ),
+    // Opened from a drink the user owns, from their own jar — so the violet
+    // "made from" choice is on screen.
     _Shot(
-      '10-employee-composer-drink-chosen',
-      ComposerScreen.new,
+      '10-employee-composer-drink-details',
+      () => ComposerScreen(
+        seed: ComposerSeed(
+          drinkItemId: fx.catalogue.drinks
+              .firstWhere((d) => d.hasOwnStock)
+              .itemId,
+          drinkFromOwn: true,
+        ),
+      ),
       height: 1200,
-      // The tile, not its label: the name is localised, so matching on text
-      // finds nothing in English.
-      after: (t) async {
-        await t.tap(find.byType(DrinkTile).first);
-        await _settle(t);
-      },
+    ),
+    // Opened from a favourite: straight to review.
+    _Shot(
+      '10-employee-composer-review',
+      () =>
+          ComposerScreen(seed: ComposerSeed(favourite: fx.replayableFavourite)),
+      height: 1200,
     ),
     _Shot(
       '11-employee-composer-guest-mode',

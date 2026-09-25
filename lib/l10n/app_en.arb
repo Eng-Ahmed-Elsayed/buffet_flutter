@@ -418,5 +418,20 @@
   "menuTitle": "Menu",
   "noDrinkMatches": "No drink by that name",
   "outOfStockBadge": "Out at the buffet",
-  "orderForGuest": "Order for a guest"
+  "orderForGuest": "Order for a guest",
+  "reviewOrderTitle": "Review order",
+  "continueToReview": "Continue",
+  "quantity": "Quantity",
+  "quantityMore": "One more cup",
+  "quantityFewer": "One fewer cup",
+  "quantityAtMost": "The most this order can take ({max})",
+  "@quantityAtMost": { "placeholders": { "max": { "type": "int" } } },
+  "orderingFor": "For {name}",
+  "@orderingFor": { "placeholders": { "name": { "type": "String" } } },
+  "drinkSource": "Made from",
+  "editDrink": "Change this drink",
+  "reviewEmptyTitle": "No drink in this order",
+  "reviewEmptyBody": "Choose a drink to place the order.",
+  "chooseADrink": "Choose a drink",
+  "removeOneCup": "Remove one cup"
 }

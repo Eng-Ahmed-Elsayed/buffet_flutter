@@ -129,7 +129,7 @@ Shown once per install. Skip and Sign in both go to login.
 | Sugar chip-stepper **and** sugar slider | 🔁 **one** stepper; 0 is an explicit "no sugar". A slider cannot make zero a stated choice |
 | "Mint leaves" slider | ❌ an extra is one fixed serving; there is no amount |
 | — | ➕ source choice, only when `hasOwnStock`: «من موادي» in **violet**, «من البوفيه» **neutral**. Violet never marks the buffet |
-| Quantity stepper | 🔁 There is no per-line quantity, so the stepper sets how many **identical lines** the draft becomes. Nothing is hard-coded, and **only structural limits decide whether it is shown; a stock reading never does**: <br>• It is shown when `maxLines` leaves room for more than one line **and** the line's **requested** source structurally allows more than one: own jar (`drinkFromOwn == true`), or buffet when `maxBuffetDrinks > 1` or `capIsLifted`. Lines already added do not enter this test, because some of them count as buffet only on a stock reading. <br>• An own-jar drink whose jar reads empty (`ownServingsLeft <= 0`) **keeps the stepper**. Its lines resolve to buffet stock and count against the buffet cap (guide §7.1.1), but that is a stock reading, so the cap is enforced at the point of adding, **with the reason stated**, and never by hiding or disabling. <br>• **This needs a quantity-aware gate** (Phase 5): today `draftWouldExceedBuffetCap` (`composer_controller.dart:291`) and `addLine` (`:534`) treat the draft as exactly one line, and the buffet-cap banner (`composer_screen.dart:485`) follows them. The controller gains a draft quantity: `addLine` commits N identical lines, and the gate and the banner count the draft as N. Existing controller tests stay untouched; new ones cover the quantity |
+| Quantity stepper | 🔁 There is no per-line quantity, so the stepper sets how many **identical lines** the draft becomes. Nothing is hard-coded, and **only structural limits decide whether it is shown; a stock reading never does**: <br>• It is shown when `maxLines` leaves room for more than one line **and** the line's **requested** source structurally allows more than one: own jar (`drinkFromOwn == true`), or buffet when `maxBuffetDrinks > 1` or `capIsLifted`. Lines already added count by their *requested* jar, never by whether a jar reads empty (a stock reading). <br>• An own-jar drink whose jar reads empty (`ownServingsLeft <= 0`) **keeps the stepper**. Its lines resolve to buffet stock and count against the buffet cap (guide §7.1.1), but that is a stock reading, so the cap is enforced at the point of adding, **with the reason stated**, and never by hiding or disabling. <br>• **This needs a quantity-aware gate** (Phase 5): today `draftWouldExceedBuffetCap` (`composer_controller.dart:291`) and `addLine` (`:534`) treat the draft as exactly one line, and the buffet-cap banner (`composer_screen.dart:485`) follows them. The controller gains a draft quantity: `addLine` commits N identical lines, and the gate and the banner count the draft as N. Existing controller tests stay untouched; new ones cover the quantity |
 | "Add to Orders" | 🔁 **Continue** → Review |
 
 ### Review order (Figma "Order Summary") 🔁
@@ -171,37 +171,59 @@ Shown once per install. Skip and Sign in both go to login.
 
 ## Ordering (D2)
 
-The composer is split into three pushed screens sharing one `ComposerController`, whose lifetime is
-the flow:
+The composer is **one route (`/order`) hosting three steps**, `ComposerStep`: Choose a drink →
+Drink Details → Review. It shows the design's three screens, but the whole flow is one order: one
+draft, one guest name, one idempotency key. One screen owning all of it means none of that can be
+dropped between routes, and the controller's guarantees did not move.
 
-1. **Choose a drink.** Search, the favourites strip (with "See all", since there is no nav bar
-   here) and the menu list: the same widgets as Home.
+1. **Choose a drink** (`steps/choose_drink_step.dart`): the favourites strip (with "See all", since
+   there is no nav bar here), search, and `DrinkMenu`, the same menu Home shows.
    - It is where the flow starts for **staff** (the queue's "order for myself"), for **guest mode**
      (Home's guest entry), and for **"Add another drink"**.
    - In guest mode the **guest name is its first field**. That preserves "guest mode asks for the
      name first", and it means `capIsLifted` already holds by the time a quantity stepper is shown.
-     **Every way off this screen runs the name check**: a menu-row tap and a favourite tap (which
-     would otherwise jump straight to Review, where the name has no field). With no name, the
-     handler reveals the error on the field and stays put. Nothing is disabled.
-   - Employees ordering for themselves skip this screen: tapping a menu row on Home opens Drink
-     Details directly.
-2. **Drink Details** edits the current line.
-3. **Review** holds all the lines, plus location (the fulfilment choice once shipped), notes,
-   save-as-favourite and Place order.
+     **Every way off this step runs the name check**: a menu row, a favourite, and the "N drinks in
+     this order" card. With no name, the error shows on the field and the step stays put.
+     Nothing is disabled.
+2. **Drink Details** (`steps/drink_details_step.dart`) edits the draft. It shows the jar choice
+   (violet for "my materials", brand for the buffet; only when the user owns the drink), the
+   preparation, sugar, extras and the quantity stepper.
+3. **Review** (`steps/review_order_step.dart`) holds:
+   - the lines, with the draft at its quantity;
+   - identical added lines shown once as ×N, with "one fewer" and "remove";
+   - location, notes, save-as-favourite and Place order.
 
-Everything the controller guarantees today still holds, and its tests are unchanged:
+**Where it starts**, from the seed:
+- a favourite opens on Review, or on Choose if its drink was retired;
+- a Home menu row opens on Drink Details;
+- everything else opens on Choose.
 
-- The idempotency key is minted when the flow opens, kept across retries, and discarded only on
-  confirmation.
+**Back unwinds the steps before it leaves the route.** It is `PopScope`-driven, and three rules keep
+it sensible:
+- **"Add another drink"** commits the draft and stacks Choose **on top of** Review, so back returns
+  to the order rather than discarding it.
+- **Continue** returns to the Review already in the flow rather than stacking a second one.
+- **Removing the draft** also drops the Drink Details step that edited it, so back never lands on a
+  step with no drink.
+
+**Quantity** (`draftQuantity`) is identical lines; there is no per-line quantity on the wire.
+- `maxDraftQuantity` takes only structural limits into account: the room under `maxLines` and, for
+  a drink *requested* from the buffet, the room under the buffet cap. Lines already added count by
+  their **requested** jar, never by whether a jar reads empty.
+- An own-jar drink that reads empty keeps its stepper. The cap then shows on the drink step and on
+  Review, and `addLine` refuses past it with the banner saying why.
+
+Everything the controller guaranteed before still holds, and the existing controller tests are
+unchanged (`composer_quantity_test.dart` covers what is new):
+
+- The idempotency key is minted when the flow opens, kept across every step and every retry, and
+  discarded only on confirmation.
 - `setMode` never mints a key.
 - `mode` and the favourite fields stay in both `ComposerState` constructor calls.
-- The buffet cap is enforced when a line is added.
-- Place order is never disabled. The guest name gates it by revealing the error on the field.
-  Leaving Choose a drink in guest mode is gated the same way (above). A delivery order without a
-  location is gated the same way once D5 ships.
-
-Guide §7.1 ("ordering — one screen") **will be** updated to describe the steps in the phase that
-builds them.
+- The buffet cap is enforced when a line is added, and it counts the quantity.
+- Place order is disabled only when the order holds nothing, and then Review says so, with a way
+  back to the drinks. It is never disabled on stock or a missing guest name; a missing name takes
+  the user back to the field with the error showing.
 
 ## Rules this redesign changes (CLAUDE.md is updated as each lands)
 
@@ -211,7 +233,7 @@ builds them.
 | `home_screen_test`: "New order" reachable without scrolling at 320dp | There is no "New order" button; a menu row opens the composer. The search field and the outstanding order are reachable above the tab bar at 320dp with a full favourites strip, and with no favourites the first menu row is too. (The first row cannot be pinned with a full strip: it lands just below the fold, measured) |
 | Notifications and settings live in the home app bar only | The bell lives in the top bar; settings is the Account tab. Still one control per destination |
 | The favourites strip truncates only when a "show all" destination exists, which it links to | On Home the destination is the **Favorites tab**, so the strip carries no link of its own. On Choose a drink (no nav bar) the "See all" link stays |
-| Ordering is one screen (guide §7.1) | Ordering is (Choose a drink →) Drink Details → Review |
+| Ordering is one screen (guide §7.1) | Ordering is (Choose a drink →) Drink Details → Review: three steps of one route (see *Ordering*) |
 | The favourites strip lives on the composer as well as the hub, because staff never see the hub | It lives on **Choose a drink** as well as Home, for the same reason |
 | Guest mode asks for the name first | Unchanged in substance: the name is the first field of Choose a drink |
 | Ready is the "come and collect it" moment (guide §4.3; `readyBody`, `outstandingReadyBody`, `alertReadyBody`, `channelReadyDescription`, `handoverTab`, `noHandoversBody` in the ARB files) | Ready is still the loudest state, but its wording is **neutral** until the fulfilment mode ships, then **per mode** (D5). Android should update an existing channel's *description* when the channel is re-created with the same id, which the `@channelReadyName` note ("frozen") does not cover; **verify on a device** |

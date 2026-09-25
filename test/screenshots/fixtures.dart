@@ -160,6 +160,30 @@ final favourites = [
   favourite(5, 'كابتشينو للزائر', lastUsedAtUtc: DateTime.utc(2026, 9, 15, 6)),
 ];
 
+/// A favourite that really replays: a dark Turkish coffee with two sugars and
+/// milk, all from the buffet. The strip's fixtures carry no lines, because
+/// the strip only shows names.
+final replayableFavourite = FavouriteDto(
+  favouriteId: 6,
+  name: 'قهوتي الصباحية',
+  createdAtUtc: DateTime.utc(2026, 9, 1),
+  lastUsedAtUtc: DateTime.utc(2026, 9, 19, 6),
+  lines: const [
+    OrderLineDto(
+      drinkItemId: 1,
+      drinkNameAr: 'قهوة تركي سادة',
+      sugarSpoons: 2,
+      variantId: 11,
+      sugarItemId: 20,
+      extraItemIds: [30],
+      lineNote: null,
+      drinkFromOwn: false,
+      sugarFromOwn: false,
+      ownExtraItemIds: [],
+    ),
+  ],
+);
+
 final materials = [
   const MyMaterialDto(
     itemId: 1,

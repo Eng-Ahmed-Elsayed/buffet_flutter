@@ -11,23 +11,20 @@ import '../../data/local/order_alerts.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/models/favourite_models.dart';
 import '../../l10n/app_localizations.dart';
-import '../../shared/search_text.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/notification_bell.dart';
 import '../../shared/widgets/search_field.dart';
-import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
-import '../../theme/motion.dart';
 import '../auth/auth_controller.dart';
 import '../order/composer_screen.dart';
 import '../order/favourites_controller.dart';
 import '../order/favourites_screen.dart';
 import '../order/my_orders_screen.dart';
 import '../order/order_mode.dart';
+import '../order/widgets/drink_menu.dart';
 import '../order/widgets/favourites_strip.dart';
-import '../order/widgets/menu_item_row.dart';
 import '../order/widgets/outstanding_order_card.dart';
 
 /// The employee's landing screen: the Home tab of the shell.
@@ -54,10 +51,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Timer? _pollTimer;
   final _search = TextEditingController();
   String _query = '';
-
-  // The two menu sections, for the jump chips.
-  final _mineKey = GlobalKey();
-  final _buffetKey = GlobalKey();
 
   @override
   void initState() {
@@ -144,16 +137,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return l10n.greetingEvening(name);
   }
 
-  Future<void> _jumpTo(GlobalKey key) async {
-    final target = key.currentContext;
-    if (target == null) return;
-    await Scrollable.ensureVisible(
-      target,
-      duration: Motion.of(context, Motion.slow),
-      curve: Motion.easeOut,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -173,9 +156,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         .toSet();
     final canOrderForGuests = ref.watch(canOrderForGuestsProvider);
     final searching = _query.trim().isNotEmpty;
-
-    bool matches(CatalogueItemDto d) =>
-        matchesSearch(_query, [d.nameAr, d.nameEn]);
 
     return Scaffold(
       appBar: AppBar(
@@ -308,119 +288,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ),
                 ],
-                data: (data) {
-                  if (data.drinks.isEmpty) {
-                    return [
-                      EmptyState(
-                        icon: Icons.no_drinks_outlined,
-                        title: l10n.emptyCatalogueTitle,
-                        body: l10n.emptyCatalogueBody,
+                data: (data) => [
+                  if (data.drinks.isEmpty)
+                    EmptyState(
+                      icon: Icons.no_drinks_outlined,
+                      title: l10n.emptyCatalogueTitle,
+                      body: l10n.emptyCatalogueBody,
+                    )
+                  else
+                    // The same menu the composer's first step shows, so the two never
+                    // list drinks differently.
+                    DrinkMenu(
+                      drinks: data.drinks,
+                      query: _query,
+                      onSelect: (drink, {required fromOwn}) => _openComposer(
+                        mode: OrderMode.self,
+                        drink: drink,
+                        fromOwn: fromOwn,
                       ),
-                    ];
-                  }
-
-                  // Guide §7.1: «من موادي» first, then «من البوفيه». An owned
-                  // drink is in both, and the row tapped is the jar ordered
-                  // from.
-                  final mine = data.drinks
-                      .where((d) => d.hasOwnStock && matches(d))
-                      .toList();
-                  final buffet = data.drinks.where(matches).toList();
-
-                  return [
-                    SectionHeader(label: l10n.menuTitle),
-                    const SizedBox(height: Dimens.space3),
-
-                    // Jump links to the two sections — the design's category
-                    // chips, until the backend has menu groups. Only when there
-                    // is more than one section to jump between.
-                    if (mine.isNotEmpty && buffet.isNotEmpty) ...[
-                      Wrap(
-                        spacing: Dimens.space2,
-                        runSpacing: Dimens.space2,
-                        children: [
-                          ActionChip(
-                            avatar: const Icon(
-                              Icons.inventory_2_outlined,
-                              color: BrandColors.accent,
-                            ),
-                            label: Text(l10n.sectionMyMaterials),
-                            // The one violet chip: it IS "my own jar".
-                            side: const BorderSide(color: BrandColors.accent),
-                            onPressed: () => unawaited(_jumpTo(_mineKey)),
-                          ),
-                          ActionChip(
-                            avatar: const Icon(
-                              Icons.local_cafe_outlined,
-                              color: BrandColors.brand,
-                            ),
-                            label: Text(l10n.sectionBuffet),
-                            onPressed: () => unawaited(_jumpTo(_buffetKey)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: Dimens.space4),
-                    ],
-
-                    if (mine.isEmpty && buffet.isEmpty)
-                      Padding(
-                        padding: const EdgeInsetsDirectional.symmetric(
-                          vertical: Dimens.space5,
-                        ),
-                        child: Text(
-                          l10n.noDrinkMatches,
-                          textAlign: TextAlign.center,
-                          style: text.bodyMedium?.copyWith(
-                            color: BrandColors.muted,
-                          ),
-                        ),
-                      ),
-
-                    if (mine.isNotEmpty) ...[
-                      SectionHeader(
-                        key: _mineKey,
-                        label: l10n.sectionMyMaterials,
-                        accent: BrandColors.accent,
-                      ),
-                      const SizedBox(height: Dimens.space2),
-                      for (final drink in mine) ...[
-                        MenuItemRow(
-                          drink: drink,
-                          fromOwn: true,
-                          onTap: () => _openComposer(
-                            mode: OrderMode.self,
-                            drink: drink,
-                            fromOwn: true,
-                          ),
-                        ),
-                        const SizedBox(height: Dimens.space3),
-                      ],
-                      const SizedBox(height: Dimens.space3),
-                    ],
-
-                    if (buffet.isNotEmpty) ...[
-                      // Named only when there is a «من موادي» section to tell it
-                      // apart from; otherwise the menu heading says enough.
-                      if (mine.isNotEmpty) ...[
-                        SectionHeader(
-                          key: _buffetKey,
-                          label: l10n.sectionBuffet,
-                          accent: BrandColors.muted,
-                        ),
-                        const SizedBox(height: Dimens.space2),
-                      ],
-                      for (final drink in buffet) ...[
-                        MenuItemRow(
-                          drink: drink,
-                          fromOwn: false,
-                          onTap: () =>
-                              _openComposer(mode: OrderMode.self, drink: drink),
-                        ),
-                        const SizedBox(height: Dimens.space3),
-                      ],
-                    ],
-                  ];
-                },
+                    ),
+                ],
               ),
             ],
           ),

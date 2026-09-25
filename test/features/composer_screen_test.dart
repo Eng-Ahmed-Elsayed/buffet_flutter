@@ -1,16 +1,23 @@
 import 'package:buffet_app/data/models/auth_models.dart';
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/favourite_models.dart';
+import 'package:buffet_app/data/models/order_models.dart';
+import 'package:buffet_app/data/repositories/catalogue_repository.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/order/composer_controller.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/features/order/favourites_controller.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
+import 'package:buffet_app/features/order/self_order_outcome.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
+import 'package:buffet_app/shared/widgets/quantity_stepper.dart';
+import 'package:buffet_app/shared/widgets/section_header.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 CatalogueItemDto _item(
   int id,
@@ -129,8 +136,12 @@ void main() {
           ),
         );
 
-        expect(find.text('من موادي'), findsOneWidget);
-        expect(find.text('من البوفيه'), findsOneWidget);
+        // The section headings, not the jump chips that repeat their names.
+        expect(find.widgetWithText(SectionHeader, 'من موادي'), findsOneWidget);
+        expect(
+          find.widgetWithText(SectionHeader, 'من البوفيه'),
+          findsOneWidget,
+        );
       },
     );
 
@@ -160,7 +171,7 @@ void main() {
           ),
         );
 
-        expect(find.text('من موادي'), findsOneWidget);
+        expect(find.widgetWithText(SectionHeader, 'من موادي'), findsOneWidget);
         // Shown, never hidden — and once per jar as everywhere else.
         expect(find.text('نعناع'), findsNWidgets(2));
       },
@@ -189,7 +200,9 @@ void main() {
   });
 
   group('§6 — the extras row follows the selected drink', () {
-    testWidgets('every extra shows before a drink is chosen', (tester) async {
+    testWidgets('an unrestricted drink offers every extra on its step', (
+      tester,
+    ) async {
       await _pumpTall(
         tester,
         _app(
@@ -201,6 +214,11 @@ void main() {
           ),
         ),
       );
+
+      // Extras belong to a drink, so they are offered on the drink's own
+      // step rather than before one is chosen.
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
 
       expect(find.text('حليب'), findsOneWidget);
       expect(find.text('قرفة'), findsOneWidget);
@@ -337,9 +355,9 @@ void main() {
       expect(chip.selected, isTrue);
       expect(chip.onSelected, isNotNull);
 
-      // And the order button never goes off for it.
+      // And the way on never goes off for it.
       final button = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'أرسل الطلب'),
+        find.widgetWithText(FilledButton, 'متابعة'),
       );
       expect(button.onPressed, isNotNull);
     });
@@ -396,7 +414,7 @@ void main() {
       expect(find.text('الطلب لضيف'), findsNothing);
     });
 
-    testWidgets('the order button stays live so the error can be shown', (
+    testWidgets('a drink without a guest name shows why, and waits', (
       tester,
     ) async {
       await _pumpTall(
@@ -404,21 +422,14 @@ void main() {
         _app(oneDrink(), canOrderForGuests: true, mode: OrderMode.guest),
       );
 
+      // The name is what lifts the buffet cap, so nothing moves on without
+      // it. The drink is NOT dead: tapping it reveals what is missing, rather
+      // than a control that does nothing and says nothing.
       await tester.tap(find.text('قهوة'));
       await tester.pumpAndSettle();
 
-      // A guest order with no name cannot be sent — but the button is NOT
-      // dead. Tapping it reveals what is missing, rather than leaving the user
-      // with a control that does nothing and says nothing.
-      final button = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'أرسل الطلب'),
-      );
-      expect(button.onPressed, isNotNull);
-
-      await tester.tap(find.text('أرسل الطلب'));
-      await tester.pumpAndSettle();
-
       expect(find.text('اكتب اسم الضيف لإتمام الطلب.'), findsOneWidget);
+      expect(find.text('متابعة'), findsNothing, reason: 'still choosing');
     });
   });
 
@@ -450,10 +461,14 @@ void main() {
 
       await tester.tap(find.text('قهوة'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('متابعة'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('أضف مشروبًا آخر'));
       await tester.pumpAndSettle();
 
-      // Replacing drinks the user has already chosen is not a "repeat".
+      // Back on the first step with a drink in the order: replacing drinks
+      // the user has already chosen is not a "repeat".
+      expect(find.text('قهوة'), findsOneWidget);
       expect(find.textContaining('قهوة الصبح'), findsNothing);
     });
 
@@ -467,7 +482,7 @@ void main() {
 
       await tester.tap(find.text('قهوة'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('أضف مشروبًا آخر'));
+      await tester.tap(find.text('متابعة'));
       await tester.pumpAndSettle();
 
       expect(find.text('احفظ كطلب مفضل'), findsOneWidget);
@@ -486,7 +501,7 @@ void main() {
 
       await tester.tap(find.text('قهوة'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('أضف مشروبًا آخر'));
+      await tester.tap(find.text('متابعة'));
       await tester.pumpAndSettle();
 
       expect(find.text('وصلت إلى الحد الأقصى'), findsOneWidget);
@@ -582,7 +597,7 @@ void main() {
   });
 
   group('§1 — adding a second drink', () {
-    testWidgets('the add action appears only once a drink is chosen', (
+    testWidgets('the add action is on review, once there is a drink', (
       tester,
     ) async {
       await _pumpTall(
@@ -600,6 +615,8 @@ void main() {
       expect(find.text('أضف مشروبًا آخر'), findsNothing);
 
       await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('متابعة'));
       await tester.pumpAndSettle();
       expect(find.text('أضف مشروبًا آخر'), findsOneWidget);
     });
@@ -621,14 +638,20 @@ void main() {
 
       await tester.tap(find.text('قهوة'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('متابعة'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('أضف مشروبًا آخر'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('شاي'));
       await tester.pumpAndSettle();
 
-      // The second buffet drink cannot be ADDED — the add button refuses it —
-      // but it still sits in the draft, so the order carries two and the
-      // banner says why.
+      // The second buffet drink cannot be ADDED, but it sits in the draft, so
+      // the order carries two and the banner says why — on the drink's step,
+      // where switching it to the user's own jar would fix it.
+      expect(find.text('مشروب واحد فقط من البوفيه'), findsOneWidget);
+
+      await tester.tap(find.text('متابعة'));
+      await tester.pumpAndSettle();
       expect(find.text('مشروب واحد فقط من البوفيه'), findsOneWidget);
 
       // The warning explains; it does not bar the door. A line counts against
@@ -663,6 +686,10 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('متابعة'));
       await tester.pumpAndSettle();
 
       final button = tester.getRect(
@@ -735,4 +762,373 @@ void main() {
       expect(stateOf(tester).drink?.itemId, 1);
     });
   });
+
+  group('the three steps — Choose a drink, Drink Details, Review', () {
+    CatalogueResponse menu() => CatalogueResponse(
+      drinks: [
+        _item(1, 'قهوة', 'Drink'),
+        _item(2, 'نعناع', 'Drink', hasOwnStock: true, ownServingsLeft: 6),
+      ],
+      sugars: const [],
+      extras: const [],
+      locations: const [],
+    );
+
+    testWidgets('back steps back through the flow before it leaves', (
+      tester,
+    ) async {
+      await _pumpTall(tester, _app(menu()));
+
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      expect(find.text('متابعة'), findsOneWidget);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      // Back on Choose a drink, not out of the composer.
+      expect(find.byType(ComposerScreen), findsOneWidget);
+      expect(find.text('متابعة'), findsNothing);
+      expect(find.text('قهوة'), findsOneWidget);
+    });
+
+    testWidgets('a favourite opens straight on Review', (tester) async {
+      await _pumpTall(
+        tester,
+        _app(
+          menu(),
+          seed: ComposerSeed(
+            favourite: FavouriteDto(
+              favouriteId: 5,
+              name: 'قهوتي',
+              createdAtUtc: DateTime.utc(2026, 8, 24),
+              lastUsedAtUtc: null,
+              lines: const [
+                OrderLineDto(
+                  drinkItemId: 1,
+                  drinkNameAr: 'قهوة',
+                  sugarSpoons: 2,
+                  variantId: null,
+                  sugarItemId: null,
+                  extraItemIds: [],
+                  lineNote: null,
+                  drinkFromOwn: false,
+                  sugarFromOwn: false,
+                  ownExtraItemIds: [],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('مراجعة الطلب'), findsOneWidget);
+      expect(find.text('أرسل الطلب'), findsOneWidget);
+    });
+
+    testWidgets(
+      'an own-jar drink offers a quantity, and its cups reach review',
+      (tester) async {
+        await _pumpTall(
+          tester,
+          _app(
+            menu(),
+            seed: const ComposerSeed(drinkItemId: 2, drinkFromOwn: true),
+          ),
+        );
+
+        // Opened on the drink's step, with a stepper: the jar allows more than
+        // one cup, where a single buffet drink would not.
+        expect(find.text('الكمية'), findsOneWidget);
+        await tester.tap(find.byTooltip('كوب إضافي'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('كوب إضافي'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('متابعة'));
+        await tester.pumpAndSettle();
+
+        // Three identical cups: one line on review, its stepper at three,
+        // and three lines on the wire.
+        expect(
+          find.descendant(
+            of: find.byType(QuantityStepper),
+            matching: find.text('3'),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          ProviderScope.containerOf(tester.element(find.byType(ComposerScreen)))
+              .read(composerControllerProvider)
+              .toRequest()
+              .lines,
+          hasLength(3),
+        );
+      },
+    );
+
+    testWidgets('a single buffet drink offers no quantity at all', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(menu(), seed: const ComposerSeed(drinkItemId: 1)),
+      );
+
+      expect(find.text('متابعة'), findsOneWidget);
+      expect(find.text('الكمية'), findsNothing);
+    });
+
+    testWidgets(
+      'an emptied review says why Place order is off, and leads back',
+      (tester) async {
+        await _pumpTall(
+          tester,
+          _app(menu(), seed: const ComposerSeed(drinkItemId: 1)),
+        );
+        await tester.tap(find.text('متابعة'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.byTooltip('احذف هذا المشروب'));
+        await tester.pumpAndSettle();
+
+        // Disabled only because there is nothing to order — and the screen
+        // says so, with the way back, so it is never an unexplained dead end.
+        final button = tester.widget<FilledButton>(
+          find.widgetWithText(FilledButton, 'أرسل الطلب'),
+        );
+        expect(button.onPressed, isNull);
+        expect(find.text('لا يوجد مشروب في هذا الطلب'), findsOneWidget);
+
+        await tester.tap(find.text('اختر مشروبًا'));
+        await tester.pumpAndSettle();
+        expect(find.text('قهوة'), findsWidgets);
+      },
+    );
+
+    testWidgets('clearing the draft never leaves a blank step behind it', (
+      tester,
+    ) async {
+      // Opened on the drink's step: once that drink is removed, back must not
+      // land on a Drink Details with no drink to show.
+      await _pumpTall(
+        tester,
+        _app(menu(), seed: const ComposerSeed(drinkItemId: 1)),
+      );
+      await tester.tap(find.text('متابعة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('احذف هذا المشروب'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('اختر مشروبًا'));
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(find.text('مراجعة الطلب'), findsOneWidget);
+    });
+
+    testWidgets(
+      'back after "add another" returns to the order, not out of it',
+      (tester) async {
+        await _pumpTall(
+          tester,
+          _app(menu(), seed: const ComposerSeed(drinkItemId: 1)),
+        );
+        await tester.tap(find.text('متابعة'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('أضف مشروبًا آخر'));
+        await tester.pumpAndSettle();
+
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+
+        // Every drink already added is still there to place.
+        expect(find.text('مراجعة الطلب'), findsOneWidget);
+        expect(find.text('أرسل الطلب'), findsOneWidget);
+      },
+    );
+
+    testWidgets('a favourite whose drink was retired opens on the drink list', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(menu(), seed: ComposerSeed(favourite: _favouriteOf(99))),
+      );
+
+      expect(find.text('مراجعة الطلب'), findsNothing);
+      expect(find.text('قهوة'), findsWidgets);
+    });
+  });
+
+  group('a guest order cannot move on without its guest', () {
+    CatalogueResponse menu() => CatalogueResponse(
+      drinks: [_item(1, 'قهوة', 'Drink')],
+      sugars: const [],
+      extras: const [],
+      locations: const [],
+    );
+
+    testWidgets('a favourite tapped without the name shows why, and waits', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          menu(),
+          canOrderForGuests: true,
+          mode: OrderMode.guest,
+          favourites: [_favouriteOf(1)],
+        ),
+      );
+
+      await tester.tap(find.textContaining('قهوتي'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('اكتب اسم الضيف لإتمام الطلب.'), findsOneWidget);
+      expect(find.text('مراجعة الطلب'), findsNothing);
+    });
+
+    testWidgets('Place order without the name goes back to the field', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(menu(), canOrderForGuests: true, mode: OrderMode.guest),
+      );
+      await tester.enterText(find.byType(TextField).first, 'وفد الوزارة');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('متابعة'));
+      await tester.pumpAndSettle();
+
+      // The name goes missing after the fact (a revoked privilege nulls it).
+      ProviderScope.containerOf(tester.element(find.byType(ComposerScreen)))
+          .read(composerControllerProvider.notifier)
+          .setOnBehalfOfName(null);
+      await tester.pumpAndSettle();
+
+      // The button is live, and tapping it shows what is missing, where it
+      // can be fixed — not a dead control that says nothing.
+      await tester.tap(find.text('أرسل الطلب'));
+      await tester.pumpAndSettle();
+      expect(find.text('اكتب اسم الضيف لإتمام الطلب.'), findsOneWidget);
+    });
+  });
+
+  group('a staff member\'s own order', () {
+    testWidgets('pops back to the queue with its outcome, from any step', (
+      tester,
+    ) async {
+      Object? result;
+      final router = GoRouter(
+        initialLocation: '/queue',
+        routes: [
+          GoRoute(
+            path: '/queue',
+            builder: (context, state) => Scaffold(
+              body: TextButton(
+                onPressed: () async {
+                  result = await context.push<Object?>('/order');
+                },
+                child: const Text('open'),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/order',
+            builder: (context, state) => const ComposerScreen(),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      tester.view.physicalSize = const Size(1400, 4000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            catalogueProvider.overrideWith(
+              (ref) async => CatalogueResponse(
+                drinks: [_item(1, 'قهوة', 'Drink')],
+                sugars: const [],
+                extras: const [],
+                locations: const [],
+              ),
+            ),
+            favouritesProvider.overrideWith(
+              (ref) async => const FavouritesResponse(favourites: []),
+            ),
+            canOrderForGuestsProvider.overrideWith((ref) => false),
+            catalogueRepositoryProvider.overrideWithValue(_AutoServing()),
+          ],
+          child: MaterialApp.router(
+            locale: const Locale('ar'),
+            supportedLocales: const [Locale('ar'), Locale('en')],
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('قهوة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('متابعة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أرسل الطلب'));
+      await tester.pumpAndSettle();
+
+      // Three steps deep, and still one pop: back at the queue, with the
+      // outcome to show, not stranded on an earlier step.
+      expect(find.byType(ComposerScreen), findsNothing);
+      expect(result, isA<SelfOrderOutcome>());
+      expect((result! as SelfOrderOutcome).orderId, 77);
+    });
+  });
+}
+
+/// A favourite with one line, for drink [drinkId].
+FavouriteDto _favouriteOf(int drinkId) => FavouriteDto(
+  favouriteId: 5,
+  name: 'قهوتي',
+  createdAtUtc: DateTime.utc(2026, 8, 24),
+  lastUsedAtUtc: null,
+  lines: [
+    OrderLineDto(
+      drinkItemId: drinkId,
+      drinkNameAr: 'قهوة',
+      sugarSpoons: 1,
+      variantId: null,
+      sugarItemId: null,
+      extraItemIds: const [],
+      lineNote: null,
+      drinkFromOwn: false,
+      sugarFromOwn: false,
+      ownExtraItemIds: const [],
+    ),
+  ],
+);
+
+/// Serves a staff member's own order immediately, as the server does.
+class _AutoServing extends CatalogueRepository {
+  _AutoServing() : super(Dio());
+
+  @override
+  Future<PlaceOrderResponse> placeOrder({
+    required PlaceOrderApiRequest request,
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async =>
+      const PlaceOrderResponse(orderId: 77, duplicate: false, autoServed: true);
 }

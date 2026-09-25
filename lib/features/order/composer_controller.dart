@@ -80,6 +80,7 @@ class ComposerState {
     this.drinkFromOwn = false,
     this.sugarFromOwn = false,
     this.ownExtraItemIds = const {},
+    this.draftQuantity = 1,
     this.locationId,
     this.locationText,
     this.notes,
@@ -92,6 +93,12 @@ class ComposerState {
     this.favouriteName,
     this.fromFavouriteId,
   });
+
+  /// How many identical cups the draft stands for — the design's quantity
+  /// stepper. There is no per-line quantity on the wire, so the draft becomes
+  /// this many identical lines. A per-drink control: [ComposerController.addLine]
+  /// and a new drink reset it to one, by leaving it out.
+  final int draftQuantity;
 
   /// Created when the composer opens and kept across retries — discarded only
   /// once an order is confirmed. A dropped response on office wifi otherwise
@@ -220,8 +227,29 @@ class ComposerState {
   /// exceed [maxLines] if those two are wrong.
   List<ComposerLine> get allLines => [
     ...lines,
-    if (draftLine case final ComposerLine draft) draft,
+    if (draftLine case final ComposerLine draft)
+      for (var i = 0; i < draftQuantity; i++) draft,
   ];
+
+  /// The most cups the draft may stand for, from **structural** limits only:
+  /// the room left under [maxLines], and — for a drink *requested* from the
+  /// buffet — the room left under the buffet cap (lifted to [maxLines] by a
+  /// guest order). Lines already added count by their requested jar, never by
+  /// whether a jar reads empty: that is a stock reading, and a stock reading
+  /// never decides what a control offers. Its effect is caught when the line
+  /// is added, with the reason stated ([draftWouldExceedBuffetCap]).
+  int get maxDraftQuantity {
+    final lineRoom = maxLines - lines.length;
+    if (drinkFromOwn) return lineRoom < 1 ? 1 : lineRoom;
+    final allowance = capIsLifted ? maxLines : maxBuffetDrinks;
+    final buffetRoom = allowance - lines.where((l) => !l.drinkFromOwn).length;
+    final room = lineRoom < buffetRoom ? lineRoom : buffetRoom;
+    return room < 1 ? 1 : room;
+  }
+
+  /// Whether the quantity stepper is worth showing: only when the order may
+  /// structurally hold more than one of this drink.
+  bool get offersQuantity => drink != null && maxDraftQuantity > 1;
 
   /// Whether the order carries more lines than the server will accept.
   ///
@@ -291,9 +319,12 @@ class ComposerState {
   bool get draftWouldExceedBuffetCap {
     if (capIsLifted || draftLine == null) return false;
     return lines.where((l) => l.resolvesToBuffet).length +
-            (draftLine!.resolvesToBuffet ? 1 : 0) >
+            (draftLine!.resolvesToBuffet ? draftQuantity : 0) >
         maxBuffetDrinks;
   }
+
+  /// Whether committing the draft, at its quantity, stays within [maxLines].
+  bool get draftFitsLineCap => lines.length + draftQuantity <= maxLines;
 
   ComposerState copyWith({
     String? idempotencyKey,
@@ -306,6 +337,7 @@ class ComposerState {
     bool? drinkFromOwn,
     bool? sugarFromOwn,
     Set<int>? ownExtraItemIds,
+    int? draftQuantity,
     int? Function()? locationId,
     String? Function()? locationText,
     String? Function()? notes,
@@ -328,6 +360,7 @@ class ComposerState {
     drinkFromOwn: drinkFromOwn ?? this.drinkFromOwn,
     sugarFromOwn: sugarFromOwn ?? this.sugarFromOwn,
     ownExtraItemIds: ownExtraItemIds ?? this.ownExtraItemIds,
+    draftQuantity: draftQuantity ?? this.draftQuantity,
     locationId: locationId != null ? locationId() : this.locationId,
     locationText: locationText != null ? locationText() : this.locationText,
     notes: notes != null ? notes() : this.notes,
@@ -468,6 +501,9 @@ class ComposerController extends StateNotifier<ComposerState> {
       // Never inherited from the previous drink: it comes from the tile, and
       // a drink the user does not own has no own-jar tile to come from.
       drinkFromOwn: fromOwn && drink.hasOwnStock,
+      // A new drink starts at one cup; a count chosen for the last drink is
+      // not a statement about this one.
+      draftQuantity: 1,
       // An extra the new drink does not permit is dropped server-side while
       // the order still succeeds, so carrying one over produces a drink that
       // arrives wrong rather than an error the user can act on (§6).
@@ -533,7 +569,7 @@ class ComposerController extends StateNotifier<ComposerState> {
   /// is nothing to be gained by letting the user compose one more.
   void addLine() {
     final draft = state.draftLine;
-    if (draft == null || !state.canAddAnotherLine) return;
+    if (draft == null || !state.draftFitsLineCap) return;
     // Refused while it would break the cap. The user is told why by the banner
     // and fixes it by switching this drink to their own jar — which is exactly
     // the choice the rule exists to force.
@@ -541,7 +577,10 @@ class ComposerController extends StateNotifier<ComposerState> {
 
     state = ComposerState(
       idempotencyKey: state.idempotencyKey,
-      lines: [...state.lines, draft],
+      lines: [
+        ...state.lines,
+        for (var i = 0; i < state.draftQuantity; i++) draft,
+      ],
       // Everything scoped to the whole order survives; only the per-drink
       // controls reset.
       locationId: state.locationId,
@@ -564,6 +603,29 @@ class ComposerController extends StateNotifier<ComposerState> {
       fromFavouriteId: state.fromFavouriteId,
     );
   }
+
+  /// Sets how many identical cups the draft stands for, clamped to
+  /// [ComposerState.maxDraftQuantity] and never below one.
+  void setDraftQuantity(int quantity) {
+    final max = state.maxDraftQuantity;
+    final clamped = quantity < 1 ? 1 : (quantity > max ? max : quantity);
+    state = state.copyWith(draftQuantity: clamped);
+  }
+
+  /// Drops the drink being composed without touching the lines already added
+  /// or anything scoped to the whole order — the review's "remove" on the one
+  /// line that is still a draft.
+  void clearDraft() => state = state.copyWith(
+    drink: () => null,
+    variantId: () => null,
+    sugarItemId: () => null,
+    sugarSpoons: 0,
+    extraItemIds: const {},
+    drinkFromOwn: false,
+    sugarFromOwn: false,
+    ownExtraItemIds: const {},
+    draftQuantity: 1,
+  );
 
   /// Removes an added line. Out-of-range indices are ignored rather than
   /// throwing — a stale tap from a rebuilt list must not crash the composer.
@@ -626,6 +688,7 @@ class ComposerController extends StateNotifier<ComposerState> {
       drinkFromOwn: line.drinkFromOwn && drink.hasOwnStock,
       sugarFromOwn: line.sugarFromOwn,
       ownExtraItemIds: line.ownExtraItemIds.where(drink.permitsExtra).toSet(),
+      draftQuantity: 1,
       fromFavouriteId: () => favourite.favouriteId,
     );
   }

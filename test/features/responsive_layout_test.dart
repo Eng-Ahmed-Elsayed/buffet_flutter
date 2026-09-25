@@ -243,6 +243,38 @@ void main() {
     'composer-guest': const ComposerScreen(
       seed: ComposerSeed(mode: OrderMode.guest),
     ),
+    // The composer's later steps carry most of its controls, so each is held
+    // to 320dp too. Drink Details for an owned drink whose jar reads empty:
+    // the violet jar choice, the shortage banner, sugar and the stepper.
+    'composer-details': const ComposerScreen(
+      seed: ComposerSeed(drinkItemId: 2, drinkFromOwn: true),
+    ),
+    // Review, from a favourite: the line with its summary, location, notes,
+    // save-as-favourite and the footer.
+    'composer-review': ComposerScreen(
+      seed: ComposerSeed(
+        favourite: FavouriteDto(
+          favouriteId: 9,
+          name: 'قهوة تركي سادة (بدون سكر) + حليب',
+          createdAtUtc: DateTime.utc(2026, 8, 24),
+          lastUsedAtUtc: null,
+          lines: const [
+            OrderLineDto(
+              drinkItemId: 1,
+              drinkNameAr: 'قهوة تركي سادة',
+              sugarSpoons: 2,
+              variantId: null,
+              sugarItemId: null,
+              extraItemIds: [],
+              lineNote: null,
+              drinkFromOwn: false,
+              sugarFromOwn: false,
+              ownExtraItemIds: [],
+            ),
+          ],
+        ),
+      ),
+    ),
     'my-orders': const MyOrdersScreen(),
     // Carries a two-segment language control whose labels are in different
     // scripts and cannot be shortened — the shape that has overflowed here

@@ -107,6 +107,23 @@ employees off the queue. Three rules a future edit must not undo:
 - **Never build a `GoRouter` at test-file load time.** It initialises the wrong binding and fails
   the whole file. Build it in `initState` or inside `testWidgets`.
 
+**The composer is one route with three steps**, `ComposerStep` Choose a drink → Drink Details →
+Review ([docs/figma-redesign.md](docs/figma-redesign.md), *Ordering*). It is not three routes:
+the draft, the guest name and the idempotency key belong to one order and one screen owns them.
+Rules a future edit must not undo:
+
+- **Back unwinds the steps before it leaves** (`PopScope` plus `_steps`). "Add another drink"
+  stacks Choose **on top of** Review, because clearing the stack made back discard every line
+  already added. Continue returns to the existing Review rather than stacking a second one.
+  Removing the draft drops its Drink Details step, so back never lands on a blank step.
+- **Quantity is identical lines** (`draftQuantity`), capped by `maxDraftQuantity` from structural
+  limits only: lines count by their *requested* jar, never a stock reading. An own jar that reads
+  empty keeps its stepper; the cap is enforced when adding, with the reason stated.
+- **Place order is disabled only for an empty order, and Review then says so** with a way back.
+  A missing guest name takes the user back to the field instead.
+- **Home and Choose a drink render the same `DrinkMenu`**, so the two can never list drinks
+  differently. It must sit in a non-lazy scroll view (see Home).
+
 **The catalogue's `usual` is gone and must not come back.** It was the caller's last
 non-cancelled order presented as a habit — no frequency, no weighting — and it moved under the user
 every time they ordered for a visitor. **Favourites** (`GET`/`POST`/`DELETE /favourites`, §7.6)
@@ -119,8 +136,8 @@ that two shortcuts side by side, one silently moving, is worse than either alone
   ordering, and a favourite holding a since-retired item shows as a visible line rather than an
   opaque rejection. Favourites are deliberately **not** pre-filtered server-side — let the order be
   the thing that fails.
-- **The strip lives on the composer as well as the hub**, for the same reason `prepareOrderAlerts`
-  does: staff never see the hub, they push the composer from the queue.
+- **The strip lives on the composer's Choose-a-drink step as well as Home**, for the same reason
+  `prepareOrderAlerts` does: staff never see Home, they push the composer from the queue.
 - **`ComposerSeed` carries the whole `FavouriteDto`**, not an id — favourites are a separate
   endpoint from the catalogue, so an id would mean a refetch between the tap and the drink. And
   `saveAsFavourite` / `favouriteName` / `fromFavouriteId` must stay in **both** `ComposerState`
