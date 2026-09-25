@@ -38,4 +38,68 @@ abstract final class Motion {
   /// branch away the colour change itself.
   static Duration of(BuildContext context, Duration duration) =>
       MediaQuery.disableAnimationsOf(context) ? Duration.zero : duration;
+
+  /// The animation for a modal bottom sheet: none under reduced motion, the
+  /// framework's slide otherwise. Pass it as `sheetAnimationStyle` on every
+  /// `showModalBottomSheet`; the sheet is a spatial move the framework never
+  /// gates on its own.
+  static AnimationStyle? sheet(BuildContext context) =>
+      MediaQuery.disableAnimationsOf(context)
+      ? AnimationStyle.noAnimation
+      : null;
+}
+
+/// A route transition that stops moving under reduced motion.
+///
+/// Flutter's page transitions never read `disableAnimations`, so every push
+/// still slid or zoomed with the setting on. This wraps the platform's own
+/// builder and shows the page in place instead. The wrapped builder's timing
+/// is kept, and only the spatial movement stops, as [Motion.of] does for the
+/// app's own animations. That includes the delegated transition, which moves
+/// the page underneath.
+class ReducedMotionPageTransitionsBuilder extends PageTransitionsBuilder {
+  const ReducedMotionPageTransitionsBuilder(this.motion);
+
+  /// The transition used when motion is allowed.
+  final PageTransitionsBuilder motion;
+
+  @override
+  Duration get transitionDuration => motion.transitionDuration;
+
+  @override
+  Duration get reverseTransitionDuration => motion.reverseTransitionDuration;
+
+  @override
+  DelegatedTransitionBuilder? get delegatedTransition {
+    final inner = motion.delegatedTransition;
+    if (inner == null) return null;
+    return (context, animation, secondaryAnimation, allowSnapshotting, child) =>
+        MediaQuery.disableAnimationsOf(context)
+        ? child
+        : inner(
+            context,
+            animation,
+            secondaryAnimation,
+            allowSnapshotting,
+            child,
+          );
+  }
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    return motion.buildTransitions(
+      route,
+      context,
+      animation,
+      secondaryAnimation,
+      child,
+    );
+  }
 }

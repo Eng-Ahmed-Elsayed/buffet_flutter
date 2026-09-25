@@ -1,7 +1,9 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import 'brand_colors.dart';
 import 'dimens.dart';
+import 'motion.dart';
 
 /// Wires the tokens into a Material theme, one per script.
 ///
@@ -95,6 +97,25 @@ abstract final class AppTheme {
       // The one floating action (My materials' declare) as the design's pill:
       // flat like every other button here, at the control height. The stock
       // FAB's rounded square and shadow belonged to no part of the design.
+      // Route transitions stop moving under reduced motion (§2.3). iOS and
+      // macOS keep Cupertino's untouched: bypassing it would also remove the
+      // edge swipe, which is how people go back there.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: ReducedMotionPageTransitionsBuilder(
+            PredictiveBackPageTransitionsBuilder(),
+          ),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: ReducedMotionPageTransitionsBuilder(
+            ZoomPageTransitionsBuilder(),
+          ),
+          TargetPlatform.linux: ReducedMotionPageTransitionsBuilder(
+            ZoomPageTransitionsBuilder(),
+          ),
+        },
+      ),
+
       floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: BrandColors.brand,
         foregroundColor: BrandColors.surface,

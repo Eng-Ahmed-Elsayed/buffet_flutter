@@ -13,6 +13,7 @@ import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../../theme/motion.dart';
 import '../order/widgets/item_image.dart';
 import 'declare_sheet.dart';
 
@@ -30,8 +31,8 @@ final myMaterialsProvider = FutureProvider.autoDispose<List<MyMaterialDto>>((
 
 /// The employee's own material balances.
 ///
-/// **Employee declares, staff confirms.** Stock only exists once staff confirm
-/// the jar physically arrived, so a declaration shows as "awaiting
+/// **Employee declares, an admin confirms.** Stock only exists once an admin
+/// confirms the jar physically arrived (staff get 403 on declarations, §8.2), so a declaration shows as "awaiting
 /// confirmation" and is kept visually separate from the confirmed balance
 /// (§7.5).
 class MyMaterialsScreen extends ConsumerWidget {
@@ -99,6 +100,7 @@ class MyMaterialsScreen extends ConsumerWidget {
 
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showModalBottomSheet<void>(
+          sheetAnimationStyle: Motion.sheet(context),
           context: context,
           isScrollControlled: true,
           builder: (_) => const DeclareSheet(),

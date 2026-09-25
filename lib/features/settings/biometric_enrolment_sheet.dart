@@ -7,6 +7,7 @@ import '../../data/local/biometric_service.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../../theme/motion.dart';
 import '../auth/auth_controller.dart';
 
 /// The one-time offer, shown immediately after a password sign-in.
@@ -21,6 +22,7 @@ class BiometricEnrolmentSheet extends ConsumerStatefulWidget {
 
   /// Shows the sheet, resolving once the user has chosen either way.
   static Future<void> show(BuildContext context) => showModalBottomSheet<void>(
+    sheetAnimationStyle: Motion.sheet(context),
     context: context,
     isScrollControlled: true,
     // Dismissing by tapping away is the same choice as "not now": the offer

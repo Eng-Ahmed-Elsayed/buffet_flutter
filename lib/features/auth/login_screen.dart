@@ -13,6 +13,7 @@ import '../../shared/widgets/exit_confirmation.dart';
 import '../../shared/widgets/field_label.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../../theme/motion.dart';
 import 'auth_controller.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -84,6 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _explainForgotPassword() {
     final l10n = AppLocalizations.of(context);
     return showModalBottomSheet<void>(
+      sheetAnimationStyle: Motion.sheet(context),
       context: context,
       showDragHandle: true,
       builder: (sheetContext) => SafeArea(
