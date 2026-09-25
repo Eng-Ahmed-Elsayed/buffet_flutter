@@ -85,6 +85,7 @@ void main() {
           Routes.materials,
           Routes.notifications,
           Routes.settings,
+          Routes.password,
           Routes.orderStatusFor(41),
         ]) {
           expect(

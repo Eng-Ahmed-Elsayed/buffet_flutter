@@ -242,6 +242,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: Routes.settings,
         builder: (context, state) => const SettingsScreen(),
       ),
+      // The same screen as the forced change: it reads the auth stage and,
+      // signed in, asks for the current password and pops when done.
+      GoRoute(
+        path: Routes.password,
+        builder: (context, state) => const ChangePasswordScreen(),
+      ),
     ],
   );
 });

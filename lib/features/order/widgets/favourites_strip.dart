@@ -232,10 +232,18 @@ class FavouriteCard extends StatelessWidget {
                           : BrandColors.warning,
                     ),
                     const SizedBox(width: Dimens.space2),
+                    // Expanded on the full list, so the delete sits at the row's
+                    // end rather than wherever the name happens to stop.
                     Flexible(
+                      fit: fullWidth ? FlexFit.tight : FlexFit.loose,
                       child: Text(
                         name,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        // The full list sets the name as the design's item
+                        // title; the compact strip keeps body text.
+                        style: fullWidth
+                            ? Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(color: BrandColors.brandSecondary)
+                            : Theme.of(context).textTheme.bodyMedium,
                         // Two lines in the strip, where vertical space is what
                         // stands between the user and the order button; the
                         // full list has room for three.

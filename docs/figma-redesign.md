@@ -171,12 +171,21 @@ Shown once per install. Skip and Sign in both go to login.
   lines grouped for display.
 
 ### Account (Figma "Settings") 🔁
-- ✅ Name, Logout (in `danger`), Version (in `muted`, not Figma's unreadable tint).
+- ✅ Name, Logout (in `danger`).
+- ⏸ Version (in `muted`, not Figma's unreadable tint) **is not built yet**. It needs either the
+  `package_info_plus` dependency or a version passed at build time (`--dart-define`), and that
+  choice is the user's.
 - 🔁 "Member since" becomes **department**, which we have.
 - ➕ **My materials** row. It opens the materials screen and the declare sheet (D4).
 - ❌ Order History (duplicates the Orders tab), Payment Methods, Notifications (the bell already
   reaches it), Help Center (no content), Share.
-- ➕ Language, biometric toggle, change password, and the admin-on-web note.
+- ➕ Language, biometric toggle, change password, and the admin-on-web note. Each is a stacked
+  card row like the design's; sign-out is the last row, in `danger`, with no chevron.
+- ➕ **Change password** opens `/password`, the same screen as the forced first-run change. It reads
+  the auth stage: signed in, it asks for the current password, says "Save", and on success confirms
+  and goes back. The forced `/change-password` is unchanged: no current password, "Save and
+  continue", and no way back (rule 10). A user in the forced stage is bounced off `/password` like
+  every other route.
 
 ## Ordering (D2)
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/locale_controller.dart';
 import '../../data/api/api_exception.dart';
@@ -74,7 +75,14 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
           networkErrorFallback: l10n.networkError,
         );
       }
-      // Only a 204 advances the stage; the router then redirects by role.
+      // Forced: only a 204 advances the stage; the router then redirects by
+      // role. Voluntary: nothing redirects, so say it worked and go back —
+      // otherwise the form just sat there, filled, with no sign of success.
+      if (!isForced && mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(l10n.passwordChanged)));
+        context.pop();
+      }
     } on ApiException catch (error) {
       // The server's 400 message is already in the user's language.
       if (mounted) setState(() => _errorMessage = error.message);
@@ -223,7 +231,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2.4),
                           )
-                        : Text(l10n.saveAndContinue),
+                        // "Continue" only where there is somewhere to
+                        // continue to: the forced path leads on into the app.
+                        : Text(isForced ? l10n.saveAndContinue : l10n.save),
                   ),
                 ],
               ),

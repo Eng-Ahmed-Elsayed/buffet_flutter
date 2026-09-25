@@ -205,7 +205,7 @@ class _InertAuthenticator implements BiometricAuthenticator {
 /// Holds the auth machine at a chosen stage without touching secure storage or
 /// the biometric hardware.
 class _FakeAuthController extends AuthController {
-  _FakeAuthController(AuthState initial)
+  _FakeAuthController(AuthState initial, {this.pinned = false})
     : super(
         AuthRepository(
           dio: Dio(),
@@ -217,6 +217,18 @@ class _FakeAuthController extends AuthController {
         const BiometricEnrolmentGuard(),
       ) {
     state = initial;
+  }
+
+  /// Holds [state] exactly as given. The controller restores from secure
+  /// storage on construction, and storage is mocked here, so without this the
+  /// restore lands a moment later and replaces a signed-in identity with an
+  /// empty session.
+  final bool pinned;
+
+  @override
+  set state(AuthState value) {
+    if (pinned && mounted && super.state.stage != AuthStage.restoring) return;
+    super.state = value;
   }
 
   /// The lock screen prompts on arrival. Report a plain cancellation so the
@@ -415,14 +427,30 @@ void main() {
         ),
       ],
     ),
-    const _Shot('05-entry-must-change-password', ChangePasswordScreen.new),
+    // The forced first-run change: banner, no current password, no way back.
+    _Shot(
+      '05-entry-must-change-password',
+      ChangePasswordScreen.new,
+      overrides: [
+        authControllerProvider.overrideWith(
+          (r) => _FakeAuthController(
+            const AuthState(stage: AuthStage.mustChangePassword),
+            pinned: true,
+          ),
+        ),
+      ],
+    ),
 
     // ------------------------------------------------- employee happy path
     const _Shot('06-employee-home', HomeScreen.new, height: 1000),
     // The same screens inside the real bottom-nav shell, so the review sees
     // the chrome a user actually gets — the standalone captures omit it.
     _Shot('06-employee-shell-home', () => _shell(Routes.home)),
-    _Shot('06-employee-shell-account', () => _shell(Routes.account)),
+    _Shot(
+      '06-employee-shell-account',
+      () => _shell(Routes.account),
+      overrides: [_signedInAs('Employee')],
+    ),
     _Shot(
       '07-employee-home-no-favourites',
       HomeScreen.new,
@@ -552,7 +580,25 @@ void main() {
       NotificationsScreen.new,
       overrides: [notificationsProvider.overrideWith((r) async => const [])],
     ),
-    const _Shot('23-shared-settings', SettingsScreen.new, height: 1000),
+    _Shot(
+      '23-shared-settings',
+      SettingsScreen.new,
+      height: 1000,
+      overrides: [_signedInAs('Employee')],
+    ),
+    // The voluntary change, from the account: asks the current password.
+    _Shot(
+      '23-shared-change-password',
+      ChangePasswordScreen.new,
+      overrides: [_signedInAs('Employee')],
+    ),
+    // Staff reach the same screen pushed from the queue: no My materials.
+    _Shot(
+      '23-staff-settings',
+      SettingsScreen.new,
+      height: 1000,
+      overrides: [_signedInAs('Staff')],
+    ),
 
     // --------------------------------------------------------- staff view
     _Shot(
@@ -720,3 +766,20 @@ Future<void> _settle(WidgetTester t) async {
     await t.pump(const Duration(milliseconds: 50));
   }
 }
+
+/// A signed-in session with a name and department, so the account header is
+/// in the capture.
+Override _signedInAs(String role) => authControllerProvider.overrideWith(
+  (r) => _FakeAuthController(
+    AuthState(
+      stage: AuthStage.signedIn,
+      restoredIdentity: (
+        role: role,
+        displayName: 'سارة أحمد',
+        department: 'الشؤون المالية',
+        canOrderForGuests: false,
+      ),
+    ),
+    pinned: true,
+  ),
+);

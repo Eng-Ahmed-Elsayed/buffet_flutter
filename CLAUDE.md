@@ -102,7 +102,7 @@ employees off the queue. Three rules a future edit must not undo:
   asked, and the app simply closes. `employee_shell_test.dart` drives this through the real
   `handlePopRoute`; keep it that way.
 - **Steps in a task are pushed above the shell, on the root navigator**: the composer, order
-  status, notifications, My materials, `/favourites-list`, `/settings` (staff). Never push a tab's
+  status, notifications, My materials, `/favourites-list`, `/settings` (staff), `/password`. Never push a tab's
   path from inside a flow; that would stack a second shell.
 - **Never build a `GoRouter` at test-file load time.** It initialises the wrong binding and fails
   the whole file. Build it in `initState` or inside `testWidgets`.
@@ -136,6 +136,15 @@ card does not repeat them. Rules a future edit must not undo:
   status screen does, falling back to the stored `drinkNameAr`. `OrderSummaryDto` carries Arabic
   names only, and a row saying «قهوة» that opens onto "Coffee" names one drink two ways.
   `order_tracking_test.dart` pins it in English.
+
+**The Account tab is the design's Settings frame**: the name and department, then stacked card
+rows. The rows are My materials (employees only), Change password, the biometric switch (its own
+card, drawn only on a device that can use it), Language, and Sign out in `danger`. **Change password
+is `/password`, a separate route from the forced `/change-password`**, and the same screen serves
+both by reading the auth stage. Signed in, it asks for the current password and pops with a
+confirmation. Forced, it never asks for the current password and never lets the user back. The
+forced stage bounces every route, `/password` included, so rule 10 holds without a special case.
+The design's Version line waits on a decision: a dependency, or a build-time define.
 
 **The catalogue's `usual` is gone and must not come back.** It was the caller's last
 non-cancelled order presented as a habit — no frequency, no weighting — and it moved under the user

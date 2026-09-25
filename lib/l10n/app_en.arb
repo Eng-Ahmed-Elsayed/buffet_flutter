@@ -434,5 +434,6 @@
   "noPastOrders": "No earlier orders",
   "noLiveOrdersBody": "Orders being made appear here until you receive them.",
   "noPastOrdersBody": "Received and cancelled orders appear here.",
-  "listSeparator": ", "
+  "listSeparator": ", ",
+  "passwordChanged": "Password changed"
 }

@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/biometric_service.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/widgets/app_card.dart';
 import '../../theme/brand_colors.dart';
+import '../../theme/dimens.dart';
 import '../auth/auth_controller.dart';
 
 /// The biometric unlock switch.
@@ -81,14 +83,36 @@ class _BiometricTileState extends ConsumerState<BiometricTile> {
     // than a control that can only ever fail.
     if (!_available && !enabled) return const SizedBox.shrink();
 
-    return SwitchListTile(
-      value: enabled,
-      onChanged: _busy ? null : (value) => unawaited(_toggle(value)),
-      title: Text(l10n.enableBiometrics),
-      subtitle: Text(_message ?? l10n.enableBiometricsBody),
-      activeThumbColor: BrandColors.brand,
-      contentPadding: EdgeInsetsDirectional.zero,
-      secondary: const Icon(Icons.fingerprint),
+    // Its own card, with the spacing below it, so a device without the
+    // switch leaves no empty card and no double gap behind.
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: Dimens.space3),
+      child: AppCard(
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: Dimens.space4,
+          vertical: Dimens.space1,
+        ),
+        // Its own ink layer, for the same reason as the language options.
+        child: Material(
+          type: MaterialType.transparency,
+          child: SwitchListTile(
+            value: enabled,
+            onChanged: _busy ? null : (value) => unawaited(_toggle(value)),
+            title: Text(
+              l10n.enableBiometrics,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: BrandColors.brandSecondary),
+            ),
+            subtitle: Text(_message ?? l10n.enableBiometricsBody),
+            activeThumbColor: BrandColors.brand,
+            contentPadding: EdgeInsetsDirectional.zero,
+            secondary: const Icon(
+              Icons.fingerprint,
+              color: BrandColors.iconBlue,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

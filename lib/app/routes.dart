@@ -35,6 +35,11 @@ abstract final class Routes {
   static const notifications = '/notifications';
   static const settings = '/settings';
 
+  /// The voluntary password change, from the account. Separate from
+  /// [changePassword], which is the forced first-run screen and which a
+  /// signed-in user is bounced off.
+  static const password = '/password';
+
   // Staff
   static const queue = '/queue';
 

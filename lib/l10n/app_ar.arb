@@ -594,5 +594,7 @@
   "noPastOrdersBody": "الطلبات المستلمة والملغاة تظهر هنا.",
   "@noPastOrdersBody": { "description": "Body of the Orders tab's empty earlier list." },
   "listSeparator": "، ",
-  "@listSeparator": { "description": "Joins the drinks of one order in a list row, e.g. 'Coffee ×2, Tea'. Keep the trailing space." }
+  "@listSeparator": { "description": "Joins the drinks of one order in a list row, e.g. 'Coffee ×2, Tea'. Keep the trailing space." },
+  "passwordChanged": "تم تغيير كلمة المرور",
+  "@passwordChanged": { "description": "Shown after a voluntary password change succeeds." }
 }

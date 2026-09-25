@@ -92,6 +92,23 @@ abstract final class AppTheme {
         ),
       ),
 
+      // The one floating action (My materials' declare) as the design's pill:
+      // flat like every other button here, at the control height. The stock
+      // FAB's rounded square and shadow belonged to no part of the design.
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: BrandColors.brand,
+        foregroundColor: BrandColors.surface,
+        shape: const StadiumBorder(),
+        elevation: 0,
+        focusElevation: 0,
+        hoverElevation: 0,
+        highlightElevation: 0,
+        extendedSizeConstraints: const BoxConstraints(
+          minHeight: Dimens.controlHeight,
+        ),
+        extendedTextStyle: font(text.titleMedium!),
+      ),
+
       // White-filled with a primary border: the design's secondary button
       // ("Login" under "Next" on onboarding).
       outlinedButtonTheme: OutlinedButtonThemeData(
