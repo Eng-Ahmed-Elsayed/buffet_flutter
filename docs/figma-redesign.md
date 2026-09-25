@@ -208,7 +208,7 @@ builds them.
 | Old rule | New rule |
 |---|---|
 | The employee landing screen is the home hub with a permission-aware action grid | The landing screen is the **Home tab** of a bottom-nav shell (**Home · Favorites · Orders · Account**): outstanding order, favourites, menu. My materials is reached from Account |
-| `home_screen_test`: "New order" reachable without scrolling at 320dp | The outstanding order (when live) and the first menu row are reachable without scrolling at 320dp |
+| `home_screen_test`: "New order" reachable without scrolling at 320dp | There is no "New order" button; a menu row opens the composer. The search field and the outstanding order are reachable above the tab bar at 320dp with a full favourites strip, and with no favourites the first menu row is too. (The first row cannot be pinned with a full strip: it lands just below the fold, measured) |
 | Notifications and settings live in the home app bar only | The bell lives in the top bar; settings is the Account tab. Still one control per destination |
 | The favourites strip truncates only when a "show all" destination exists, which it links to | On Home the destination is the **Favorites tab**, so the strip carries no link of its own. On Choose a drink (no nav bar) the "See all" link stays |
 | Ordering is one screen (guide §7.1) | Ordering is (Choose a drink →) Drink Details → Review |

@@ -59,6 +59,7 @@ Widget _app(
   OrderMode mode = OrderMode.self,
   List<FavouriteDto> favourites = const [],
   int maxFavourites = 20,
+  ComposerSeed? seed,
 }) => ProviderScope(
   overrides: [
     catalogueProvider.overrideWith((ref) async => catalogue),
@@ -81,7 +82,7 @@ Widget _app(
       GlobalWidgetsLocalizations.delegate,
       GlobalCupertinoLocalizations.delegate,
     ],
-    home: ComposerScreen(seed: ComposerSeed(mode: mode)),
+    home: ComposerScreen(seed: seed ?? ComposerSeed(mode: mode)),
   ),
 );
 
@@ -671,6 +672,67 @@ void main() {
 
       // The button's bottom edge must sit above the inset, not under it.
       expect(button.bottom, lessThanOrEqualTo(screenBottom - 48));
+    });
+  });
+
+  group('opened from a drink on Home', () {
+    ComposerState stateOf(WidgetTester tester) =>
+        ProviderScope.containerOf(tester.element(find.byType(ComposerScreen)))
+            .read(composerControllerProvider);
+
+    final catalogue = CatalogueResponse(
+      drinks: [
+        _item(1, 'شاي', 'Drink'),
+        _item(2, 'قهوة تركي', 'Drink', hasOwnStock: true, ownServingsLeft: 3),
+      ],
+      sugars: const [],
+      extras: const [],
+      locations: const [],
+      maxLines: 3,
+      maxBuffetDrinks: 1,
+    );
+
+    testWidgets('the tapped drink is chosen, from the jar its row stood for', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          catalogue,
+          seed: const ComposerSeed(drinkItemId: 2, drinkFromOwn: true),
+        ),
+      );
+
+      expect(stateOf(tester).drink?.itemId, 2);
+      expect(stateOf(tester).drinkFromOwn, isTrue);
+    });
+
+    testWidgets('a drink retired since the tap is left unchosen', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(catalogue, seed: const ComposerSeed(drinkItemId: 99)),
+      );
+
+      expect(stateOf(tester).drink, isNull);
+    });
+
+    testWidgets('the seed is applied once, never over what the user picks', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(catalogue, seed: const ComposerSeed(drinkItemId: 2)),
+      );
+      ProviderScope.containerOf(tester.element(find.byType(ComposerScreen)))
+          .read(composerControllerProvider.notifier)
+          .selectDrink(catalogue.drinks.first);
+      await tester.pumpAndSettle();
+
+      // Rebuilds happen constantly; re-applying the seed on one would silently
+      // undo what the user just picked.
+      expect(stateOf(tester).drink?.itemId, 1);
     });
   });
 }

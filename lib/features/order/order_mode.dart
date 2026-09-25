@@ -28,7 +28,12 @@ enum OrderMode {
 /// wanted here. Push deep links only ever target `/order/{id}`, never `/order`,
 /// so nothing is lost by it being unserialisable.
 class ComposerSeed {
-  const ComposerSeed({this.mode = OrderMode.self, this.favourite});
+  const ComposerSeed({
+    this.mode = OrderMode.self,
+    this.favourite,
+    this.drinkItemId,
+    this.drinkFromOwn = false,
+  });
 
   final OrderMode mode;
 
@@ -45,4 +50,15 @@ class ComposerSeed {
   /// since it was saved shows up as a line they can see rather than a rejection
   /// they cannot act on (§7.6).
   final FavouriteDto? favourite;
+
+  /// The drink to open with already chosen — a tap on Home's menu. An id, not
+  /// the whole item: the menu and the composer read the same cached
+  /// catalogue, so resolving it costs nothing, and a drink retired between the
+  /// tap and the open is simply not preselected.
+  final int? drinkItemId;
+
+  /// Which jar the tapped row stood for. The menu lists an owned drink under
+  /// «من موادي» and «من البوفيه» alike, and the row, not a later toggle, says
+  /// which one the user meant — exactly as the composer's own tiles do.
+  final bool drinkFromOwn;
 }

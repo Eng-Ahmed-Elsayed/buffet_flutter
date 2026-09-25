@@ -365,14 +365,6 @@
 
   "homeTitle": "Digital Buffet",
   "@homeTitle": { "description": "Title of the home hub — the employee landing screen." },
-  "homeNewOrder": "New order",
-  "@homeNewOrder": { "description": "Primary action tile on the home screen. Opens the composer for the user's own order." },
-  "homeNewOrderSubtitle": "Order your drink",
-  "@homeNewOrderSubtitle": { "description": "One-line subtitle under the primary New Order tile." },
-  "homeGuestOrder": "Guest order",
-  "@homeGuestOrder": { "description": "Home tile shown only when the token carries canOrderForGuests." },
-  "homeGuestOrderSubtitle": "Order for a visitor",
-  "@homeGuestOrderSubtitle": { "description": "One-line subtitle under the Guest Order tile." },
 
   "guestOrderTitle": "Guest order",
   "@guestOrderTitle": { "description": "App bar title and header of the composer when opened in guest mode." },
@@ -413,5 +405,18 @@
   "onboardingReadyTitle": "We tell you when it's ready",
   "onboardingReadyBody": "The buffet prepares it and you're notified the moment it's ready, to collect or have delivered.",
   "onboardingOwnTitle": "Bring your own materials",
-  "onboardingOwnBody": "Keep your own coffee or tea at the buffet and order from it whenever you like."
+  "onboardingOwnBody": "Keep your own coffee or tea at the buffet and order from it whenever you like.",
+  "greetingMorning": "Good morning, {name}",
+  "@greetingMorning": { "placeholders": { "name": { "type": "String" } } },
+  "greetingAfternoon": "Good afternoon, {name}",
+  "@greetingAfternoon": { "placeholders": { "name": { "type": "String" } } },
+  "greetingEvening": "Good evening, {name}",
+  "@greetingEvening": { "placeholders": { "name": { "type": "String" } } },
+  "greetingNoName": "Welcome",
+  "searchDrinksHint": "Search your drink…",
+  "clearSearch": "Clear search",
+  "menuTitle": "Menu",
+  "noDrinkMatches": "No drink by that name",
+  "outOfStockBadge": "Out at the buffet",
+  "orderForGuest": "Order for a guest"
 }

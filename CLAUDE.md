@@ -85,8 +85,13 @@ Two rules from that work that a future edit must not undo:
 
 **Employees land in a bottom-nav shell** (`lib/app/employee_shell.dart`, a
 `StatefulShellRoute`): **Home · Favourites · Orders · Account** at `/home`, `/favourites`,
-`/orders`, `/account`. Home carries the outstanding-order card, the favourites strip and the
-ordering actions; My materials is a row on Account. Staff still land on `/queue`, with no bar, and
+`/orders`, `/account`. Home is the design's Home: greeting, drink search (`foldForSearch`, which
+treats «قهوه» and «قهوة» as the same), the outstanding-order card, the favourites strip and the menu
+of every drink grouped «من موادي» then «من البوفيه». **There is no "New order" button; a menu row
+is the way in.** It opens the composer seeded with `ComposerSeed.drinkItemId` and `drinkFromOwn`,
+the row's jar. Home builds its whole menu (a `Column`, not a lazy `ListView`), because the jump
+chips scroll to a section heading and a lazy list never builds an off-screen one. My materials is a
+row on Account. Staff still land on `/queue`, with no bar, and
 push what they need from there. Each role has exactly one landing, and `signedInRedirect` (in
 `router.dart`, tested directly by `landing_route_test.dart`) bounces staff off every tab and
 employees off the queue. Three rules a future edit must not undo:
@@ -129,10 +134,12 @@ that two shortcuts side by side, one silently moving, is worse than either alone
   composer it links to `/favourites-list`. Sorted by `lastUsedAtUtc`, which is what that
   field is published for.
 - **The strip's tiles are measured two-per-row, never a fixed `maxWidth`.** A 220dp cap put one card
-  per row on a 320dp phone, and four favourites pushed "New order" — the primary action of the whole
-  app — out of the built viewport entirely. The responsive suite did **not** catch it, because it
-  checks for overflow and nothing overflowed; `home_screen_test.dart` now asserts the primary action
-  is reachable without scrolling, **above the tab bar**, with Home inside the real shell.
+  per row on a 320dp phone, and four favourites pushed "New order" — then the primary action of the
+  whole app — out of the built viewport entirely. The responsive suite did **not** catch it, because
+  it checks for overflow and nothing overflowed. `home_screen_test.dart` now asserts that the
+  **search field and the owed order** (the first ways into ordering, placed above the strip) are
+  reachable without scrolling **above the tab bar**, with Home inside the real shell. With no
+  favourites, the first menu row must be in reach too.
 - **A favourite whose item an admin retired is shown and marked, never hidden or disabled.** The
   server does not filter these (§7.6), and it is right not to: one that vanished silently would
   leave the user nothing to act on and no way to delete what they cannot see. It still taps — the

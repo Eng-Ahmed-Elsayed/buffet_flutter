@@ -6,13 +6,20 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
+import '../../data/api/api_exception.dart';
 import '../../data/local/order_alerts.dart';
+import '../../data/models/catalogue_models.dart';
 import '../../data/models/favourite_models.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/search_text.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/notification_bell.dart';
+import '../../shared/widgets/search_field.dart';
+import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../../theme/motion.dart';
 import '../auth/auth_controller.dart';
 import '../order/composer_screen.dart';
 import '../order/favourites_controller.dart';
@@ -20,24 +27,21 @@ import '../order/favourites_screen.dart';
 import '../order/my_orders_screen.dart';
 import '../order/order_mode.dart';
 import '../order/widgets/favourites_strip.dart';
+import '../order/widgets/menu_item_row.dart';
 import '../order/widgets/outstanding_order_card.dart';
 
-/// The employee's landing screen, and the answer to "what can I do from here?".
+/// The employee's landing screen: the Home tab of the shell.
 ///
-/// Before this existed the composer *was* the landing screen: the app opened on
-/// a drink picker, and every other destination was an unlabelled icon in its
-/// app bar. A user could answer "what drink do I want?" but not "what can I
-/// do?".
+/// The design's Home: a greeting, drink search, the outstanding order when
+/// there is one, the user's favourites, and the menu — every drink, grouped
+/// by the jar it would be made from («من موادي» first, guide §7.1). Tapping a
+/// drink opens the composer with it already chosen; tapping a favourite fills
+/// the composer from it. Nothing here places an order outright.
 ///
-/// The grid is permission-aware — the guest tile is absent, not disabled, for a
-/// token without the privilege. A disabled tile would advertise a capability
-/// the user cannot obtain from this screen, which is worse than silence.
-///
-/// This screen also inherits three jobs that belonged to the composer only
-/// because the composer used to be where the user landed: keeping the
-/// outstanding-order card fresh, asking for notification permission once the
-/// user has seen what the app does, and reporting a session that failed to
-/// refresh after a password change.
+/// It also keeps three jobs from when the composer was the landing screen:
+/// keeping the outstanding-order card fresh, asking for notification
+/// permission once the user has seen what the app does, and reporting a
+/// session that failed to refresh after a password change.
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -48,6 +52,12 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   Timer? _pollTimer;
+  final _search = TextEditingController();
+  String _query = '';
+
+  // The two menu sections, for the jump chips.
+  final _mineKey = GlobalKey();
+  final _buffetKey = GlobalKey();
 
   @override
   void initState() {
@@ -66,6 +76,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _search.dispose();
     super.dispose();
   }
 
@@ -98,43 +109,87 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  void _openComposer({required OrderMode mode, FavouriteDto? favourite}) {
+  void _openComposer({
+    required OrderMode mode,
+    FavouriteDto? favourite,
+    CatalogueItemDto? drink,
+    bool fromOwn = false,
+  }) {
     unawaited(
       context.push(
         Routes.catalogue,
-        extra: ComposerSeed(mode: mode, favourite: favourite),
+        extra: ComposerSeed(
+          mode: mode,
+          favourite: favourite,
+          drinkItemId: drink?.itemId,
+          drinkFromOwn: fromOwn,
+        ),
       ),
+    );
+  }
+
+  /// "Good morning, Sara" — the first name only, as the design greets. The
+  /// hour is the device's local time.
+  String _greeting(AppLocalizations l10n) {
+    final name = ref
+        .watch(authControllerProvider)
+        .displayName
+        ?.trim()
+        .split(RegExp(r'\s+'))
+        .first;
+    if (name == null || name.isEmpty) return l10n.greetingNoName;
+    final hour = DateTime.now().hour;
+    if (hour < 12) return l10n.greetingMorning(name);
+    if (hour < 17) return l10n.greetingAfternoon(name);
+    return l10n.greetingEvening(name);
+  }
+
+  Future<void> _jumpTo(GlobalKey key) async {
+    final target = key.currentContext;
+    if (target == null) return;
+    await Scrollable.ensureVisible(
+      target,
+      duration: Motion.of(context, Motion.slow),
+      curve: Motion.easeOut,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final text = Theme.of(context).textTheme;
     final outstanding = ref.watch(outstandingOrdersProvider);
-    // valueOrNull, not `when`: the action grid must never wait on the
-    // favourites list. A user whose network is slow can still tap New Order,
-    // and an empty strip is the same shape as one that has not loaded.
+    // valueOrNull, not `when`: the rest of Home must never wait on the
+    // favourites list, and an empty strip is the same shape as one that has
+    // not loaded.
     final favourites =
         ref.watch(favouritesProvider).valueOrNull?.favourites ?? const [];
+    final catalogue = ref.watch(catalogueProvider);
     // Null while the catalogue loads: a favourite renders as available until
     // the catalogue says otherwise, rather than the strip flashing
     // "unavailable" over a request that has not come back yet.
-    final availableItemIds = ref
-        .watch(catalogueProvider)
-        .valueOrNull
-        ?.drinks
+    final availableItemIds = catalogue.valueOrNull?.drinks
         .map((d) => d.itemId)
         .toSet();
     final canOrderForGuests = ref.watch(canOrderForGuestsProvider);
+    final searching = _query.trim().isNotEmpty;
 
-    // No ExitConfirmation here: Home is a tab root inside the employee shell,
-    // and back from a tab root is handled by the shell (EmployeeShell).
+    bool matches(CatalogueItemDto d) =>
+        matchesSearch(_query, [d.nameAr, d.nameEn]);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(l10n.homeTitle),
-        // The bell only. Settings is the Account tab now — an icon for it
-        // here would be a second control for a destination the tab bar
-        // already shows.
+        // The design's top bar: the lockup at the start, the bell at the end.
+        // The lockup is decorative, so the bar carries the app's name for
+        // screen readers.
+        title: Semantics(
+          header: true,
+          label: l10n.homeTitle,
+          child: const BrandLockup(width: 120),
+        ),
+        // The bell only. Settings is the Account tab and My orders the Orders
+        // tab — a control here for either would be the same destination twice
+        // on one screen.
         actions: const [NotificationBell()],
       ),
       body: RefreshIndicator(
@@ -144,163 +199,230 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ..invalidate(catalogueProvider)
             ..invalidate(favouritesProvider);
         },
-        child: ListView(
-          padding: const EdgeInsetsDirectional.all(Dimens.space4),
-          children: [
-            // The password change worked but the token refresh did not.
-            // Shown here because this is where the user lands afterwards.
-            if (ref.watch(sessionNotRefreshedProvider)) ...[
-              InlineBanner(
-                tone: BannerTone.warning,
-                title: l10n.sessionNotRefreshed,
-              ),
-              const SizedBox(height: Dimens.space4),
-            ],
-
-            // Above everything: a drink already owed to the user outranks
-            // placing another. Closing the app while waiting is normal, and
-            // on the next launch this screen is where they land.
-            if (outstanding.isNotEmpty) ...[
-              OutstandingOrderCard(
-                order: outstanding.first,
-                othersCount: outstanding.length - 1,
-                onTap: () => context.push(
-                  Routes.orderStatusFor(outstanding.first.orderId),
+        // A Column in a scroll view, not a ListView: the jump chips scroll to a
+        // section heading, and a lazy list does not build a heading that is
+        // off screen — the chip would silently do nothing. The menu is tens of
+        // drinks, not thousands, so building it all costs nothing.
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsetsDirectional.symmetric(
+            horizontal: Dimens.gutter,
+            vertical: Dimens.space5,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // The password change worked but the token refresh did not.
+              // Shown here because this is where the user lands afterwards.
+              if (ref.watch(sessionNotRefreshedProvider)) ...[
+                InlineBanner(
+                  tone: BannerTone.warning,
+                  title: l10n.sessionNotRefreshed,
                 ),
+                const SizedBox(height: Dimens.space4),
+              ],
+
+              Text(
+                _greeting(l10n),
+                style: text.headlineSmall?.copyWith(color: BrandColors.brand),
               ),
               const SizedBox(height: Dimens.space4),
-            ],
 
-            // One tap from launch to the same coffee as yesterday — for an
-            // order the user chose to keep, not one guessed from their last.
-            // Seeds the composer rather than placing outright, so they still
-            // see and confirm what they are ordering.
-            //
-            // Absent rather than empty when nothing is saved: a heading over
-            // no cards is noise on the screen people open to order a drink.
-            if (favourites.isNotEmpty) ...[
-              FavouritesStrip(
-                favourites: favourites,
-                availableItemIds: availableItemIds,
-                onReplay: (favourite) =>
-                    _openComposer(mode: OrderMode.self, favourite: favourite),
-                onDelete: (favourite) =>
-                    unawaited(confirmDeleteFavourite(context, ref, favourite)),
-                // The Favourites tab holds the rest, so the strip still
-                // stops at four but draws no link of its own.
-                restReachableElsewhere: true,
+              // The first way into ordering, so it sits above everything that
+              // can grow — the owed-order card, the favourites.
+              SearchField(
+                controller: _search,
+                hint: l10n.searchDrinksHint,
+                clearTooltip: l10n.clearSearch,
+                onChanged: (value) => setState(() => _query = value),
               ),
-              const SizedBox(height: Dimens.space4),
-            ],
+              const SizedBox(height: Dimens.space5),
 
-            // The primary action spans the full width: there is exactly one
-            // thing most people open this app to do, and a grid that gave it
-            // the same weight as "my materials" would hide it in plain sight.
-            _PrimaryActionTile(
-              icon: Icons.add_circle_outline,
-              label: l10n.homeNewOrder,
-              subtitle: l10n.homeNewOrderSubtitle,
-              onTap: () => _openComposer(mode: OrderMode.self),
-            ),
-            const SizedBox(height: Dimens.space3),
-
-            // Shown only when the token carries the privilege. The server
-            // reads it from the token's claims, not the body — a client
-            // cannot grant itself this, and offering the action to someone
-            // without it would produce an unexplained rejection.
-            if (canOrderForGuests) ...[
-              _PrimaryActionTile(
-                icon: Icons.person_add_alt_outlined,
-                label: l10n.homeGuestOrder,
-                subtitle: l10n.homeGuestOrderSubtitle,
-                // Brand, never accent: violet means "from my own jar", and a
-                // guest order is if anything the opposite of that.
-                emphasised: false,
-                onTap: () => _openComposer(mode: OrderMode.guest),
-              ),
-              const SizedBox(height: Dimens.space3),
-            ],
-
-            // My orders and my materials used to be tiles here. They are a
-            // tab (Orders) and a row on the Account tab now, and notifications
-            // and settings live in the chrome: one control per destination.
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A full-width action, for the things people came here to do.
-class _PrimaryActionTile extends StatelessWidget {
-  const _PrimaryActionTile({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.onTap,
-    this.emphasised = true,
-  });
-
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  /// The filled treatment. Exactly one tile on the screen gets it.
-  final bool emphasised;
-
-  @override
-  Widget build(BuildContext context) {
-    final background = emphasised ? BrandColors.brand : BrandColors.surface;
-    final foreground = emphasised ? BrandColors.surface : BrandColors.brand;
-    final labelColour = emphasised ? BrandColors.surface : BrandColors.ink;
-
-    return Semantics(
-      button: true,
-      label: label,
-      child: Material(
-        color: background,
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(Dimens.radiusLg),
-          child: Container(
-            constraints: const BoxConstraints(minHeight: Dimens.minTarget),
-            padding: const EdgeInsetsDirectional.all(Dimens.space4),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: emphasised ? BrandColors.brand : BrandColors.brandLight,
-              ),
-              borderRadius: BorderRadius.circular(Dimens.radiusLg),
-            ),
-            child: Row(
-              children: [
-                Icon(icon, size: 28, color: foreground),
-                const SizedBox(width: Dimens.space3),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        label,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(color: labelColour),
-                      ),
-                      Text(
-                        subtitle,
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: emphasised
-                              ? BrandColors.brandLight
-                              : BrandColors.muted,
-                        ),
-                      ),
-                    ],
+              // A drink already owed to the user outranks placing another.
+              // Closing the app while waiting is normal, and on the next launch
+              // this screen is where they land.
+              if (outstanding.isNotEmpty) ...[
+                OutstandingOrderCard(
+                  order: outstanding.first,
+                  othersCount: outstanding.length - 1,
+                  onTap: () => context.push(
+                    Routes.orderStatusFor(outstanding.first.orderId),
                   ),
                 ),
-                Icon(Icons.chevron_right, size: 20, color: foreground),
+                const SizedBox(height: Dimens.space5),
               ],
-            ),
+
+              // One tap from launch to the same coffee as yesterday — for an
+              // order the user chose to keep, not one guessed from their last.
+              // Seeds the composer rather than placing outright. Hidden while
+              // searching: the results are what the user asked for.
+              //
+              // Four at most, and no "show all" link: the Favourites tab is
+              // that destination, already on screen in the bar below.
+              if (favourites.isNotEmpty && !searching) ...[
+                FavouritesStrip(
+                  favourites: favourites,
+                  availableItemIds: availableItemIds,
+                  onReplay: (favourite) =>
+                      _openComposer(mode: OrderMode.self, favourite: favourite),
+                  onDelete: (favourite) => unawaited(
+                    confirmDeleteFavourite(context, ref, favourite),
+                  ),
+                  restReachableElsewhere: true,
+                ),
+                const SizedBox(height: Dimens.space5),
+              ],
+
+              // Shown only when the token carries the privilege. The server
+              // reads it from the token's claims, not the body — a client
+              // cannot grant itself this, and offering it to someone without it
+              // would produce an unexplained rejection. Brand, never violet: a
+              // guest order is if anything the opposite of "my own jar".
+              if (canOrderForGuests && !searching) ...[
+                OutlinedButton.icon(
+                  onPressed: () => _openComposer(mode: OrderMode.guest),
+                  icon: const Icon(Icons.person_add_alt_outlined),
+                  label: Text(l10n.orderForGuest),
+                ),
+                const SizedBox(height: Dimens.space5),
+              ],
+
+              ...catalogue.when(
+                loading: () => const [
+                  Padding(
+                    padding: EdgeInsetsDirectional.all(Dimens.space6),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+                error: (error, _) => [
+                  EmptyState(
+                    icon: Icons.cloud_off_outlined,
+                    title: l10n.genericError,
+                    body: error is ApiException
+                        ? error.message
+                        : l10n.networkError,
+                    action: OutlinedButton.icon(
+                      onPressed: () => ref.invalidate(catalogueProvider),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(l10n.retry),
+                    ),
+                  ),
+                ],
+                data: (data) {
+                  if (data.drinks.isEmpty) {
+                    return [
+                      EmptyState(
+                        icon: Icons.no_drinks_outlined,
+                        title: l10n.emptyCatalogueTitle,
+                        body: l10n.emptyCatalogueBody,
+                      ),
+                    ];
+                  }
+
+                  // Guide §7.1: «من موادي» first, then «من البوفيه». An owned
+                  // drink is in both, and the row tapped is the jar ordered
+                  // from.
+                  final mine = data.drinks
+                      .where((d) => d.hasOwnStock && matches(d))
+                      .toList();
+                  final buffet = data.drinks.where(matches).toList();
+
+                  return [
+                    SectionHeader(label: l10n.menuTitle),
+                    const SizedBox(height: Dimens.space3),
+
+                    // Jump links to the two sections — the design's category
+                    // chips, until the backend has menu groups. Only when there
+                    // is more than one section to jump between.
+                    if (mine.isNotEmpty && buffet.isNotEmpty) ...[
+                      Wrap(
+                        spacing: Dimens.space2,
+                        runSpacing: Dimens.space2,
+                        children: [
+                          ActionChip(
+                            avatar: const Icon(
+                              Icons.inventory_2_outlined,
+                              color: BrandColors.accent,
+                            ),
+                            label: Text(l10n.sectionMyMaterials),
+                            // The one violet chip: it IS "my own jar".
+                            side: const BorderSide(color: BrandColors.accent),
+                            onPressed: () => unawaited(_jumpTo(_mineKey)),
+                          ),
+                          ActionChip(
+                            avatar: const Icon(
+                              Icons.local_cafe_outlined,
+                              color: BrandColors.brand,
+                            ),
+                            label: Text(l10n.sectionBuffet),
+                            onPressed: () => unawaited(_jumpTo(_buffetKey)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: Dimens.space4),
+                    ],
+
+                    if (mine.isEmpty && buffet.isEmpty)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.symmetric(
+                          vertical: Dimens.space5,
+                        ),
+                        child: Text(
+                          l10n.noDrinkMatches,
+                          textAlign: TextAlign.center,
+                          style: text.bodyMedium?.copyWith(
+                            color: BrandColors.muted,
+                          ),
+                        ),
+                      ),
+
+                    if (mine.isNotEmpty) ...[
+                      SectionHeader(
+                        key: _mineKey,
+                        label: l10n.sectionMyMaterials,
+                        accent: BrandColors.accent,
+                      ),
+                      const SizedBox(height: Dimens.space2),
+                      for (final drink in mine) ...[
+                        MenuItemRow(
+                          drink: drink,
+                          fromOwn: true,
+                          onTap: () => _openComposer(
+                            mode: OrderMode.self,
+                            drink: drink,
+                            fromOwn: true,
+                          ),
+                        ),
+                        const SizedBox(height: Dimens.space3),
+                      ],
+                      const SizedBox(height: Dimens.space3),
+                    ],
+
+                    if (buffet.isNotEmpty) ...[
+                      // Named only when there is a «من موادي» section to tell it
+                      // apart from; otherwise the menu heading says enough.
+                      if (mine.isNotEmpty) ...[
+                        SectionHeader(
+                          key: _buffetKey,
+                          label: l10n.sectionBuffet,
+                          accent: BrandColors.muted,
+                        ),
+                        const SizedBox(height: Dimens.space2),
+                      ],
+                      for (final drink in buffet) ...[
+                        MenuItemRow(
+                          drink: drink,
+                          fromOwn: false,
+                          onTap: () =>
+                              _openComposer(mode: OrderMode.self, drink: drink),
+                        ),
+                        const SizedBox(height: Dimens.space3),
+                      ],
+                    ],
+                  ];
+                },
+              ),
+            ],
           ),
         ),
       ),

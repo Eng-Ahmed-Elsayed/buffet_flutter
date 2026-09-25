@@ -321,13 +321,27 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   /// callback that fires on every rebuild, and refilling a draft the user has
   /// since edited or cleared would silently undo their work.
   void _applySeedFavourite(CatalogueResponse data) {
-    final favourite = widget.seed.favourite;
-    if (favourite == null || _seedFavouriteApplied) return;
+    if (_seedFavouriteApplied) return;
+    final controller = ref.read(composerControllerProvider.notifier);
 
-    _seedFavouriteApplied = true;
-    ref
-        .read(composerControllerProvider.notifier)
-        .applyFavourite(favourite, data.drinks);
+    final favourite = widget.seed.favourite;
+    if (favourite != null) {
+      _seedFavouriteApplied = true;
+      controller.applyFavourite(favourite, data.drinks);
+      return;
+    }
+
+    // A drink tapped on Home's menu opens already chosen, from the jar its row
+    // stood for. One no longer in the catalogue is left unchosen rather than
+    // guessed at.
+    final drinkId = widget.seed.drinkItemId;
+    if (drinkId != null) {
+      _seedFavouriteApplied = true;
+      final drink = data.drinks.where((d) => d.itemId == drinkId).firstOrNull;
+      if (drink != null) {
+        controller.selectDrink(drink, fromOwn: widget.seed.drinkFromOwn);
+      }
+    }
   }
 }
 
