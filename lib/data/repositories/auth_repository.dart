@@ -52,6 +52,10 @@ class AuthRepository {
 
       final login = LoginResponse.fromJson(response.data!);
 
+      // Written BEFORE the token: a process killed between the two writes
+      // must leave either no session or a blocked one — never a working token
+      // with the block forgotten (rule 10).
+      await _preferences.writeMustChangePassword(login.mustChangePassword);
       await _tokenStore.write(token: login.token, expiresUtc: login.expiresUtc);
       // Not a secret, and §5.1 wants the next sign-in prefilled.
       await _preferences.writeEmail(username);
@@ -118,6 +122,11 @@ class AuthRepository {
         data: SetInitialPasswordRequest(newPassword: newPassword).toJson(),
         options: Options(extra: {ApiConfig.languageFlag: languageCode}),
       );
+      // The password is the user's own now. Released here, not only by the
+      // re-sign-in that follows, because that can fail and leave the user on
+      // the old token — which must not send them back to the forced screen
+      // on the next launch.
+      await _preferences.writeMustChangePassword(false);
     } on DioException catch (error) {
       throw ApiException.fromDio(error, networkErrorFallback);
     }
@@ -133,6 +142,10 @@ class AuthRepository {
   }
 
   Future<bool> hasValidToken() => _tokenStore.hasValidToken();
+
+  /// Whether the stored token's account is still on its seeded password. See
+  /// [PreferencesStore.readMustChangePassword].
+  Future<bool> mustChangePassword() => _preferences.readMustChangePassword();
 
   Future<String?> rememberedEmail() => _preferences.readEmail();
 

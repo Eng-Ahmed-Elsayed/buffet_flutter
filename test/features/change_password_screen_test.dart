@@ -104,6 +104,50 @@ void main() {
       expect(find.text('تم تغيير كلمة المرور'), findsOneWidget);
     });
   });
+
+  group('the forced screen has one way out', () {
+    testWidgets('signing out, which ends the session with the block', (
+      tester,
+    ) async {
+      final auth = _AcceptingAuthController();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authStageProvider.overrideWith(
+              (ref) => AuthStage.mustChangePassword,
+            ),
+            authControllerProvider.overrideWith((ref) => auth),
+          ],
+          child: const MaterialApp(
+            locale: Locale('ar'),
+            supportedLocales: [Locale('ar'), Locale('en')],
+            localizationsDelegates: [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            home: ChangePasswordScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final l10n = await AppLocalizations.delegate.load(const Locale('ar'));
+      await tester.tap(find.text(l10n.signOut));
+      await tester.pumpAndSettle();
+
+      expect(auth.signedOut, isTrue);
+    });
+
+    testWidgets('the voluntary screen offers no sign-out', (tester) async {
+      await tester.pumpWidget(_app(AuthStage.signedIn));
+      await tester.pumpAndSettle();
+
+      final l10n = await AppLocalizations.delegate.load(const Locale('ar'));
+      expect(find.text(l10n.signOut), findsNothing);
+    });
+  });
 }
 
 /// The account, with the voluntary change pushed above it. The router is built
@@ -177,6 +221,12 @@ class _AcceptingAuthController extends AuthController {
   }
 
   bool changed = false;
+  bool signedOut = false;
+
+  @override
+  Future<void> signOut() async {
+    signedOut = true;
+  }
 
   @override
   Future<void> changePassword({

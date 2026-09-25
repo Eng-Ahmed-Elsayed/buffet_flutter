@@ -186,6 +186,12 @@ class AuthController extends StateNotifier<AuthState> {
     // cleared the token, so all that remains is moving the machine to
     // signedOut and letting the router redirect.
     _unauthorizedSubscription = _authEvents.onUnauthorized.listen((_) {
+      // The interceptor cleared only the token. The rest of the session goes
+      // too, exactly as on sign-out: a biometrics flag outliving the
+      // credential it unlocks would gate the next user of this device on the
+      // previous one's fingerprint.
+      _pendingForget = _forgetSession();
+      unawaited(_pendingForget);
       if (mounted) {
         state = AuthState(
           stage: AuthStage.signedOut,
@@ -204,17 +210,38 @@ class AuthController extends StateNotifier<AuthState> {
   final BiometricEnrolmentGuard _enrolmentGuard;
   StreamSubscription<void>? _unauthorizedSubscription;
 
+  /// The cleanup a 401 started, if it may still be running. Sign-in waits for
+  /// it, so it can never delete what the new session has just written.
+  Future<void>? _pendingForget;
+
   Future<void> _restore() async {
     final email = await _repository.rememberedEmail();
     final hasToken = await _repository.hasValidToken();
+    // No usable token — most often the 30-day expiry, caught here before any
+    // request is made, so no 401 ever runs the cleanup. Do it now: the
+    // biometrics flag, the enrolment sentinel, the identity and the
+    // forced-change flag all described a session that is over, and the next
+    // person to sign in must not inherit them.
+    if (!hasToken) {
+      // Best-effort: the stage below does not depend on it, and a storage
+      // failure here must never hold the app on the splash.
+      try {
+        await _forgetLeftovers();
+      } on Object {
+        // Deliberately ignored — see above.
+      }
+    }
+    final mustChange = hasToken && await _repository.mustChangePassword();
     final enabled = hasToken && await _repository.biometricsEnabled();
     final identity = hasToken ? await _repository.restoredIdentity() : null;
 
     if (!mounted) return;
 
-    // A restored token cannot tell us whether mustChangePassword was set —
-    // that only arrives with a login response. The first authenticated call
-    // will 401 if the token is actually dead, and the interceptor handles it.
+    // A restored token carries no login response, so mustChangePassword comes
+    // from the flag sign-in stored beside it. It wins over everything else:
+    // the token works, and a relaunch must not be a way past the forced
+    // change (rule 10). The first authenticated call will 401 if the token is
+    // actually dead, and the interceptor handles it.
     //
     // The lock is only ever reached WITH a token: there is otherwise nothing
     // to unlock, and a fingerprint prompt over a login screen teaches users
@@ -222,6 +249,8 @@ class AuthController extends StateNotifier<AuthState> {
     state = AuthState(
       stage: !hasToken
           ? AuthStage.signedOut
+          : mustChange
+          ? AuthStage.mustChangePassword
           : enabled
           ? AuthStage.locked
           : AuthStage.signedIn,
@@ -239,6 +268,20 @@ class AuthController extends StateNotifier<AuthState> {
     required String languageCode,
     required String networkErrorFallback,
   }) async {
+    // A 401's cleanup still running would delete what this login writes, so
+    // wait for it. Waiting, not depending on it: the cleanup is best-effort,
+    // and a storage failure inside it must not make every later sign-in
+    // re-throw that failure — the login below rewrites the identity and the
+    // forced-change flag regardless. Same stance as onBeforeSignOut.
+    final pending = _pendingForget;
+    _pendingForget = null;
+    if (pending != null) {
+      try {
+        await pending;
+      } on Object {
+        // Deliberately ignored — see above.
+      }
+    }
     final session = await _repository.login(
       username: username,
       password: password,
@@ -468,6 +511,23 @@ class AuthController extends StateNotifier<AuthState> {
       stage: AuthStage.signedOut,
       rememberedEmail: state.rememberedEmail,
     );
+  }
+
+  /// What sign-out clears beyond the token: the account preferences and the
+  /// enrolment sentinel. No push unregistration — after a 401 there is no
+  /// valid token left to make that call with.
+  Future<void> _forgetSession() async {
+    await _repository.signOut();
+    await _enrolmentGuard.disarm();
+  }
+
+  /// [_forgetSession] for a cold start with no usable token. The sentinel is
+  /// disarmed only if biometrics were on, so an ordinary signed-out launch
+  /// makes no platform call.
+  Future<void> _forgetLeftovers() async {
+    final wasArmed = await _repository.biometricsEnabled();
+    await _repository.signOut();
+    if (wasArmed) await _enrolmentGuard.disarm();
   }
 
   @override

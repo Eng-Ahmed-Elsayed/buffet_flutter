@@ -72,8 +72,16 @@ final dioProvider = Provider<Dio>((ref) {
         // loop here would just replay a dead token until the timeout.
         if (error.response?.statusCode == 401 &&
             error.requestOptions.extra[ApiConfig.skipAuthFlag] != true) {
-          await tokenStore.clear();
-          events.signalUnauthorized();
+          // Only a 401 for the token held NOW ends the session. A request
+          // sent with an older token (or none) can come back after the user
+          // has already signed in again, and acting on it wiped the new
+          // session — in one interleaving, its forced-change flag with it.
+          final current = await tokenStore.readToken();
+          final sent = error.requestOptions.headers['Authorization'];
+          if (current != null && sent == 'Bearer $current') {
+            await tokenStore.clear();
+            events.signalUnauthorized();
+          }
         }
         handler.next(error);
       },

@@ -27,6 +27,7 @@ class PreferencesStore {
   static const _languageKey = 'pref_language';
   static const _biometricsKey = 'pref_biometrics';
   static const _onboardingKey = 'pref_onboarding_seen';
+  static const _mustChangeKey = 'pref_must_change_password';
 
   /// The last successfully used email, so the second sign-in is password-only
   /// and biometric-only after that (§5.1). Not a secret, and never the password.
@@ -88,6 +89,21 @@ class PreferencesStore {
   Future<void> writeOnboardingSeen() =>
       _storage.write(key: _onboardingKey, value: 'true');
 
+  /// Whether the stored token belongs to an account still on its seeded
+  /// password (§5, rule 10).
+  ///
+  /// Kept because a restored token carries no login response to read it from:
+  /// without it, signing in on the seeded password, killing the app and
+  /// reopening it landed the user signed in, past the forced change, with a
+  /// token that orders. Absent reads as false. That is right for anyone who
+  /// changed their password under an older build; someone who relaunched past
+  /// the block under an older build also reads false, and stays past it until
+  /// their next sign-in, when the server's answer is stored.
+  Future<bool> readMustChangePassword() async =>
+      await _storage.read(key: _mustChangeKey) == 'true';
+  Future<void> writeMustChangePassword(bool value) =>
+      _storage.write(key: _mustChangeKey, value: '$value');
+
   Future<bool> readBiometricsEnabled() async =>
       await _storage.read(key: _biometricsKey) == 'true';
   Future<void> writeBiometricsEnabled(bool enabled) =>
@@ -106,6 +122,7 @@ class PreferencesStore {
     await _storage.delete(key: _displayNameKey);
     await _storage.delete(key: _departmentKey);
     await _storage.delete(key: _guestsKey);
+    await _storage.delete(key: _mustChangeKey);
   }
 }
 

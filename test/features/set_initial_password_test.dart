@@ -97,7 +97,10 @@ class _NullTokenStore implements SecureTokenStore {
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 
+/// Every write completes and stores nothing. A future, not null: the
+/// repository awaits its writes (setInitialPassword releases the forced-change
+/// flag after the 204).
 class _NullPreferences implements PreferencesStore {
   @override
-  dynamic noSuchMethod(Invocation invocation) => null;
+  dynamic noSuchMethod(Invocation invocation) => Future<void>.value();
 }

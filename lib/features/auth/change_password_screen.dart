@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -235,6 +237,26 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         // continue to: the forced path leads on into the app.
                         : Text(isForced ? l10n.saveAndContinue : l10n.save),
                   ),
+
+                  // The forced screen's only way out. Without it, a user
+                  // held here — on a colleague's account signed into by a
+                  // mistyped email, or on a flag the server no longer agrees
+                  // with — had no exit short of clearing the app's data,
+                  // because the block now survives a relaunch. Signing out
+                  // destroys the token with the flag, so rule 10 holds.
+                  if (isForced) ...[
+                    const SizedBox(height: Dimens.space3),
+                    TextButton(
+                      onPressed: _submitting
+                          ? null
+                          : () => unawaited(
+                              ref
+                                  .read(authControllerProvider.notifier)
+                                  .signOut(),
+                            ),
+                      child: Text(l10n.signOut),
+                    ),
+                  ],
                 ],
               ),
             ),
