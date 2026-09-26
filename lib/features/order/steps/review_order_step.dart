@@ -154,6 +154,7 @@ class ReviewOrderStep extends ConsumerWidget {
                     // within the same structural limits as on its own step.
                     quantity: group.isDraft && composer.offersQuantity
                         ? QuantityStepper(
+                            valueLabel: l10n.quantity,
                             value: composer.draftQuantity,
                             max: composer.maxDraftQuantity,
                             onChanged: controller.setDraftQuantity,
@@ -175,7 +176,7 @@ class ReviewOrderStep extends ConsumerWidget {
                     composer.draftWouldExceedBuffetCap) ...[
                   InlineBanner(
                     tone: BannerTone.warning,
-                    title: l10n.buffetCapTitle,
+                    title: l10n.buffetCapTitle(composer.maxBuffetDrinks),
                     body: l10n.buffetCapBody,
                   ),
                   const SizedBox(height: Dimens.space3),

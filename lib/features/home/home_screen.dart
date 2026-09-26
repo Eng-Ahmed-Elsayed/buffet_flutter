@@ -24,6 +24,7 @@ import '../order/composer_screen.dart';
 import '../order/favourites_controller.dart';
 import '../order/favourites_screen.dart';
 import '../order/my_orders_screen.dart';
+import '../order/order_drinks.dart';
 import '../order/order_mode.dart';
 import '../order/order_status_tracker.dart';
 import '../order/widgets/drink_menu.dart';
@@ -264,6 +265,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               if (outstanding.isNotEmpty) ...[
                 OutstandingOrderCard(
                   order: outstanding.first,
+                  drinks: describeOrderDrinks(
+                    outstanding.first,
+                    catalogue.valueOrNull,
+                    l10n,
+                    Localizations.localeOf(context).languageCode,
+                  ),
                   othersCount: outstanding.length - 1,
                   onTap: () => context.push(
                     Routes.orderStatusFor(outstanding.first.orderId),

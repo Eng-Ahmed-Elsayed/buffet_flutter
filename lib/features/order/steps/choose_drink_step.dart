@@ -150,10 +150,10 @@ class ChooseDrinkStep extends StatelessWidget {
 
           // The strip lives here as well as on Home, and not as a duplicate:
           // staff reach this step from the queue and never see Home, so having
-          // it only there would take the one-tap repeat away from them. Hidden
-          // once anything has been composed — replacing a drink already chosen
-          // is not a "repeat".
-          if (favourites.isNotEmpty && composer.allLines.isEmpty) ...[
+          // it only there would take the one-tap repeat away from them. Shown
+          // while composing too: backing out of a drink to pick a favourite
+          // instead found the strip gone. A favourite then adds to the order.
+          if (favourites.isNotEmpty) ...[
             FavouritesStrip(
               favourites: favourites,
               onReplay: onReplayFavourite,

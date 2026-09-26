@@ -383,7 +383,7 @@ void main() {
       // The field used to appear in the footer for anyone holding the
       // privilege, which made an ordinary order and a guest order look
       // identical. Self mode has no guest field at all — not an empty one.
-      expect(find.text('الطلب لضيف'), findsNothing);
+      expect(find.text('اسم الضيف'), findsNothing);
     });
 
     testWidgets('a guest order asks who it is for, first', (tester) async {
@@ -392,8 +392,9 @@ void main() {
         _app(oneDrink(), canOrderForGuests: true, mode: OrderMode.guest),
       );
 
-      // Both the header and the field label carry the phrase.
-      expect(find.text('الطلب لضيف'), findsWidgets);
+      // The banner says it is a guest order; the field asks for the name.
+      expect(find.text('طلب لضيف'), findsWidgets);
+      expect(find.text('اسم الضيف'), findsOneWidget);
 
       // And it is above the drink picker rather than below the whole order.
       final guestY = tester.getTopLeft(find.text('اسم الضيف')).dy;
@@ -411,7 +412,7 @@ void main() {
       // The privilege is read from the token's claims server-side, so offering
       // the field to someone without it would produce a rejection they could
       // not act on. Falling back to a self order is the honest degradation.
-      expect(find.text('الطلب لضيف'), findsNothing);
+      expect(find.text('اسم الضيف'), findsNothing);
     });
 
     testWidgets('a drink without a guest name shows why, and waits', (
@@ -453,10 +454,22 @@ void main() {
       expect(find.textContaining('قهوة الصبح'), findsOneWidget);
     });
 
-    testWidgets('it steps aside once a drink has been added', (tester) async {
+    testWidgets('it stays while composing, and a tap adds to the order', (
+      tester,
+    ) async {
       await _pumpTall(
         tester,
-        _app(plain(), favourites: [_favourite(name: 'قهوة الصبح')]),
+        _app(
+          // Room for two buffet drinks: this is about the strip, not the cap.
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+            maxBuffetDrinks: 2,
+          ),
+          favourites: [_favouriteOf(1)],
+        ),
       );
 
       await tester.tap(find.text('قهوة'));
@@ -466,10 +479,17 @@ void main() {
       await tester.tap(find.text('أضف مشروبًا آخر'));
       await tester.pumpAndSettle();
 
-      // Back on the first step with a drink in the order: replacing drinks
-      // the user has already chosen is not a "repeat".
-      expect(find.text('قهوة'), findsOneWidget);
-      expect(find.textContaining('قهوة الصبح'), findsNothing);
+      // Back on the first step with a drink in the order, the strip is still
+      // offered: backing out to pick a favourite used to find it gone.
+      expect(find.textContaining('قهوتي'), findsOneWidget);
+
+      // And a tap adds the favourite after the drink already in the order.
+      await tester.tap(find.textContaining('قهوتي'));
+      await tester.pumpAndSettle();
+      final composer = ProviderScope.containerOf(
+        tester.element(find.byType(ComposerScreen)),
+      ).read(composerControllerProvider);
+      expect(composer.allLines, hasLength(2));
     });
 
     testWidgets('saving is offered once there is an order to save', (

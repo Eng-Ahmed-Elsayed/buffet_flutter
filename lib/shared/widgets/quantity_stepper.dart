@@ -18,6 +18,7 @@ class QuantityStepper extends StatelessWidget {
     required this.moreTooltip,
     required this.fewerTooltip,
     required this.atMaxReason,
+    required this.valueLabel,
     super.key,
   });
 
@@ -27,6 +28,10 @@ class QuantityStepper extends StatelessWidget {
   final String moreTooltip;
   final String fewerTooltip;
   final String atMaxReason;
+
+  /// What the number counts ("Quantity"), so a screen reader says more than a
+  /// bare "2".
+  final String valueLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +61,9 @@ class QuantityStepper extends StatelessWidget {
               ),
               Semantics(
                 liveRegion: true,
+                label: valueLabel,
+                value: '$value',
+                excludeSemantics: true,
                 child: Padding(
                   padding: const EdgeInsetsDirectional.symmetric(
                     horizontal: Dimens.space2,

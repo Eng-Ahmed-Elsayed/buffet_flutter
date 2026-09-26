@@ -43,24 +43,73 @@ import 'package:go_router/go_router.dart';
 
 import '../helpers/app_harness.dart';
 
-CatalogueItemDto _d(int id, String n) => CatalogueItemDto(
+/// An extra, for the composer's widest rows.
+CatalogueItemDto _e(int id, String n, {int own = 0}) => CatalogueItemDto(
   itemId: id,
   nameAr: n,
   nameEn: n,
-  category: 'Drink',
+  category: 'Extra',
   unit: 'ج',
   imageUrl: null,
   inStock: true,
-  hasOwnStock: id == 2,
-  ownServingsLeft: 0,
+  hasOwnStock: own > 0,
+  ownServingsLeft: own,
   variants: const [],
   allowedExtraItemIds: null,
 );
 
+/// The widest menu the composer draws: an out-of-stock drink (its badge), a
+/// drink made two ways whose preparation pours an extra (the double-portion
+/// mark), and three extras, one the user owns.
 final _cat = CatalogueResponse(
-  drinks: [_d(1, 'قهوة تركي سادة'), _d(2, 'شاي بالنعناع')],
+  drinks: [
+    const CatalogueItemDto(
+      itemId: 1,
+      nameAr: 'قهوة تركي سادة',
+      nameEn: 'قهوة تركي سادة',
+      category: 'Drink',
+      unit: 'ج',
+      imageUrl: null,
+      inStock: false,
+      hasOwnStock: false,
+      ownServingsLeft: 0,
+      variants: [],
+      allowedExtraItemIds: null,
+    ),
+    const CatalogueItemDto(
+      itemId: 2,
+      nameAr: 'شاي بالنعناع',
+      nameEn: 'شاي بالنعناع',
+      category: 'Drink',
+      unit: 'ج',
+      imageUrl: null,
+      inStock: true,
+      hasOwnStock: true,
+      ownServingsLeft: 0,
+      variants: [
+        VariantDto(
+          variantId: 21,
+          nameAr: 'فرنساوي بالحليب كامل الدسم',
+          nameEn: 'French, with full-fat milk',
+          isDefault: true,
+          ingredientItemIds: [10],
+        ),
+        VariantDto(
+          variantId: 22,
+          nameAr: 'غامق مع هيل مطحون',
+          nameEn: 'Dark, with ground cardamom',
+          isDefault: false,
+        ),
+      ],
+      allowedExtraItemIds: null,
+    ),
+  ],
   sugars: const [],
-  extras: const [],
+  extras: [
+    _e(10, 'حليب كامل الدسم', own: 4),
+    _e(11, 'قرفة مطحونة'),
+    _e(12, 'هيل'),
+  ],
   locations: const [],
   maxLines: 5,
   maxBuffetDrinks: 1,
@@ -286,8 +335,9 @@ void main() {
     'composer-details': const ComposerScreen(
       seed: ComposerSeed(drinkItemId: 2, drinkFromOwn: true),
     ),
-    // Review, from a favourite: the line with its summary, location, notes,
-    // save-as-favourite and the footer.
+    // Review, from a favourite: grouped identical cups, a line with extras,
+    // a drink no longer on the menu and one past the buffet cap (so the
+    // favourite notice), with location, notes, save-as-favourite and footer.
     'composer-review': ComposerScreen(
       seed: ComposerSeed(
         favourite: FavouriteDto(
@@ -300,6 +350,42 @@ void main() {
               drinkItemId: 1,
               drinkNameAr: 'قهوة تركي سادة',
               sugarSpoons: 2,
+              variantId: null,
+              sugarItemId: null,
+              extraItemIds: [11, 12],
+              lineNote: null,
+              drinkFromOwn: false,
+              sugarFromOwn: false,
+              ownExtraItemIds: [],
+            ),
+            OrderLineDto(
+              drinkItemId: 2,
+              drinkNameAr: 'شاي بالنعناع',
+              sugarSpoons: 0,
+              variantId: 21,
+              sugarItemId: null,
+              extraItemIds: [10],
+              lineNote: null,
+              drinkFromOwn: true,
+              sugarFromOwn: false,
+              ownExtraItemIds: [10],
+            ),
+            OrderLineDto(
+              drinkItemId: 2,
+              drinkNameAr: 'شاي بالنعناع',
+              sugarSpoons: 0,
+              variantId: 21,
+              sugarItemId: null,
+              extraItemIds: [10],
+              lineNote: null,
+              drinkFromOwn: true,
+              sugarFromOwn: false,
+              ownExtraItemIds: [10],
+            ),
+            OrderLineDto(
+              drinkItemId: 99,
+              drinkNameAr: 'كابتشينو بالكراميل المملح',
+              sugarSpoons: 1,
               variantId: null,
               sugarItemId: null,
               extraItemIds: [],

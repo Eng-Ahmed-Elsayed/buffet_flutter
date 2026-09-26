@@ -263,6 +263,7 @@ class DrinkDetailsStep extends ConsumerWidget {
                         const SizedBox(height: Dimens.space5),
                         _Label(l10n.quantity),
                         QuantityStepper(
+                          valueLabel: l10n.quantity,
                           value: composer.draftQuantity,
                           max: composer.maxDraftQuantity,
                           onChanged: controller.setDraftQuantity,
@@ -282,7 +283,7 @@ class DrinkDetailsStep extends ConsumerWidget {
                         const SizedBox(height: Dimens.space4),
                         InlineBanner(
                           tone: BannerTone.warning,
-                          title: l10n.buffetCapTitle,
+                          title: l10n.buffetCapTitle(composer.maxBuffetDrinks),
                           body: l10n.buffetCapBody,
                         ),
                       ],
@@ -400,7 +401,9 @@ class _ExtraChip extends StatelessWidget {
         label: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(name),
+            // Flexible: at a large text scale a long name beside the
+            // double-portion mark ran past the chip on a 320dp phone.
+            Flexible(child: Text(name)),
             if (doublesUp) ...[
               const SizedBox(width: Dimens.space1),
               const Icon(

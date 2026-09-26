@@ -91,25 +91,31 @@ class _StepperButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(Dimens.radius),
-        child: Container(
-          // §2.5: never below 44px.
-          width: Dimens.minTarget,
-          height: Dimens.minTarget,
-          decoration: BoxDecoration(
-            color: onPressed == null
-                ? BrandColors.page
-                : BrandColors.brandLight,
-            borderRadius: BorderRadius.circular(Dimens.radius),
-          ),
-          child: Icon(
-            icon,
-            size: 18,
-            color: onPressed == null ? BrandColors.muted : BrandColors.brand,
+    // A button, and one announced as unavailable at the floor or ceiling —
+    // an InkWell alone read as working when it was not.
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      child: Tooltip(
+        message: tooltip,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(Dimens.radius),
+          child: Container(
+            // §2.5: never below 44px.
+            width: Dimens.minTarget,
+            height: Dimens.minTarget,
+            decoration: BoxDecoration(
+              color: onPressed == null
+                  ? BrandColors.page
+                  : BrandColors.brandLight,
+              borderRadius: BorderRadius.circular(Dimens.radius),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: onPressed == null ? BrandColors.muted : BrandColors.brand,
+            ),
           ),
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../data/models/order_models.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/widgets/app_card.dart';
 import '../../../theme/brand_colors.dart';
 import '../../../theme/dimens.dart';
 
@@ -18,6 +19,7 @@ class OutstandingOrderCard extends StatelessWidget {
     required this.order,
     required this.othersCount,
     required this.onTap,
+    this.drinks,
     super.key,
   });
 
@@ -30,6 +32,11 @@ class OutstandingOrderCard extends StatelessWidget {
 
   final VoidCallback onTap;
 
+  /// What was ordered, in the reader's language ("Coffee ×2, Tea"). Said in
+  /// place of a second "ready": the title already says that, and the card
+  /// never said which drink.
+  final String? drinks;
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -37,71 +44,61 @@ class OutstandingOrderCard extends StatelessWidget {
     // Read by name through OrderStatus — never by ordinal (rule 5).
     final ready = order.orderStatus == OrderStatus.ready;
 
-    // Green for a drink that exists and is waiting; the ordinary brand tint
-    // while it is still being made. Never violet — that means "from my own
-    // jar" and nothing else (rule 3).
-    final (background, border, foreground, icon, title, body) = ready
+    // Green for a drink that exists and is waiting; the ordinary card while it
+    // is still being made. Never violet — that means "from my own jar" and
+    // nothing else (rule 3).
+    final (tone, foreground, icon, title, fallbackBody) = ready
         ? (
-            BrandColors.okSurface,
-            BrandColors.ok,
+            CardTone.ok,
             BrandColors.ok,
             Icons.local_cafe_outlined,
             l10n.outstandingReadyTitle,
             l10n.outstandingReadyBody,
           )
         : (
-            // White, like every card on the design's pale-blue page. The page
-            // colour itself would vanish against the page.
-            BrandColors.surface,
-            BrandColors.brandLight,
+            CardTone.neutral,
             BrandColors.ink,
             Icons.hourglass_bottom_outlined,
             l10n.outstandingLiveTitle,
             l10n.outstandingLiveBody,
           );
 
-    return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(Dimens.radius),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(Dimens.radius),
-        onTap: onTap,
-        child: Container(
-          constraints: const BoxConstraints(minHeight: Dimens.minTarget),
-          padding: const EdgeInsetsDirectional.all(Dimens.space3),
-          decoration: BoxDecoration(
-            border: Border.all(color: border),
-            borderRadius: BorderRadius.circular(Dimens.radius),
-          ),
-          child: Row(
-            children: [
-              Icon(icon, color: foreground),
-              const SizedBox(width: Dimens.space3),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Colour is never the only signal — the state is spelled
-                    // out in words (§2.5).
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall
-                          ?.copyWith(color: foreground),
-                    ),
-                    Text(body, style: Theme.of(context).textTheme.bodySmall),
-                    if (othersCount > 0)
-                      Text(
-                        l10n.outstandingMore(othersCount),
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                  ],
+    // AppCard, not a hand-built container: it carries the card's tokens and a
+    // button role for screen readers, which the InkWell here did not.
+    return AppCard(
+      tone: tone,
+      onTap: onTap,
+      padding: const EdgeInsetsDirectional.all(Dimens.space3),
+      child: Row(
+        children: [
+          Icon(icon, color: foreground),
+          const SizedBox(width: Dimens.space3),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Colour is never the only signal — the state is spelled out
+                // in words (§2.5).
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(color: foreground),
                 ),
-              ),
-              const SizedBox(width: Dimens.space2),
-              Icon(Icons.chevron_right, size: 18, color: foreground),
-            ],
+                Text(
+                  drinks ?? fallbackBody,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                if (othersCount > 0)
+                  Text(
+                    l10n.outstandingMore(othersCount),
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+              ],
+            ),
           ),
-        ),
+          const SizedBox(width: Dimens.space2),
+          Icon(Icons.chevron_right, size: 18, color: foreground),
+        ],
       ),
     );
   }

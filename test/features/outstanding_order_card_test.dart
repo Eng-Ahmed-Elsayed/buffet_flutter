@@ -155,4 +155,55 @@ void main() {
       expect(find.text(_liveTitle), findsNothing);
     });
   });
+
+  group('the card names the drink, and is a button', () {
+    testWidgets('a Ready card says which drink, not "ready" twice', (
+      tester,
+    ) async {
+      final ready = OrderSummaryDto(
+        orderId: 41,
+        status: 'Ready',
+        createdAtUtc: DateTime.utc(2026, 8, 20, 7),
+        readyAtUtc: null,
+        handledAtUtc: null,
+        locationText: '',
+        onBehalfOfName: null,
+        notes: '',
+        lines: const [
+          OrderLineDto(
+            drinkItemId: 1,
+            drinkNameAr: 'شاي',
+            sugarSpoons: 1,
+            variantId: null,
+            sugarItemId: null,
+            extraItemIds: [],
+            lineNote: null,
+            drinkFromOwn: false,
+            sugarFromOwn: false,
+            ownExtraItemIds: [],
+          ),
+          OrderLineDto(
+            drinkItemId: 1,
+            drinkNameAr: 'شاي',
+            sugarSpoons: 1,
+            variantId: null,
+            sugarItemId: null,
+            extraItemIds: [],
+            lineNote: null,
+            drinkFromOwn: false,
+            sugarFromOwn: false,
+            ownExtraItemIds: [],
+          ),
+        ],
+      );
+      await _pumpTall(tester, _app([ready]));
+
+      expect(find.text(_readyTitle), findsOneWidget);
+      expect(find.textContaining('×2'), findsOneWidget);
+      expect(
+        tester.getSemantics(find.text(_readyTitle)),
+        isSemantics(isButton: true),
+      );
+    });
+  });
 }
