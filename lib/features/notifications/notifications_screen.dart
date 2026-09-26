@@ -12,6 +12,7 @@ import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../auth/auth_controller.dart';
 
 /// Everything the server has told this user, newest first.
 final notificationsProvider = FutureProvider.autoDispose<List<NotificationDto>>((
@@ -55,6 +56,11 @@ class NotificationsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  /// The rows that were new when the screen opened. Marking read reloads the
+  /// list with every row read, so without this the rows the user came for
+  /// lost their mark while being read.
+  Set<int> _unreadOnOpen = const {};
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +81,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final locale = ref.read(localeControllerProvider);
 
     try {
+      // Loaded before marking, so the snapshot is of what was new, and a
+      // list that never loaded is never marked read unseen.
+      final items = await ref.read(notificationsProvider.future);
+      if (!mounted) return;
+      setState(
+        () => _unreadOnOpen = {
+          for (final n in items)
+            if (!n.isRead) n.notificationId,
+        },
+      );
       await ref
           .read(notificationsRepositoryProvider)
           .markAllRead(
@@ -92,6 +108,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     final l10n = AppLocalizations.of(context);
     final notifications = ref.watch(notificationsProvider);
     final locale = ref.watch(localeControllerProvider).languageCode;
+    final isStaff = ref.watch(startsOnQueueProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.notifications)),
@@ -150,9 +167,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     ),
                   );
                 }
+                final notification = items[index - (stale ? 1 : 0)];
                 return _NotificationRow(
-                  notification: items[index - (stale ? 1 : 0)],
+                  notification: notification,
                   locale: locale,
+                  unread:
+                      !notification.isRead ||
+                      _unreadOnOpen.contains(notification.notificationId),
+                  onTap: _destination(notification, isStaff: isStaff),
                 );
               },
             ),
@@ -161,13 +183,44 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       ),
     );
   }
+
+  /// Where a row leads, if anywhere. An order opens its tracking screen. A
+  /// declaration's outcome opens My materials, where the balance it changed
+  /// is shown — for employees only, since staff have no materials screen.
+  /// `LowStock` goes only to admins and is about buffet stock, which nothing
+  /// in the app shows, so it leads nowhere.
+  VoidCallback? _destination(
+    NotificationDto notification, {
+    required bool isStaff,
+  }) {
+    final orderId = notification.orderId;
+    if (orderId != null) {
+      return () => context.push(Routes.orderStatusFor(orderId));
+    }
+    final declaration =
+        notification.kind == 'DeclarationConfirmed' ||
+        notification.kind == 'DeclarationRejected';
+    if (declaration && !isStaff) return () => context.push(Routes.materials);
+    return null;
+  }
 }
 
 class _NotificationRow extends StatelessWidget {
-  const _NotificationRow({required this.notification, required this.locale});
+  const _NotificationRow({
+    required this.notification,
+    required this.locale,
+    required this.unread,
+    required this.onTap,
+  });
 
   final NotificationDto notification;
   final String locale;
+
+  /// Unread on the server, or when the screen opened.
+  final bool unread;
+
+  /// Null when the row leads nowhere; it then does not invite the tap.
+  final VoidCallback? onTap;
 
   /// The glyph for a kind, compared by **name** — the wire carries a string and
   /// the enum's ordinals are not in workflow order.
@@ -184,26 +237,26 @@ class _NotificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final (icon, tint) = _glyph;
-    final orderId = notification.orderId;
+    final text = Theme.of(context).textTheme;
 
+    // Unread is said three ways, never by the fill alone (1.35:1 against the
+    // page): a dot named for screen readers, and the message in bold.
     return Material(
-      color: notification.isRead ? BrandColors.surface : BrandColors.brandLight,
+      color: unread ? BrandColors.brandLight : BrandColors.surface,
       borderRadius: BorderRadius.circular(Dimens.radius),
       child: InkWell(
         borderRadius: BorderRadius.circular(Dimens.radius),
-        // Only rows that name an order lead anywhere. A low-stock notice has
-        // nothing to open, and a tappable row that does nothing is worse than
-        // one that plainly does not invite the tap.
-        onTap: orderId == null
-            ? null
-            : () => context.push(Routes.orderStatusFor(orderId)),
+        // A row that leads nowhere does not invite the tap: one that did,
+        // then did nothing, is worse.
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsetsDirectional.all(Dimens.space3),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 20, color: tint),
+              Icon(icon, size: Dimens.iconSm, color: tint),
               const SizedBox(width: Dimens.space3),
               Expanded(
                 child: Column(
@@ -212,27 +265,52 @@ class _NotificationRow extends StatelessWidget {
                     Text(
                       // Already localised server-side; rendered as-is.
                       notification.message,
-                      style: Theme.of(context).textTheme.bodyMedium,
+                      style: text.bodyMedium?.copyWith(
+                        fontWeight: unread ? FontWeight.w600 : null,
+                      ),
                     ),
                     const SizedBox(height: Dimens.space1),
-                    Text(
-                      Formatters.dateTime(notification.createdAtUtc, locale),
-                      // Muted fails on the unread row's blue (4.19:1); the
-                      // brand blue holds 6.07:1 there.
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: notification.isRead ? null : BrandColors.brand,
-                      ),
+                    Row(
+                      children: [
+                        if (unread) ...[
+                          Semantics(
+                            label: l10n.unread,
+                            child: Container(
+                              width: Dimens.unreadDot,
+                              height: Dimens.unreadDot,
+                              decoration: const BoxDecoration(
+                                color: BrandColors.brand,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: Dimens.space1),
+                        ],
+                        Flexible(
+                          child: Text(
+                            Formatters.dateTime(
+                              notification.createdAtUtc,
+                              locale,
+                            ),
+                            // Muted fails on the unread row's blue (4.19:1);
+                            // the brand blue holds 6.07:1 there.
+                            style: text.labelSmall?.copyWith(
+                              color: unread ? BrandColors.brand : null,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              if (orderId != null)
+              if (onTap != null)
                 // Points "onward": left in Arabic, right in English. The icon
                 // mirrors with the ambient direction on its own; forcing RTL
                 // here made it point backwards in English.
                 const Icon(
                   Icons.chevron_right,
-                  size: 18,
+                  size: Dimens.iconXs,
                   color: BrandColors.muted,
                 ),
             ],

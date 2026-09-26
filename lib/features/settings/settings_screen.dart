@@ -136,10 +136,7 @@ class SettingsScreen extends ConsumerWidget {
             icon: Icons.logout,
             label: l10n.signOut,
             tone: BrandColors.danger,
-            // The router redirects to login as soon as the stage changes, so
-            // there is nothing here to await.
-            onTap: () =>
-                unawaited(ref.read(authControllerProvider.notifier).signOut()),
+            onTap: () => unawaited(_confirmSignOut(context, ref)),
           ),
 
           const SizedBox(height: Dimens.space6),
@@ -225,5 +222,33 @@ class _AccountRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Signing out costs the password to get back in, and the row sits at the
+/// foot of a list a thumb scrolls through, so it asks first. The router
+/// redirects to login as soon as the stage changes; nothing here waits on it.
+Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+  final l10n = AppLocalizations.of(context);
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(l10n.signOutConfirmTitle),
+      content: Text(l10n.signOutConfirmBody),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(l10n.cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(foregroundColor: BrandColors.danger),
+          child: Text(l10n.signOut),
+        ),
+      ],
+    ),
+  );
+  if ((confirmed ?? false) && context.mounted) {
+    unawaited(ref.read(authControllerProvider.notifier).signOut());
   }
 }

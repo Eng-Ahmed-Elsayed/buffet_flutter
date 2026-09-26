@@ -80,7 +80,14 @@ class MyMaterialsScreen extends ConsumerWidget {
             : RefreshIndicator(
                 onRefresh: () async => ref.invalidate(myMaterialsProvider),
                 child: ListView.separated(
-                  padding: const EdgeInsetsDirectional.all(Dimens.space4),
+                  // Clear of the declare button at the foot, which otherwise
+                  // sat over the last card's balance.
+                  padding: const EdgeInsetsDirectional.fromSTEB(
+                    Dimens.space4,
+                    Dimens.space4,
+                    Dimens.space4,
+                    Dimens.controlHeight + Dimens.space4 * 2,
+                  ),
                   itemCount: items.length + 1,
                   separatorBuilder: (_, _) =>
                       const SizedBox(height: Dimens.space3),
@@ -140,42 +147,50 @@ class _MaterialCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              // The real uploaded photograph, resolved against the API host.
-              // Falls back to a category glyph while imageUrl is absent — see
-              // docs/backend-request-material-image.md.
-              ItemImage(
-                imageUrl: ApiConfig.imageUrl(material.imageUrl),
-                category: material.nameAr,
-                size: 44,
-              ),
-              const SizedBox(width: Dimens.space3),
-              Expanded(
-                child: Text(
-                  material.nameAr,
-                  style: Theme.of(context).textTheme.titleSmall,
+          LayoutBuilder(
+            builder: (context, constraints) => Row(
+              children: [
+                // The real uploaded photograph, resolved against the API host.
+                // Falls back to a category glyph while imageUrl is absent — see
+                // docs/backend-request-material-image.md.
+                ItemImage(
+                  imageUrl: ApiConfig.imageUrl(material.imageUrl),
+                  category: material.nameAr,
+                  size: 44,
                 ),
-              ),
-              const SizedBox(width: Dimens.space2),
-              // Quantity and unit are bidi-isolated: the unit is admin-entered
-              // and keeps whatever language it was typed in (§2.4).
-              //
-              // Flexible because the unit is admin-entered and the number can
-              // be negative and fractional, so this has no bounded width to
-              // rely on: at a large text scale it ran off the card. It wraps
-              // rather than truncating — a balance the reader cannot finish
-              // reading is worse than a taller card.
-              Flexible(
-                child: Text(
-                  Formatters.quantity(material.quantity, material.unit),
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                const SizedBox(width: Dimens.space3),
+                Expanded(
+                  child: Text(
+                    material.nameAr,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: Dimens.space2),
+                // Quantity and unit are bidi-isolated: the unit is admin-entered
+                // and keeps whatever language it was typed in (§2.4).
+                //
+                // Capped rather than flexed: the unit is admin-entered and the
+                // number can be negative and fractional, so it has no bounded
+                // width, and at a large text scale it ran off the card. A
+                // Flexible beside the Expanded name split the row in half, so a
+                // short balance floated mid-card and the name wrapped early. It
+                // takes its own width up to the cap, and wraps past it rather
+                // than truncating: a balance the reader cannot finish reading
+                // is worse than a taller card.
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth * Dimens.balanceMaxFraction,
+                  ),
+                  child: Text(
+                    Formatters.quantity(material.quantity, material.unit),
+                    textAlign: TextAlign.end,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: Dimens.space3),
           Row(
@@ -214,10 +229,10 @@ class _MaterialCard extends StatelessWidget {
               // Says plainly that the balance is below zero, rather than
               // letting a bare "-6 جرام" read as a rendering glitch.
               l10n.overdrawnBalance,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: BrandColors.warning,
-                fontWeight: FontWeight.w600,
-              ),
+              // The band's own colour: a warning beside a danger "Empty"
+              // read as two different states.
+              style: Theme.of(context).textTheme.labelSmall
+                  ?.copyWith(color: levelColour, fontWeight: FontWeight.w600),
             ),
           ],
         ],

@@ -30,8 +30,8 @@ class NotificationBell extends ConsumerWidget {
           const Icon(Icons.notifications_none_outlined),
           if (unread > 0)
             PositionedDirectional(
-              top: -2,
-              end: -2,
+              top: -Dimens.badgeOffset,
+              end: -Dimens.badgeOffset,
               child: Container(
                 padding: const EdgeInsetsDirectional.symmetric(
                   horizontal: Dimens.space1,
@@ -39,15 +39,24 @@ class NotificationBell extends ConsumerWidget {
                 constraints: const BoxConstraints(minWidth: Dimens.space3),
                 decoration: BoxDecoration(
                   color: BrandColors.danger,
-                  borderRadius: BorderRadius.circular(Dimens.handleRadius * 3),
+                  borderRadius: BorderRadius.circular(Dimens.radiusSm),
                 ),
-                child: Text(
-                  // Capped: past a certain point the exact number stops being
-                  // information and starts being a wide badge.
-                  unread > 9 ? '9+' : '$unread',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelSmall
-                      ?.copyWith(color: BrandColors.surface, fontSize: 10),
+                // Read after the bell's name as "3 unread", and exactly: the
+                // figure drawn caps at 9+, and a bare "3" said nothing.
+                child: Semantics(
+                  label: l10n.unreadCount(unread),
+                  child: ExcludeSemantics(
+                    child: Text(
+                      // Capped: past a certain point the exact number stops
+                      // being information and starts being a wide badge.
+                      unread > 9 ? '9+' : '$unread',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: BrandColors.surface,
+                        fontSize: Dimens.badgeText,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

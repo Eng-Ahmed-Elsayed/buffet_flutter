@@ -127,7 +127,16 @@ class FavouritesScreen extends ConsumerWidget {
                   EmptyState(
                     icon: Icons.star_outline,
                     title: l10n.favouritesEmptyTitle,
+                    // Says where a favourite is saved from, and leads there:
+                    // an empty tab with no way on was a dead end. Not when
+                    // picking for a composer, which is itself the way on.
                     body: l10n.favouritesEmptyHint,
+                    action: returnsPick
+                        ? null
+                        : OutlinedButton(
+                            onPressed: () => context.go(Routes.home),
+                            child: Text(l10n.orderADrink),
+                          ),
                   ),
                 ],
               ),

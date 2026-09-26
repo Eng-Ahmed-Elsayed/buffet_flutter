@@ -51,7 +51,11 @@ The **in-app notification centre is built** (§7.4) — list, unread badge on bo
 mark-all-read on open. It is the reliable half of notifications: the server writes the row before it
 attempts a push, so a push that was throttled, deferred by Doze or never permitted is still
 recoverable there, and it is the only place `LowStock`, `DeclarationConfirmed` and
-`DeclarationRejected` ever surface.
+`DeclarationRejected` ever surface. **The rows new on opening keep their mark** (a named dot and
+bold text, never the fill alone) after mark-all-read reloads them as read; the snapshot is taken
+before marking. A declaration outcome opens My materials, for employees only. **`LowStock` leads
+nowhere, deliberately**: the server sends it only to admins, and it concerns buffet stock, which
+nothing in the app shows. `account_notifications_test.dart`. Sign-out asks first.
 
 **Push is built, Android only** (§7.4). Firebase project `digital-buffet-846f0`; the service
 account lives in .NET user secrets (`Push:ServiceAccountJson`) and never in either repository.

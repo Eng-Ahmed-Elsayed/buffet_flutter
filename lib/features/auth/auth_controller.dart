@@ -578,6 +578,12 @@ final canOrderForGuestsProvider = Provider<bool>(
   (ref) => ref.watch(authControllerProvider).canOrderForGuests,
 );
 
+/// Whether the signed-in user is staff, who land on the queue and have no
+/// materials screen. Narrow for the same reason as [canOrderForGuestsProvider].
+final startsOnQueueProvider = Provider<bool>(
+  (ref) => ref.watch(authControllerProvider).role.startsOnQueue,
+);
+
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
   (ref) => AuthController(
     ref.watch(authRepositoryProvider),

@@ -28,6 +28,7 @@ import 'package:buffet_app/features/auth/lock_screen.dart';
 import 'package:buffet_app/features/auth/login_screen.dart';
 import 'package:buffet_app/features/auth/splash_screen.dart';
 import 'package:buffet_app/features/home/home_screen.dart';
+import 'package:buffet_app/features/materials/declare_sheet.dart';
 import 'package:buffet_app/features/materials/my_materials_screen.dart';
 import 'package:buffet_app/features/notifications/notifications_screen.dart';
 import 'package:buffet_app/features/onboarding/onboarding_screen.dart';
@@ -431,6 +432,9 @@ void main() {
     'favourites': const FavouritesScreen(),
     'settings': const SettingsScreen(),
     'materials': const MyMaterialsScreen(),
+    // The sheet as the materials screen opens it: its item list, quantity
+    // field and hints in a sheet that has to scroll rather than overflow.
+    'declare-sheet': const Scaffold(body: DeclareSheet()),
     'notifications': const NotificationsScreen(),
     // The busiest screen in the app, with a worst-case card: long names, a
     // guest, a note and a preparation. Its drink-name row was unbounded and

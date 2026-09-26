@@ -64,6 +64,22 @@ abstract final class Dimens {
   /// A small leading icon, as on a banner.
   static const iconSm = 20.0;
 
+  /// A trailing chevron on a row.
+  static const iconXs = 18.0;
+
+  /// The dot marking an unread notification.
+  static const unreadDot = 8.0;
+
+  /// The bell's unread badge: how far it sits past the glyph's corner, and
+  /// its figure, smaller than any text style because it lives inside a 24dp
+  /// icon.
+  static const badgeOffset = 2.0;
+  static const badgeText = 10.0;
+
+  /// The most of a material card's width its balance may take before it
+  /// wraps; the name has the rest.
+  static const balanceMaxFraction = 0.45;
+
   /// The large glyph on an empty or error state, and on a first-launch slide.
   static const iconHero = 72.0;
   static const iconSlide = 96.0;
