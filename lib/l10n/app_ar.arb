@@ -342,7 +342,7 @@
   },
   "shortageTitle": "نقص في المخزون",
   "@shortageTitle": { "description": "Heading for warnings that arrive on a 200 after serving." },
-  "shortageBody": "سُلّم المشروب. يتولى المسؤول التسوية.",
+  "shortageBody": "حُضِّر المشروب رغم ذلك. يتولى المسؤول التسوية.",
   "@shortageBody": { "description": "Makes clear the serve succeeded despite the warning." },
   "shortfallAmount": "العجز: {amount}",
   "@shortfallAmount": {
@@ -629,5 +629,7 @@
   "currentPasswordRequired": "اكتب كلمة المرور الحالية",
   "chooseItem": "اختر الصنف",
   "@chooseItem": { "description": "Declare sheet: hint and validation for the item picker." },
-  "itemNameRequired": "اكتب اسم الصنف"
+  "itemNameRequired": "اكتب اسم الصنف",
+  "servedWithShortage": "قُدِّم طلب {name} مع نقص في المخزون",
+  "@servedWithShortage": { "description": "Screen-level notice: an order served and handed over at once came back with shortage warnings.", "placeholders": { "name": { "type": "String" } } }
 }

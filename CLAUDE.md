@@ -73,6 +73,12 @@ Two rules from that work that a future edit must not undo:
 - **The staff undo affordance lives on the card, not in a SnackBar.** `ScaffoldMessenger` *queues*
   snackbars and their duration counts from display, not creation, so a rush showed undo buttons for
   orders that had already been served. Do not "simplify" it back.
+- **A committed serve's card goes at once and stays gone until its answer lands.** It is removed
+  as the undo window commits (as a handover's is) and filtered out of every refresh while its
+  `/ready` is in flight (`_serving`): a poll answered first still lists it Pending, and live Ready
+  buttons coming back read as "undone" and got the drink made twice. Put back only if the serve fails.
+  **A shortage from "ready and handed over" is shown above the tabs**, named, until dismissed,
+  since that order leaves both lists and its card with it. `queue_serve_test.dart`.
 - **Foreground polling stays alongside push.** Push closes the closed-app gap; polling closes the
   foreground-freshness gap. They are not duplicates.
 - **`prepareOrderAlerts` is called from BOTH landing screens.** It used to live on the composer,

@@ -60,11 +60,25 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   /// Handovers already sent and awaiting their response, so a second tap during
   /// the round trip cannot post twice.
   final Set<int> _completing = {};
+
+  /// Orders whose undo window has committed and whose `/ready` is on its way.
+  /// Kept out of every refresh until the answer lands: a poll answered before
+  /// the server handled the serve still lists the order as Pending, and
+  /// putting its card back with live buttons is the double serve the removal
+  /// exists to prevent — the normal case when a rush serves cards back to back.
+  final Set<int> _serving = {};
   bool _loading = true;
   String? _errorMessage;
 
   /// Warnings from the most recent serve, shown on the card afterwards.
   final Map<int, List<StockWarningDto>> _recentWarnings = {};
+
+  /// Shortages from orders served AND handed over at once. Those orders leave
+  /// both lists, so a warning kept on their card was never seen — on the most
+  /// used button (rule 2: surface it after serving). Shown above the tabs
+  /// until dismissed, newest first.
+  final List<({int orderId, String name, List<StockWarningDto> warnings})>
+  _servedShortages = [];
 
   /// The result of a self-order just placed, shown as a banner above the tabs.
   SelfOrderOutcome? _selfOrderOutcome;
@@ -212,7 +226,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
 
       if (!mounted) return;
       setState(() {
-        _queue = results[0];
+        _queue = [
+          for (final o in results[0])
+            if (!_serving.contains(o.orderId)) o,
+        ];
         _handovers = results[1];
         _loading = false;
         _errorMessage = null;
@@ -266,7 +283,14 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     _pendingTimers[order.orderId] = Timer(window, () {
       _pendingTimers.remove(order.orderId);
       if (!mounted) return;
-      setState(() => _pendingActions.remove(order.orderId));
+      // The card goes as the countdown commits, as a handover's does. Left in
+      // place until the server answered, it showed its Ready buttons again
+      // for the whole round trip — read as "undone", and served twice.
+      setState(() {
+        _pendingActions.remove(order.orderId);
+        _serving.add(order.orderId);
+        _queue = _queue.where((o) => o.orderId != order.orderId).toList();
+      });
       unawaited(_markReady(order, deliverNow: deliverNow));
     });
   }
@@ -318,21 +342,55 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
 
       if (!mounted) return;
 
+      final whom = order.onBehalfOfName ?? order.requesterDisplayName;
       if (result.hasWarnings) {
-        setState(() => _recentWarnings[order.orderId] = result.warnings);
+        setState(() {
+          if (deliverNow) {
+            _servedShortages.insert(0, (
+              orderId: order.orderId,
+              // Who the drink was for: the guest, when there is one.
+              name: whom,
+              warnings: result.warnings,
+            ));
+          } else {
+            // Plain Ready: the card moves to the handover list and carries
+            // its warnings there.
+            _recentWarnings[order.orderId] = result.warnings;
+          }
+        });
       }
 
+      // The answer has landed: from here the server's lists are right about
+      // this order, so refreshes may list it again (as Ready, on handover).
+      _serving.remove(order.orderId);
       await _refresh();
 
       if (!mounted) return;
       // No toast. The card leaving the list is the confirmation, and the user
       // has just watched the countdown commit — a second, later signal for the
       // same event is exactly the noise that made the old undo unreadable.
-      // Announced for screen readers, who cannot see the list change.
-      _announce(l10n.orderServed);
+      // Announced for screen readers, who cannot see the list change — and a
+      // shortage said too, since its notice appears without a word.
+      _announce(
+        deliverNow && result.hasWarnings
+            ? l10n.servedWithShortage(whom)
+            : l10n.orderServed,
+      );
     } on ApiException catch (error) {
       if (!mounted) return;
+      _serving.remove(order.orderId);
+      // Put back: the order may well still be waiting to be served. Then
+      // reconciled at once, since some failures mean it no longer is (served
+      // on another device, cancelled during the window).
+      setState(() {
+        if (!_queue.any((o) => o.orderId == order.orderId)) {
+          _queue = [order, ..._queue];
+        }
+      });
       _showError(error.message);
+      unawaited(_refresh());
+    } finally {
+      _serving.remove(order.orderId);
     }
   }
 
@@ -501,61 +559,119 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
 
         body: Column(
           children: [
-            if (_selfOrderOutcome case final outcome?)
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(
-                  Dimens.space4,
-                  Dimens.space3,
-                  Dimens.space4,
-                  0,
-                ),
-                child: InlineBanner(
-                  // Neither is dismissed on a timer. A shortage names stock
-                  // that has drifted and somebody should read it; the success
-                  // case is the only confirmation a self-order ever gets,
-                  // since there is no status screen to send them to.
-                  tone: outcome.hasShortages
-                      ? BannerTone.warning
-                      : BannerTone.info,
-                  title: outcome.hasShortages
-                      ? l10n.preparedWithShortages(outcome.shortageNames!)
-                      : l10n.selfOrderCompleted(outcome.orderId),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip: l10n.dismiss,
-                    onPressed: () => setState(() => _selfOrderOutcome = null),
-                  ),
-                ),
+            // Notices above the tabs, capped and scrolling on their own, so
+            // however many stack up the queue below keeps its room.
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight:
+                    MediaQuery.sizeOf(context).height *
+                    Dimens.noticeAreaMaxFraction,
               ),
-            // A poll that fails once something is on screen keeps it there —
-            // and says so, rather than freezing looking live while new orders
-            // never arrive (§8.1: a stale queue is worse than a chatty one).
-            if (_errorMessage != null &&
-                (_queue.isNotEmpty || _handovers.isNotEmpty))
-              Padding(
-                padding: const EdgeInsetsDirectional.fromSTEB(
-                  Dimens.space4,
-                  Dimens.space3,
-                  Dimens.space4,
-                  0,
-                ),
-                child: InlineBanner(
-                  tone: BannerTone.warning,
-                  title: l10n.couldNotRefreshTitle,
-                  body: _loadedAt == null
-                      ? _errorMessage
-                      : l10n.couldNotRefreshBody(
-                          Formatters.timeOfDay(
-                            _loadedAt!.toUtc(),
-                            Localizations.localeOf(context).toLanguageTag(),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_selfOrderOutcome case final outcome?)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          Dimens.space4,
+                          Dimens.space3,
+                          Dimens.space4,
+                          0,
+                        ),
+                        child: InlineBanner(
+                          // Neither is dismissed on a timer. A shortage names stock
+                          // that has drifted and somebody should read it; the success
+                          // case is the only confirmation a self-order ever gets,
+                          // since there is no status screen to send them to.
+                          tone: outcome.hasShortages
+                              ? BannerTone.warning
+                              : BannerTone.info,
+                          title: outcome.hasShortages
+                              ? l10n.preparedWithShortages(
+                                  outcome.shortageNames!,
+                                )
+                              : l10n.selfOrderCompleted(outcome.orderId),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close),
+                            tooltip: l10n.dismiss,
+                            onPressed: () =>
+                                setState(() => _selfOrderOutcome = null),
                           ),
                         ),
-                  action: TextButton(
-                    onPressed: () => unawaited(_refresh()),
-                    child: Text(l10n.retry),
-                  ),
+                      ),
+                    // A poll that fails once something is on screen keeps it there —
+                    // and says so, rather than freezing looking live while new orders
+                    // never arrive (§8.1: a stale queue is worse than a chatty one).
+                    if (_errorMessage != null &&
+                        (_queue.isNotEmpty || _handovers.isNotEmpty))
+                      Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          Dimens.space4,
+                          Dimens.space3,
+                          Dimens.space4,
+                          0,
+                        ),
+                        child: InlineBanner(
+                          tone: BannerTone.warning,
+                          title: l10n.couldNotRefreshTitle,
+                          body: _loadedAt == null
+                              ? _errorMessage
+                              : l10n.couldNotRefreshBody(
+                                  Formatters.timeOfDay(
+                                    _loadedAt!.toUtc(),
+                                    Localizations.localeOf(context)
+                                        .toLanguageTag(),
+                                  ),
+                                ),
+                          action: TextButton(
+                            onPressed: () => unawaited(_refresh()),
+                            child: Text(l10n.retry),
+                          ),
+                        ),
+                      ),
+                    for (final served in _servedShortages)
+                      Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          Dimens.space4,
+                          Dimens.space3,
+                          Dimens.space4,
+                          0,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    l10n.servedWithShortage(
+                                      Formatters.isolate(served.name),
+                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close),
+                                  tooltip: l10n.dismiss,
+                                  onPressed: () => setState(
+                                    () => _servedShortages.removeWhere(
+                                      (s) => s.orderId == served.orderId,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            ShortageWarnings(warnings: served.warnings),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
+            ),
             Expanded(child: _body(l10n)),
           ],
         ),

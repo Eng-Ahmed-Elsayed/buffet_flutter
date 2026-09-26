@@ -56,4 +56,9 @@ abstract final class Dimens {
   /// Arabic needs more leading than the Material default (§2.4). Latin text
   /// takes the design's tighter leading instead — see `AppTheme.forLocale`.
   static const lineHeight = 1.7;
+
+  /// The most of the screen a stack of notices above a list may take (the
+  /// staff queue's shortage, stale and self-order notices). Past it they
+  /// scroll, so the list they sit above is never squeezed out at 320dp.
+  static const noticeAreaMaxFraction = 0.4;
 }

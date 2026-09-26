@@ -158,7 +158,7 @@ class QueueCard extends StatelessWidget {
 
           if (hasWarnings) ...[
             const SizedBox(height: Dimens.space3),
-            _ShortageWarnings(warnings: warnings!),
+            ShortageWarnings(warnings: warnings!),
           ],
 
           const SizedBox(height: Dimens.space4),
@@ -368,9 +368,10 @@ class _NoteBlock extends StatelessWidget {
 
 /// Shortages that came back on a **`200`** after serving.
 ///
-/// Presented as information, not failure: the drink was made and handed over.
-class _ShortageWarnings extends StatelessWidget {
-  const _ShortageWarnings({required this.warnings});
+/// Presented as information, not failure: the drink was made. Public so the
+/// queue can show them for an order that left both lists on serving.
+class ShortageWarnings extends StatelessWidget {
+  const ShortageWarnings({required this.warnings, super.key});
 
   final List<StockWarningDto> warnings;
 

@@ -455,5 +455,6 @@
   "passwordRequired": "Enter your password",
   "currentPasswordRequired": "Enter your current password",
   "chooseItem": "Choose an item",
-  "itemNameRequired": "Enter the item's name"
+  "itemNameRequired": "Enter the item's name",
+  "servedWithShortage": "{name}'s order was served short of stock"
 }
