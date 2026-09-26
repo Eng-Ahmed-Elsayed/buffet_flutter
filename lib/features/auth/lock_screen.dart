@@ -78,7 +78,7 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                   children: [
                     // The sign-in screen's layout, so unlocking reads as the
                     // same door rather than a different app.
-                    const Center(child: BrandLockup(width: 160)),
+                    const Center(child: BrandLockup(width: Dimens.lockupEntry)),
                     const SizedBox(height: Dimens.space7),
 
                     Text(
@@ -120,8 +120,10 @@ class _LockScreenState extends ConsumerState<LockScreen> {
                           _prompting || _failure == BiometricFailure.lockedOut
                           ? null
                           : _prompt,
-                      icon: const Icon(Icons.fingerprint),
-                      label: Text(l10n.useBiometric),
+                      // Named for what it does, not for a sensor: the prompt
+                      // may be a face, a fingerprint or the device PIN.
+                      icon: const Icon(Icons.lock_open_outlined),
+                      label: Text(l10n.unlock),
                     ),
                     const SizedBox(height: Dimens.space3),
 

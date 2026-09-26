@@ -225,7 +225,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         title: Semantics(
           header: true,
           label: l10n.homeTitle,
-          child: const BrandLockup(width: 120),
+          child: const BrandLockup(width: Dimens.lockupBar),
         ),
         // The bell only. Settings is the Account tab and My orders the Orders
         // tab — a control here for either would be the same destination twice

@@ -251,6 +251,15 @@ border alone (colour as the only signal, and nothing for a screen reader), and o
 field it also hid the "at least 8 characters" helper at the moment that rule was broken. The
 declare sheet's «الصنف غير مدرج» is a sentinel value of its own; `null` means nothing chosen yet.
 
+**A labelled field is a `LabelledField`, never `MergeSemantics` around a label and a field.**
+The label goes on the field's own node, as written rather than in the display capitals. Merging
+also merged the field's own controls, so the eye toggle on a password field stopped being a button
+a screen reader could reach. A button's working state is `ButtonSpinner`: brand blue and named.
+The white one was 1.43:1 on the disabled fill. A danger `InlineBanner` is a live region, so a
+failure is announced as it appears. The lock's button says «فتح القفل» / "Unlock", never a
+sensor, since the prompt may be a face, a fingerprint or the device PIN.
+`entry_accessibility_test.dart`.
+
 **The first-launch explainer (`/welcome`) shows once per install, before the first sign-in, and
 never to someone who already uses the app.** Its flag lives in `PreferencesStore` and survives
 sign-out. **Any session stage (signed in, locked, forced password change) marks it seen**; see

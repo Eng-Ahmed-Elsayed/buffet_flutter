@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/brand_backdrop.dart';
 import '../../shared/widgets/brand_lockup.dart';
+import '../../shared/widgets/button_spinner.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../shared/widgets/field_label.dart';
 import '../../theme/brand_colors.dart';
@@ -141,7 +142,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     vertical: Dimens.space5,
                   ),
                   children: [
-                    const Center(child: BrandLockup(width: 160)),
+                    const Center(child: BrandLockup(width: Dimens.lockupEntry)),
                     const SizedBox(height: Dimens.space7),
 
                     Text(
@@ -200,70 +201,77 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       const SizedBox(height: Dimens.space4),
                     ],
 
-                    // Label above the field, as the design draws it; merged
-                    // with the field so a screen reader names the field by it.
-                    MergeSemantics(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          FieldLabel(label: l10n.email),
-                          TextFormField(
-                            controller: _emailController,
-                            decoration: const InputDecoration(
-                              prefixIcon: Icon(Icons.mail_outline),
-                            ),
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            autofillHints: const [AutofillHints.username],
-                            autocorrect: false,
-                            enabled: !_submitting,
-                            // Words, not a red border alone (§2.5).
-                            validator: (value) =>
-                                (value == null || value.trim().isEmpty)
-                                ? l10n.emailRequired
-                                : null,
-                          ),
-                        ],
+                    // Label above the field, as the design draws it, and the
+                    // field named by it for screen readers.
+                    LabelledField(
+                      label: l10n.email,
+                      child: TextFormField(
+                        controller: _emailController,
+                        decoration: InputDecoration(
+                          hintText: l10n.emailHint,
+                          prefixIcon: const Icon(Icons.mail_outline),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        autofillHints: const [AutofillHints.username],
+                        autocorrect: false,
+                        enabled: !_submitting,
+                        // Words, not a red border alone (§2.5).
+                        validator: (value) =>
+                            (value == null || value.trim().isEmpty)
+                            ? l10n.emailRequired
+                            : null,
                       ),
                     ),
-                    const SizedBox(height: Dimens.space5),
+                    // Short: the "Forgot?" target below reaches up into this
+                    // gap, so the two labels start the same distance apart
+                    // as the design draws them.
+                    const SizedBox(height: Dimens.space1),
 
-                    // Not merged: the label row carries its own control, the
-                    // "Forgot?" link, which must stay separately focusable.
-                    FieldLabel(
+                    LabelledField(
                       label: l10n.password,
                       trailing: TextButton(
+                        style: TextButton.styleFrom(
+                          alignment: AlignmentDirectional.bottomEnd,
+                          padding: const EdgeInsetsDirectional.symmetric(
+                            horizontal: Dimens.space2,
+                          ),
+                          minimumSize: const Size(
+                            Dimens.minTarget,
+                            Dimens.minTarget,
+                          ),
+                        ),
                         onPressed: _explainForgotPassword,
                         child: Text(l10n.forgotPassword),
                       ),
-                    ),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        hintText: l10n.passwordHint,
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                          ),
-                          tooltip: _obscurePassword
-                              ? l10n.showPassword
-                              : l10n.hidePassword,
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
+                      child: TextFormField(
+                        controller: _passwordController,
+                        decoration: InputDecoration(
+                          hintText: l10n.passwordHint,
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            tooltip: _obscurePassword
+                                ? l10n.showPassword
+                                : l10n.hidePassword,
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
                           ),
                         ),
+                        obscureText: _obscurePassword,
+                        autofillHints: const [AutofillHints.password],
+                        textInputAction: TextInputAction.done,
+                        enabled: !_submitting,
+                        onFieldSubmitted: (_) => _submit(),
+                        validator: (value) => (value == null || value.isEmpty)
+                            ? l10n.passwordRequired
+                            : null,
                       ),
-                      obscureText: _obscurePassword,
-                      autofillHints: const [AutofillHints.password],
-                      textInputAction: TextInputAction.done,
-                      enabled: !_submitting,
-                      onFieldSubmitted: (_) => _submit(),
-                      validator: (value) => (value == null || value.isEmpty)
-                          ? l10n.passwordRequired
-                          : null,
                     ),
                     const SizedBox(height: Dimens.space6),
 
@@ -272,14 +280,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     FilledButton(
                       onPressed: _submitting ? null : _submit,
                       child: _submitting
-                          ? const SizedBox(
-                              width: Dimens.space5,
-                              height: Dimens.space5,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                color: BrandColors.surface,
-                              ),
-                            )
+                          ? ButtonSpinner(label: l10n.pleaseWait)
                           : Text(l10n.signIn),
                     ),
 

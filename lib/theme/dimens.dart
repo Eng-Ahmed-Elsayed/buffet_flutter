@@ -57,6 +57,23 @@ abstract final class Dimens {
   /// takes the design's tighter leading instead — see `AppTheme.forLocale`.
   static const lineHeight = 1.7;
 
+  /// The spinner a button shows in place of its label while it works.
+  static const spinnerSize = 20.0;
+  static const spinnerStroke = 2.4;
+
+  /// A small leading icon, as on a banner.
+  static const iconSm = 20.0;
+
+  /// The large glyph on an empty or error state, and on a first-launch slide.
+  static const iconHero = 72.0;
+  static const iconSlide = 96.0;
+
+  /// The brand lockup's width: the splash, where it is the whole screen; the
+  /// sign-in and lock screens; and a top bar or the first-launch header.
+  static const lockupSplash = 250.0;
+  static const lockupEntry = 160.0;
+  static const lockupBar = 120.0;
+
   /// The most of the screen a stack of notices above a list may take (the
   /// staff queue's shortage, stale and self-order notices). Past it they
   /// scroll, so the list they sit above is never squeezed out at 320dp.

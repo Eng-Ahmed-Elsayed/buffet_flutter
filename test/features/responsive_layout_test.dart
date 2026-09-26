@@ -23,7 +23,10 @@ import 'package:buffet_app/data/models/order_models.dart';
 import 'package:buffet_app/data/models/staff_models.dart';
 import 'package:buffet_app/data/repositories/order_repository.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
+import 'package:buffet_app/features/auth/change_password_screen.dart';
+import 'package:buffet_app/features/auth/lock_screen.dart';
 import 'package:buffet_app/features/auth/login_screen.dart';
+import 'package:buffet_app/features/auth/splash_screen.dart';
 import 'package:buffet_app/features/home/home_screen.dart';
 import 'package:buffet_app/features/materials/my_materials_screen.dart';
 import 'package:buffet_app/features/notifications/notifications_screen.dart';
@@ -42,6 +45,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import '../helpers/app_harness.dart';
+import '../helpers/fake_auth_controller.dart';
 
 /// An extra, for the composer's widest rows.
 CatalogueItemDto _e(int id, String n, {int own = 0}) => CatalogueItemDto(
@@ -177,8 +181,14 @@ final _orders = [
   ),
 ];
 
-Widget _wrap(Widget home, double scale, Locale locale) => ProviderScope(
+Widget _wrap(
+  Widget home,
+  double scale,
+  Locale locale, [
+  List<Override> extra = const [],
+]) => ProviderScope(
   overrides: [
+    ...extra,
     catalogueProvider.overrideWith((r) async => _cat),
     // A long, mixed-script name — the shape the server actually composes when
     // the user does not name one. It is the string that has to wrap at 320dp.
@@ -403,6 +413,16 @@ void main() {
     // scripts and cannot be shortened — the shape that has overflowed here
     // before.
     'login': const LoginScreen(),
+    // Both notices at once (enrolment changed, session expired), above the
+    // form: the tallest the sign-in screen gets.
+    'login-notices': const LoginScreen(),
+    // The lock after a cancelled prompt, with its banner and a long address.
+    'lock': const LockScreen(),
+    // Forced: the warning banner and the Sign out exit. Voluntary: the
+    // current-password field as well.
+    'change-password-forced': const ChangePasswordScreen(),
+    'change-password': const ChangePasswordScreen(),
+    'splash': const SplashScreen(),
     // Three slides whose copy must fit a card at 2x in both scripts; the card
     // scrolls rather than overflowing.
     'onboarding': const OnboardingScreen(),
@@ -426,6 +446,38 @@ void main() {
     ),
   };
 
+  // The entry screens read the auth machine; each is held at the stage that
+  // draws it, without secure storage or biometric hardware.
+  Override auth(AuthState state) => authControllerProvider.overrideWith(
+    (r) => FakeAuthController(state, pinned: true),
+  );
+  final overridesFor = <String, List<Override>>{
+    'login-notices': [
+      authControllerProvider.overrideWith(
+        (r) => FakeAuthController(
+          const AuthState(
+            stage: AuthStage.signedOut,
+            signedOutByEnrolmentChange: true,
+            sessionExpired: true,
+          ),
+          pinned: true,
+        ),
+      ),
+    ],
+    'lock': [
+      auth(
+        const AuthState(
+          stage: AuthStage.locked,
+          rememberedEmail: 'abdelrahman.elsayed.mahmoud@company.com',
+        ),
+      ),
+    ],
+    'change-password-forced': [
+      auth(const AuthState(stage: AuthStage.mustChangePassword)),
+    ],
+    'change-password': [auth(const AuthState(stage: AuthStage.signedIn))],
+  };
+
   for (final entry in screens.entries) {
     for (final scale in [1.0, 1.5, 2.0]) {
       for (final locale in [const Locale('ar'), const Locale('en')]) {
@@ -434,7 +486,14 @@ void main() {
           t.view.physicalSize = const Size(320, 640);
           t.view.devicePixelRatio = 1;
           addTearDown(t.view.reset);
-          await t.pumpWidget(_wrap(entry.value, scale, locale));
+          await t.pumpWidget(
+            _wrap(
+              entry.value,
+              scale,
+              locale,
+              overridesFor[entry.key] ?? const [],
+            ),
+          );
           // Enough pumps for the providers to deliver and the list to build.
           // NOT pumpAndSettle: a screen carrying an Image.network never
           // settles under test. Two frames were not enough — the materials

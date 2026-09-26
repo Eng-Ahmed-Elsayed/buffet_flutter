@@ -6,6 +6,7 @@ import '../../../data/models/favourite_models.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/banners.dart';
+import '../../../shared/widgets/button_spinner.dart';
 import '../../../shared/widgets/field_label.dart';
 import '../../../shared/widgets/quantity_stepper.dart';
 import '../../../theme/app_theme.dart';
@@ -199,44 +200,34 @@ class ReviewOrderStep extends ConsumerWidget {
                 // Plain text, deliberately — no suggestion list. Free text
                 // always sends `locationText`, which the server accepts for
                 // any place at all, so an unlisted spot never blocks an order.
-                MergeSemantics(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      FieldLabel(label: l10n.deliveryLocation),
-                      TextField(
-                        controller: locationController,
-                        decoration: InputDecoration(
-                          hintText: l10n.locationHint,
-                          prefixIcon: const Icon(Icons.place_outlined),
-                        ),
-                        textInputAction: TextInputAction.next,
-                        onChanged: (text) =>
-                            controller.setLocation(locationText: text),
-                      ),
-                    ],
+                LabelledField(
+                  label: l10n.deliveryLocation,
+                  child: TextField(
+                    controller: locationController,
+                    decoration: InputDecoration(
+                      hintText: l10n.locationHint,
+                      prefixIcon: const Icon(Icons.place_outlined),
+                    ),
+                    textInputAction: TextInputAction.next,
+                    onChanged: (text) =>
+                        controller.setLocation(locationText: text),
                   ),
                 ),
                 const SizedBox(height: Dimens.space4),
-                MergeSemantics(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      FieldLabel(label: l10n.orderNotes),
-                      TextField(
-                        controller: notesController,
-                        decoration: InputDecoration(
-                          hintText: l10n.orderNotesHint,
-                          prefixIcon: const Icon(Icons.notes_outlined),
-                        ),
-                        minLines: 2,
-                        maxLines: 4,
-                        textInputAction: TextInputAction.done,
-                        onChanged: (text) => controller.setNotes(
-                          text.trim().isEmpty ? null : text.trim(),
-                        ),
-                      ),
-                    ],
+                LabelledField(
+                  label: l10n.orderNotes,
+                  child: TextField(
+                    controller: notesController,
+                    decoration: InputDecoration(
+                      hintText: l10n.orderNotesHint,
+                      prefixIcon: const Icon(Icons.notes_outlined),
+                    ),
+                    minLines: 2,
+                    maxLines: 4,
+                    textInputAction: TextInputAction.done,
+                    onChanged: (text) => controller.setNotes(
+                      text.trim().isEmpty ? null : text.trim(),
+                    ),
                   ),
                 ),
 
@@ -272,14 +263,7 @@ class ReviewOrderStep extends ConsumerWidget {
                 ? () => onPlaceOrder()
                 : null,
             child: placing
-                ? const SizedBox(
-                    width: Dimens.space5,
-                    height: Dimens.space5,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.4,
-                      color: BrandColors.surface,
-                    ),
-                  )
+                ? ButtonSpinner(label: l10n.pleaseWait)
                 : Text(l10n.placeOrder),
           ),
         ),

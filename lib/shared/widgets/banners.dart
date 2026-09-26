@@ -20,6 +20,7 @@ class InlineBanner extends StatelessWidget {
     this.body,
     this.trailing,
     this.action,
+    this.announce,
     super.key,
   });
 
@@ -34,6 +35,11 @@ class InlineBanner extends StatelessWidget {
   /// button beside the message took the width the message needed, squeezing it
   /// into a narrow column at a large text scale on a 320dp phone.
   final Widget? action;
+
+  /// Whether a screen reader announces the banner as it appears. Defaults to
+  /// on for [BannerTone.danger]: a failed sign-in or save otherwise changed
+  /// nothing a screen-reader user could hear, and they were left waiting.
+  final bool? announce;
 
   @override
   Widget build(BuildContext context) {
@@ -67,49 +73,53 @@ class InlineBanner extends StatelessWidget {
       ),
     };
 
-    return Container(
-      padding: const EdgeInsetsDirectional.all(Dimens.space4),
-      decoration: BoxDecoration(
-        color: background,
-        border: Border.all(color: border),
-        borderRadius: BorderRadius.circular(Dimens.radius),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: foreground),
-          const SizedBox(width: Dimens.space3),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: foreground,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (body != null) ...[
-                  const SizedBox(height: Dimens.space1),
-                  Text(
-                    body!,
-                    style: Theme.of(context).textTheme.bodySmall
-                        ?.copyWith(color: BrandColors.ink),
-                  ),
-                ],
-                if (action != null) ...[
-                  const SizedBox(height: Dimens.space1),
-                  action!,
-                ],
-              ],
-            ),
-          ),
-          if (trailing != null) ...[
+    return Semantics(
+      container: true,
+      liveRegion: announce ?? tone == BannerTone.danger,
+      child: Container(
+        padding: const EdgeInsetsDirectional.all(Dimens.space4),
+        decoration: BoxDecoration(
+          color: background,
+          border: Border.all(color: border),
+          borderRadius: BorderRadius.circular(Dimens.radius),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: Dimens.iconSm, color: foreground),
             const SizedBox(width: Dimens.space3),
-            trailing!,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: foreground,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  if (body != null) ...[
+                    const SizedBox(height: Dimens.space1),
+                    Text(
+                      body!,
+                      style: Theme.of(context).textTheme.bodySmall
+                          ?.copyWith(color: BrandColors.ink),
+                    ),
+                  ],
+                  if (action != null) ...[
+                    const SizedBox(height: Dimens.space1),
+                    action!,
+                  ],
+                ],
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: Dimens.space3),
+              trailing!,
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -138,7 +148,7 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 72, color: BrandColors.muted),
+            Icon(icon, size: Dimens.iconHero, color: BrandColors.muted),
             const SizedBox(height: Dimens.space5),
             Text(
               title,

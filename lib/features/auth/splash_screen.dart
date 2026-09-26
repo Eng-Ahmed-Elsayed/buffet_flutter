@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/brand_backdrop.dart';
 import '../../shared/widgets/brand_lockup.dart';
+import '../../theme/dimens.dart';
 
 /// Shown while the stored token is read.
 ///
@@ -25,7 +26,7 @@ class SplashScreen extends StatelessWidget {
           child: Semantics(
             liveRegion: true,
             label: l10n.loading,
-            child: const BrandLockup(width: 250),
+            child: const BrandLockup(width: Dimens.lockupSplash),
           ),
         ),
       ),

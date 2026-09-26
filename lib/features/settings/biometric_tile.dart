@@ -69,7 +69,7 @@ class _BiometricTileState extends ConsumerState<BiometricTile> {
         null => null,
         BiometricFailure.unavailable => l10n.biometricsUnavailable,
         BiometricFailure.lockedOut => l10n.biometricLockedOut,
-        BiometricFailure.cancelled => l10n.biometricFailed,
+        BiometricFailure.cancelled => l10n.biometricNotConfirmed,
       };
     });
   }

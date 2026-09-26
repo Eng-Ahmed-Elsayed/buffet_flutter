@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/button_spinner.dart';
 import '../../theme/dimens.dart';
 import '../order/composer_screen.dart';
 import 'my_materials_screen.dart';
@@ -365,11 +366,7 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
                   child: FilledButton(
                     onPressed: _submitting ? null : _submit,
                     child: _submitting
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2.4),
-                          )
+                        ? ButtonSpinner(label: l10n.pleaseWait)
                         : Text(l10n.sendDeclaration),
                   ),
                 ),

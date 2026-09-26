@@ -622,18 +622,16 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
           ].join('\n'),
         ),
       if (_step == ComposerStep.review && _placeError != null)
-        Semantics(
+        // Announced as it appears: a danger banner is a live region.
+        InlineBanner(
           key: _placeErrorKey,
-          liveRegion: true,
-          child: InlineBanner(
-            tone: BannerTone.danger,
-            title: _placeUncertain
-                ? l10n.placeFailedTitle
-                : l10n.placeRejectedTitle,
-            body: _placeUncertain
-                ? '${_placeError!}\n${l10n.placeFailedRetry}'
-                : _placeError,
-          ),
+          tone: BannerTone.danger,
+          title: _placeUncertain
+              ? l10n.placeFailedTitle
+              : l10n.placeRejectedTitle,
+          body: _placeUncertain
+              ? '${_placeError!}\n${l10n.placeFailedRetry}'
+              : _placeError,
         ),
     ];
     if (notices.isEmpty) return null;

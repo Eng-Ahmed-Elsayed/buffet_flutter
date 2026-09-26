@@ -509,7 +509,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
             child: const FittedBox(
               fit: BoxFit.scaleDown,
               alignment: AlignmentDirectional.centerStart,
-              child: BrandLockup(width: 120),
+              child: BrandLockup(width: Dimens.lockupBar),
             ),
           ),
           actions: [

@@ -87,7 +87,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 children: [
                   Row(
                     children: [
-                      const BrandLockup(width: 120),
+                      const BrandLockup(width: Dimens.lockupBar),
                       const Spacer(),
                       // Ink, not the link blue: this row sits on the glow, where
                       // the link blue drops to about 4:1. Ink holds 6.5:1 even
@@ -181,7 +181,11 @@ class _Slide extends StatelessWidget {
                     padding: const EdgeInsetsDirectional.only(
                       top: Dimens.space4,
                     ),
-                    child: Icon(icon, size: 96, color: BrandColors.surface),
+                    child: Icon(
+                      icon,
+                      size: Dimens.iconSlide,
+                      color: BrandColors.surface,
+                    ),
                   ),
                   const SizedBox(height: Dimens.space5),
                   Column(
