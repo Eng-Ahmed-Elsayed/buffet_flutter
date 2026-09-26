@@ -10,6 +10,7 @@ import '../../data/api/api_exception.dart';
 import '../../data/models/favourite_models.dart';
 import '../../data/repositories/favourites_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../theme/dimens.dart';
@@ -107,7 +108,7 @@ class FavouritesScreen extends ConsumerWidget {
         error: (error, _) => EmptyState(
           icon: Icons.cloud_off_outlined,
           title: l10n.genericError,
-          body: error is ApiException ? error.message : l10n.networkError,
+          body: describeError(error, l10n),
           action: OutlinedButton.icon(
             onPressed: () => ref.invalidate(favouritesProvider),
             icon: const Icon(Icons.refresh),

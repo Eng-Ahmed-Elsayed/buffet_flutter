@@ -261,6 +261,9 @@ void main() {
 
       final launched = await _launch();
       expect(launched.state.stage, AuthStage.signedOut);
+      // Said on the login screen, as a 401 would: this is how most 30-day
+      // sessions end, and it used to land on a bare form with no reason.
+      expect(launched.state.sessionExpired, isTrue);
       launched.dispose();
 
       // The next person to sign in inherits no fingerprint lock, no forced
@@ -268,6 +271,15 @@ void main() {
       expect(await _prefs.readBiometricsEnabled(), isFalse);
       expect(await _prefs.readMustChangePassword(), isFalse);
       expect(await _prefs.readIdentity(), isNull);
+    });
+  });
+
+  group('no session at all is not an expired one', () {
+    test('a fresh install shows no "session expired" notice', () async {
+      final launched = await _launch();
+      expect(launched.state.stage, AuthStage.signedOut);
+      expect(launched.state.sessionExpired, isFalse);
+      launched.dispose();
     });
   });
 }

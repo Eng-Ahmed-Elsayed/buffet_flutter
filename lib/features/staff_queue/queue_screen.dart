@@ -13,12 +13,14 @@ import '../../data/local/order_alerts.dart';
 import '../../data/models/staff_models.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../shared/widgets/notification_bell.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../notifications/notifications_screen.dart';
 import '../order/self_order_outcome.dart';
 import 'pending_action.dart';
 import 'widgets/queue_card.dart';
@@ -186,6 +188,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     );
   }
 
+  /// When the lists on screen were last loaded, for the stale notice.
+  DateTime? _loadedAt;
+
   Future<void> _refresh() async {
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
@@ -211,7 +216,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
         _handovers = results[1];
         _loading = false;
         _errorMessage = null;
+        _loadedAt = DateTime.now();
       });
+      // The bell's badge reads this list, and nothing else reloads it.
+      ref.invalidate(notificationsProvider);
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
@@ -516,6 +524,35 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                     icon: const Icon(Icons.close),
                     tooltip: l10n.dismiss,
                     onPressed: () => setState(() => _selfOrderOutcome = null),
+                  ),
+                ),
+              ),
+            // A poll that fails once something is on screen keeps it there —
+            // and says so, rather than freezing looking live while new orders
+            // never arrive (§8.1: a stale queue is worse than a chatty one).
+            if (_errorMessage != null &&
+                (_queue.isNotEmpty || _handovers.isNotEmpty))
+              Padding(
+                padding: const EdgeInsetsDirectional.fromSTEB(
+                  Dimens.space4,
+                  Dimens.space3,
+                  Dimens.space4,
+                  0,
+                ),
+                child: InlineBanner(
+                  tone: BannerTone.warning,
+                  title: l10n.couldNotRefreshTitle,
+                  body: _loadedAt == null
+                      ? _errorMessage
+                      : l10n.couldNotRefreshBody(
+                          Formatters.timeOfDay(
+                            _loadedAt!.toUtc(),
+                            Localizations.localeOf(context).toLanguageTag(),
+                          ),
+                        ),
+                  action: TextButton(
+                    onPressed: () => unawaited(_refresh()),
+                    child: Text(l10n.retry),
                   ),
                 ),
               ),

@@ -618,5 +618,9 @@
   "placeRejectedTitle": "لم يُقبل الطلب",
   "@placeRejectedTitle": { "description": "The server definitely refused the order (a 4xx); the message below says why." },
   "discardAfterFailureBodyStaff": "لم يتأكد إرسال الطلب، وقد يكون سُجّل بالفعل.",
-  "@discardAfterFailureBodyStaff": { "description": "Staff variant: staff have no My orders screen to check." }
+  "@discardAfterFailureBodyStaff": { "description": "Staff variant: staff have no My orders screen to check." },
+  "couldNotRefreshTitle": "تعذّر التحديث",
+  "@couldNotRefreshTitle": { "description": "A background refresh failed; the screen keeps what it last loaded." },
+  "couldNotRefreshBody": "هذه آخر بيانات وصلت عند {time}.",
+  "@couldNotRefreshBody": { "description": "When the stale data was last loaded.", "placeholders": { "time": { "type": "String" } } }
 }

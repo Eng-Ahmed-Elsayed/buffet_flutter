@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/locale_controller.dart';
 import '../../data/api/api_config.dart';
-import '../../data/api/api_exception.dart';
 import '../../data/models/material_models.dart';
 import '../../data/repositories/materials_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/banners.dart';
@@ -25,7 +25,8 @@ final myMaterialsProvider = FutureProvider.autoDispose<List<MyMaterialDto>>((
       .watch(materialsRepositoryProvider)
       .fetchMine(
         languageCode: locale.languageCode,
-        networkErrorFallback: 'network',
+        // Never shown: screens render a network failure through describeError.
+        networkErrorFallback: '',
       );
 });
 
@@ -51,7 +52,7 @@ class MyMaterialsScreen extends ConsumerWidget {
         error: (error, _) => EmptyState(
           icon: Icons.cloud_off_outlined,
           title: l10n.genericError,
-          body: error is ApiException ? error.message : l10n.networkError,
+          body: describeError(error, l10n),
           action: OutlinedButton.icon(
             onPressed: () => ref.invalidate(myMaterialsProvider),
             icon: const Icon(Icons.refresh),

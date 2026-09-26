@@ -19,13 +19,21 @@ class InlineBanner extends StatelessWidget {
     required this.title,
     this.body,
     this.trailing,
+    this.action,
     super.key,
   });
 
   final BannerTone tone;
   final String title;
   final String? body;
+
+  /// Beside the text: for a small icon control, such as dismiss.
   final Widget? trailing;
+
+  /// Under the text, at its start: for a labelled button such as Retry. A text
+  /// button beside the message took the width the message needed, squeezing it
+  /// into a narrow column at a large text scale on a 320dp phone.
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +97,10 @@ class InlineBanner extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall
                         ?.copyWith(color: BrandColors.ink),
                   ),
+                ],
+                if (action != null) ...[
+                  const SizedBox(height: Dimens.space1),
+                  action!,
                 ],
               ],
             ),

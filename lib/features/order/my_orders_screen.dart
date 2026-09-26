@@ -10,6 +10,7 @@ import '../../data/models/order_models.dart';
 import '../../data/repositories/favourites_repository.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../theme/brand_colors.dart';
@@ -27,7 +28,8 @@ final myOrdersProvider = FutureProvider.autoDispose<List<OrderSummaryDto>>((
       .watch(orderRepositoryProvider)
       .fetchMyOrders(
         languageCode: locale.languageCode,
-        networkErrorFallback: 'network',
+        // Never shown: screens render a network failure through describeError.
+        networkErrorFallback: '',
       );
 });
 
@@ -95,14 +97,18 @@ class MyOrdersScreen extends ConsumerWidget {
             ],
           ),
         ),
+        // skipError: a failed background poll keeps the list it had, with a
+        // notice, rather than replacing a Ready order with an error screen.
+        // Only a first load with nothing to show falls to the error state.
         body: orders.when(
+          skipError: true,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => EmptyState(
             icon: Icons.cloud_off_outlined,
             title: l10n.genericError,
             // The server's message, not a generic one: it arrives already
             // localised, and it is the only part that says what failed (§4).
-            body: error is ApiException ? error.message : l10n.networkError,
+            body: describeError(error, l10n),
             action: OutlinedButton.icon(
               onPressed: () => ref.invalidate(myOrdersProvider),
               icon: const Icon(Icons.refresh),
@@ -110,6 +116,9 @@ class MyOrdersScreen extends ConsumerWidget {
             ),
           ),
           data: (all) {
+            final stale = orders.hasError
+                ? describeError(orders.error!, l10n)
+                : null;
             // Status is read by NAME through OrderStatus — never by ordinal,
             // since Ready = 4 sits out of workflow order (rule 5).
             final live = all.where((o) => o.orderStatus.isLive).toList();
@@ -126,6 +135,7 @@ class MyOrdersScreen extends ConsumerWidget {
             return TabBarView(
               children: [
                 _OrderList(
+                  stale: stale,
                   orders: current,
                   emptyIcon: Icons.local_cafe_outlined,
                   emptyTitle: all.isEmpty
@@ -138,6 +148,7 @@ class MyOrdersScreen extends ConsumerWidget {
                       _OrderRow(order: order, catalogue: catalogue),
                 ),
                 _OrderList(
+                  stale: stale,
                   orders: past,
                   emptyIcon: Icons.receipt_long_outlined,
                   emptyTitle: all.isEmpty
@@ -176,6 +187,7 @@ class MyOrdersScreen extends ConsumerWidget {
 /// One tab's list, with its own pull-to-refresh and empty state.
 class _OrderList extends ConsumerWidget {
   const _OrderList({
+    required this.stale,
     required this.orders,
     required this.emptyIcon,
     required this.emptyTitle,
@@ -183,6 +195,9 @@ class _OrderList extends ConsumerWidget {
     required this.rowFor,
   });
 
+  /// Why the last refresh failed, when it did; the list is what was last
+  /// loaded.
+  final String? stale;
   final List<OrderSummaryDto> orders;
   final IconData emptyIcon;
   final String emptyTitle;
@@ -191,17 +206,40 @@ class _OrderList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     Future<void> refresh() async => ref.invalidate(myOrdersProvider);
+
+    final notice = switch (stale) {
+      final String reason => InlineBanner(
+        tone: BannerTone.warning,
+        title: l10n.couldNotRefreshTitle,
+        body: reason,
+        action: TextButton(
+          onPressed: () => ref.invalidate(myOrdersProvider),
+          child: Text(l10n.retry),
+        ),
+      ),
+      null => null,
+    };
 
     if (orders.isEmpty) {
       // Stacked over an empty ListView so the pull-to-refresh gesture still
-      // works — an empty list you cannot refresh is a dead end.
+      // works — an empty list you cannot refresh is a dead end. A stale notice
+      // shows here too: "none" may only mean the refresh failed.
       return RefreshIndicator(
         onRefresh: refresh,
         child: Stack(
           children: [
             ListView(),
             EmptyState(icon: emptyIcon, title: emptyTitle, body: emptyBody),
+            if (notice != null)
+              Padding(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: Dimens.gutter,
+                  vertical: Dimens.space4,
+                ),
+                child: notice,
+              ),
           ],
         ),
       );
@@ -214,7 +252,13 @@ class _OrderList extends ConsumerWidget {
           horizontal: Dimens.gutter,
           vertical: Dimens.space4,
         ),
-        children: [for (final order in orders) rowFor(order)],
+        children: [
+          if (notice != null) ...[
+            notice,
+            const SizedBox(height: Dimens.space3),
+          ],
+          for (final order in orders) rowFor(order),
+        ],
       ),
     );
   }

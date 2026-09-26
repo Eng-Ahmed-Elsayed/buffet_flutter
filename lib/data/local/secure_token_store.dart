@@ -55,6 +55,15 @@ class SecureTokenStore {
     return expiry.isAfter(DateTime.now().toUtc());
   }
 
+  /// True when a token is stored but its expiry has passed — the usual end of
+  /// a 30-day session, caught here before any request could `401`.
+  Future<bool> hasExpiredToken() async {
+    final token = await readToken();
+    if (token == null || token.isEmpty) return false;
+    final expiry = await readExpiry();
+    return expiry != null && !expiry.isAfter(DateTime.now().toUtc());
+  }
+
   /// Called on sign-out and centrally on any `401`.
   Future<void> clear() async {
     await _storage.delete(key: _tokenKey);

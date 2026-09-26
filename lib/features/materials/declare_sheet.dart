@@ -7,6 +7,7 @@ import '../../data/models/catalogue_models.dart';
 import '../../data/models/material_models.dart';
 import '../../data/repositories/materials_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../theme/dimens.dart';
@@ -237,10 +238,8 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
                 if (itemsAsync.hasError) ...[
                   InlineBanner(
                     tone: BannerTone.danger,
-                    title: itemsAsync.error is ApiException
-                        ? (itemsAsync.error! as ApiException).message
-                        : l10n.genericError,
-                    trailing: TextButton(
+                    title: describeError(itemsAsync.error!, l10n),
+                    action: TextButton(
                       onPressed: () => ref.invalidate(declarableItemsProvider),
                       child: Text(l10n.retry),
                     ),

@@ -448,5 +448,7 @@
   "placeFailedRetry": "Try again — it won't be sent twice.",
   "favouriteOverBuffetCap": "{count, plural, =1{Only one drink may come from the buffet, so the rest were left out.} other{Only {count} drinks may come from the buffet, so the rest were left out.}}",
   "placeRejectedTitle": "The order wasn't accepted",
-  "discardAfterFailureBodyStaff": "The order wasn't confirmed and may already have been recorded."
+  "discardAfterFailureBodyStaff": "The order wasn't confirmed and may already have been recorded.",
+  "couldNotRefreshTitle": "Couldn't refresh",
+  "couldNotRefreshBody": "Showing what was last loaded at {time}."
 }

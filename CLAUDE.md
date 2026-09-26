@@ -225,6 +225,16 @@ Each is named for screen readers (`homeTitle`, `queueTitle`), since the lockup i
 queue's lockup scales down so its count and three actions still fit at 320dp
 (`queue_undo_test.dart`).
 
+**A failed refresh keeps what is on screen, and says so.** My orders, notifications, the queue and
+the tracking screen all keep their last data with a "Couldn't refresh" notice and Retry. A
+background poll that fails must never swap a Ready order, or the notification being read, for an
+error screen (`skipError: true`); only a first load with nothing to show falls to the error state.
+Errors are worded by `describeError` (`lib/shared/error_text.dart`), never by a provider's
+fallback string, which reached the screen as the literal word "network". The bell's badge is
+refreshed by Home's poll, resume and pull-to-refresh, and by every queue refresh. A labelled
+button in an `InlineBanner` goes in `action` (under the text), never `trailing`, which squeezed
+the message at large text scales. `staleness_test.dart`.
+
 **The first-launch explainer (`/welcome`) shows once per install, before the first sign-in, and
 never to someone who already uses the app.** Its flag lives in `PreferencesStore` and survives
 sign-out. **Any session stage (signed in, locked, forced password change) marks it seen**; see
@@ -249,7 +259,8 @@ and the flag together. `session_restore_test.dart` pins all of it. Two rules fro
   lock. The cleanup is best-effort: sign-in waits for it but never fails on it.
 
 **An expired session says so on the login screen.** A `401` clears the token and drops the user at
-login; `AuthState.sessionExpired` (surfaced by `sessionExpiredProvider`) is what makes that legible,
+login, and so does a token found expired at cold start (`hasExpiredToken`), which is how most
+30-day sessions actually end; `AuthState.sessionExpired` (surfaced by `sessionExpiredProvider`) is what makes that legible,
 since the token lasts 30 days with no refresh endpoint and this lands on somebody mid-task who did
 nothing wrong. It is never set by a failed sign-in — the login request carries
 `ApiConfig.skipAuthFlag`, so its `401` is a wrong password and belongs on the field.

@@ -7,23 +7,25 @@ import '../../app/routes.dart';
 import '../../data/models/order_models.dart';
 import '../../data/repositories/notifications_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 
 /// Everything the server has told this user, newest first.
-final notificationsProvider = FutureProvider.autoDispose<List<NotificationDto>>(
-  (ref) async {
-    final locale = ref.watch(localeControllerProvider);
-    return ref
-        .watch(notificationsRepositoryProvider)
-        .fetch(
-          languageCode: locale.languageCode,
-          networkErrorFallback: 'network',
-        );
-  },
-);
+final notificationsProvider = FutureProvider.autoDispose<List<NotificationDto>>((
+  ref,
+) async {
+  final locale = ref.watch(localeControllerProvider);
+  return ref
+      .watch(notificationsRepositoryProvider)
+      .fetch(
+        languageCode: locale.languageCode,
+        // Never shown: screens render a network failure through describeError.
+        networkErrorFallback: '',
+      );
+});
 
 /// How many are unread, for the bell badge on the home screens.
 ///
@@ -93,13 +95,18 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.notifications)),
+      // skipError: Home and the queue refresh this list in the background, and
+      // a failed refresh must not swap the list being read for an error
+      // screen. Only a first load with nothing to show falls to the error.
       body: notifications.when(
+        skipError: true,
         loading: () => const Center(child: CircularProgressIndicator()),
 
         error: (error, _) => EmptyState(
           icon: Icons.cloud_off_outlined,
           title: l10n.genericError,
-          body: l10n.networkError,
+          // The server's reason when it gave one (§4), not always "network".
+          body: describeError(error, l10n),
           action: OutlinedButton.icon(
             onPressed: () => ref.invalidate(notificationsProvider),
             icon: const Icon(Icons.refresh),
@@ -108,6 +115,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
         ),
 
         data: (items) {
+          final stale = notifications.hasError;
           if (items.isEmpty) {
             return RefreshIndicator(
               onRefresh: () async => ref.invalidate(notificationsProvider),
@@ -128,10 +136,25 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
             onRefresh: () async => ref.invalidate(notificationsProvider),
             child: ListView.separated(
               padding: const EdgeInsetsDirectional.all(Dimens.space4),
-              itemCount: items.length,
+              itemCount: items.length + (stale ? 1 : 0),
               separatorBuilder: (_, _) => const SizedBox(height: Dimens.space2),
-              itemBuilder: (context, index) =>
-                  _NotificationRow(notification: items[index], locale: locale),
+              itemBuilder: (context, index) {
+                if (stale && index == 0) {
+                  return InlineBanner(
+                    tone: BannerTone.warning,
+                    title: l10n.couldNotRefreshTitle,
+                    body: describeError(notifications.error!, l10n),
+                    action: TextButton(
+                      onPressed: () => ref.invalidate(notificationsProvider),
+                      child: Text(l10n.retry),
+                    ),
+                  );
+                }
+                return _NotificationRow(
+                  notification: items[index - (stale ? 1 : 0)],
+                  locale: locale,
+                );
+              },
             ),
           );
         },

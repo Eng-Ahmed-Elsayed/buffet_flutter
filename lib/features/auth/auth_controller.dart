@@ -90,8 +90,9 @@ class AuthState {
   /// sign-in screen with no reason reads as a bug, not as a safeguard.
   final bool signedOutByEnrolmentChange;
 
-  /// True when a `401` ended the session — the 30-day token expired, or the
-  /// server rejected it.
+  /// True when the session ran out: a `401` for the token held, or a token
+  /// found expired at cold start — the usual 30-day end, caught before any
+  /// request could `401`.
   ///
   /// Explained on the login screen for the same reason as
   /// [signedOutByEnrolmentChange]: the token lasts a month and there is no
@@ -217,6 +218,11 @@ class AuthController extends StateNotifier<AuthState> {
   Future<void> _restore() async {
     final email = await _repository.rememberedEmail();
     final hasToken = await _repository.hasValidToken();
+    // Read before the leftovers are cleared, which removes the token too. A
+    // session that ran out says so on the login screen, exactly as a 401 does:
+    // this is how most 30-day sessions end, and without it a biometric user
+    // went from fingerprint unlock to a bare password form with no reason.
+    final expired = !hasToken && await _repository.hasExpiredToken();
     // No usable token — most often the 30-day expiry, caught here before any
     // request is made, so no 401 ever runs the cleanup. Do it now: the
     // biometrics flag, the enrolment sentinel, the identity and the
@@ -257,6 +263,7 @@ class AuthController extends StateNotifier<AuthState> {
       rememberedEmail: email,
       biometricsEnabled: enabled,
       restoredIdentity: identity,
+      sessionExpired: expired,
     );
   }
 
@@ -558,7 +565,7 @@ final authStageProvider = Provider<AuthStage>(
 /// answer does not depend on the whole controller — which would mean standing
 /// up a repository, an event stream, biometrics and the enrolment guard to read
 /// a boolean.
-/// Whether the last session ended in a `401`.
+/// Whether the last session ran out (a `401`, or expiry found at cold start).
 ///
 /// Derived, like [canOrderForGuestsProvider], so the login screen depends on
 /// one boolean rather than on the whole controller — which is also what makes

@@ -143,6 +143,9 @@ class AuthRepository {
 
   Future<bool> hasValidToken() => _tokenStore.hasValidToken();
 
+  /// Whether the stored session has run out, as opposed to there being none.
+  Future<bool> hasExpiredToken() => _tokenStore.hasExpiredToken();
+
   /// Whether the stored token's account is still on its seeded password. See
   /// [PreferencesStore.readMustChangePassword].
   Future<bool> mustChangePassword() => _preferences.readMustChangePassword();

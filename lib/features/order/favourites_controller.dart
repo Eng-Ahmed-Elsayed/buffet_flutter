@@ -23,6 +23,7 @@ final favouritesProvider = FutureProvider.autoDispose<FavouritesResponse>((
       .fetchFavourites(
         languageCode: locale.languageCode,
         // The repository only uses this when there was no response at all.
-        networkErrorFallback: 'network',
+        // Never shown: screens render a network failure through describeError.
+        networkErrorFallback: '',
       );
 });

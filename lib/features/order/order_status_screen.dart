@@ -275,6 +275,20 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
                 child: ListView(
                   padding: const EdgeInsetsDirectional.all(Dimens.space4),
                   children: [
+                    // A poll that fails keeps the order on screen and says so,
+                    // rather than showing "Being prepared" forever.
+                    if (_errorMessage != null) ...[
+                      InlineBanner(
+                        tone: BannerTone.warning,
+                        title: l10n.couldNotRefreshTitle,
+                        body: _errorMessage,
+                        action: TextButton(
+                          onPressed: () => unawaited(_refresh()),
+                          child: Text(l10n.retry),
+                        ),
+                      ),
+                      const SizedBox(height: Dimens.space4),
+                    ],
                     _StatusHeader(
                       status: order.orderStatus,
                       guestName: order.onBehalfOfName,

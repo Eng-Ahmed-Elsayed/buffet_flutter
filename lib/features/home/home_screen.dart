@@ -6,11 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
-import '../../data/api/api_exception.dart';
 import '../../data/local/order_alerts.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/models/favourite_models.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/notification_bell.dart';
@@ -18,6 +18,7 @@ import '../../shared/widgets/search_field.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../auth/auth_controller.dart';
+import '../notifications/notifications_screen.dart';
 import '../order/composer_screen.dart';
 import '../order/favourites_controller.dart';
 import '../order/favourites_screen.dart';
@@ -80,7 +81,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // on resume is what makes the card honest for the user who closed the
       // app to wait — the case this whole card is for.
       case AppLifecycleState.resumed:
-        ref.invalidate(myOrdersProvider);
+        ref
+          ..invalidate(myOrdersProvider)
+          // The bell's badge reads this list, and nothing else reloads it.
+          ..invalidate(notificationsProvider);
         _startPolling();
       case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
@@ -98,7 +102,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(
       ApiConfig.orderPollInterval,
-      (_) => ref.invalidate(myOrdersProvider),
+      // The notifications ride along, so a declaration confirmed while the
+      // app is open reaches the bell's badge.
+      (_) => ref
+        ..invalidate(myOrdersProvider)
+        ..invalidate(notificationsProvider),
     );
   }
 
@@ -177,7 +185,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ref
             ..invalidate(myOrdersProvider)
             ..invalidate(catalogueProvider)
-            ..invalidate(favouritesProvider);
+            ..invalidate(favouritesProvider)
+            ..invalidate(notificationsProvider);
         },
         // A Column in a scroll view, not a ListView: the jump chips scroll to a
         // section heading, and a lazy list does not build a heading that is
@@ -278,9 +287,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   EmptyState(
                     icon: Icons.cloud_off_outlined,
                     title: l10n.genericError,
-                    body: error is ApiException
-                        ? error.message
-                        : l10n.networkError,
+                    body: describeError(error, l10n),
                     action: OutlinedButton.icon(
                       onPressed: () => ref.invalidate(catalogueProvider),
                       icon: const Icon(Icons.refresh),
