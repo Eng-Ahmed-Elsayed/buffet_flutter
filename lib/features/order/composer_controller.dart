@@ -675,41 +675,100 @@ class ComposerController extends StateNotifier<ComposerState> {
   /// favourite on top of a part-built order adds to it rather than silently
   /// discarding what the user already chose.
   ///
-  /// Only the first line seeds the draft. A multi-drink favourite is not lost —
-  /// [addLine] is how the rest arrive — but filling several drafts at once is
-  /// not something the single-draft composer can represent, and quietly
-  /// dropping the extras without saying so would be worse than seeding the one
-  /// the user can see and edit.
+  /// Every drink the favourite holds is replayed: the earlier ones as lines
+  /// already added, the last as the draft, so a one-drink favourite behaves
+  /// exactly as the single-draft composer always did and Review shows the
+  /// whole order. Replaying only the first line used to place a different
+  /// order from the one saved — "coffee and tea" came back as coffee alone —
+  /// with nothing on screen to say so.
+  ///
+  /// Returns what could not be added, for the composer to say so: drinks no
+  /// longer in the catalogue (a favourite is deliberately not pre-filtered,
+  /// §7.6), any beyond the order's line cap, and buffet drinks beyond the
+  /// buffet cap — enforced here exactly as [addLine] enforces it, at the point
+  /// of adding rather than by a `400`. A saved guest order of three coffees
+  /// replayed as the user's own is the case that reaches it. When nothing
+  /// could be added the composer is left as it was.
   ///
   /// Stamps [ComposerState.fromFavouriteId] so the server can record the
   /// favourite as used. That is the only thing the id does: what gets ordered
   /// is whatever is on screen at submit, edits included.
-  void applyFavourite(FavouriteDto favourite, List<CatalogueItemDto> drinks) {
-    final line = favourite.lines.firstOrNull;
-    if (line == null) return;
+  ({
+    List<OrderLineDto> retired,
+    List<OrderLineDto> overCap,
+    List<OrderLineDto> overBuffetCap,
+  })
+  applyFavourite(FavouriteDto favourite, List<CatalogueItemDto> drinks) {
+    final retired = <OrderLineDto>[];
+    final overCap = <OrderLineDto>[];
+    final overBuffetCap = <OrderLineDto>[];
+    final resolved = <(OrderLineDto, CatalogueItemDto)>[];
+    // The draft's slot plus whatever the cap leaves after the lines already
+    // added. The draft is replaced, so it does not count against the room.
+    final room = state.maxLines - state.lines.length;
+    final buffetAllowance = state.capIsLifted
+        ? state.maxLines
+        : state.maxBuffetDrinks;
+    var buffetUsed = state.lines.where((l) => l.resolvesToBuffet).length;
 
-    // A drink retired since the favourite was saved is simply absent from the
-    // catalogue. The favourite itself is deliberately not pre-filtered (§7.6),
-    // so this is a reachable state rather than an impossible one: seed nothing
-    // and leave the composer as it was, rather than seeding a half-line.
-    final drink = drinks.where((d) => d.itemId == line.drinkItemId).firstOrNull;
-    if (drink == null) return;
+    for (final line in favourite.lines) {
+      final drink = drinks
+          .where((d) => d.itemId == line.drinkItemId)
+          .firstOrNull;
+      if (drink == null) {
+        retired.add(line);
+      } else if (resolved.length >= room) {
+        overCap.add(line);
+      } else if (_asLine(line, drink).resolvesToBuffet &&
+          buffetUsed >= buffetAllowance) {
+        overBuffetCap.add(line);
+      } else {
+        if (_asLine(line, drink).resolvesToBuffet) buffetUsed++;
+        resolved.add((line, drink));
+      }
+    }
+    if (resolved.isEmpty) {
+      return (retired: retired, overCap: overCap, overBuffetCap: overBuffetCap);
+    }
 
+    final (last, lastDrink) = resolved.last;
     state = state.copyWith(
-      drink: () => drink,
-      variantId: () => line.variantId,
-      sugarItemId: () => line.sugarItemId,
-      sugarSpoons: line.sugarSpoons,
-      // The favourite is the user's own saved order, but the drink's permitted
-      // extras may have been narrowed by an admin since it was saved.
-      extraItemIds: line.extraItemIds.where(drink.permitsExtra).toSet(),
-      drinkFromOwn: line.drinkFromOwn && drink.hasOwnStock,
-      sugarFromOwn: line.sugarFromOwn,
-      ownExtraItemIds: line.ownExtraItemIds.where(drink.permitsExtra).toSet(),
+      lines: [
+        ...state.lines,
+        for (final (line, drink) in resolved.take(resolved.length - 1))
+          _asLine(line, drink),
+      ],
+      drink: () => lastDrink,
+      variantId: () => last.variantId,
+      sugarItemId: () => last.sugarItemId,
+      sugarSpoons: last.sugarSpoons,
+      extraItemIds: last.extraItemIds.where(lastDrink.permitsExtra).toSet(),
+      drinkFromOwn: last.drinkFromOwn && lastDrink.hasOwnStock,
+      sugarFromOwn: last.sugarFromOwn,
+      ownExtraItemIds: last.ownExtraItemIds
+          .where(lastDrink.permitsExtra)
+          .toSet(),
       draftQuantity: 1,
       fromFavouriteId: () => favourite.favouriteId,
     );
+    return (retired: retired, overCap: overCap, overBuffetCap: overBuffetCap);
   }
+
+  /// A saved line as a composed one. The favourite is the user's own saved
+  /// order, but the drink's permitted extras may have been narrowed by an
+  /// admin since it was saved, and a jar the user no longer holds is not
+  /// claimed.
+  static ComposerLine _asLine(OrderLineDto line, CatalogueItemDto drink) =>
+      ComposerLine(
+        drink: drink,
+        variantId: line.variantId,
+        sugarItemId: line.sugarItemId,
+        sugarSpoons: line.sugarSpoons,
+        extraItemIds: line.extraItemIds.where(drink.permitsExtra).toSet(),
+        drinkFromOwn: line.drinkFromOwn && drink.hasOwnStock,
+        sugarFromOwn: line.sugarFromOwn,
+        ownExtraItemIds: line.ownExtraItemIds.where(drink.permitsExtra).toSet(),
+      );
 
   /// Called only once an order is **confirmed**, never on a failed attempt —
   /// a retry must reuse the same key.

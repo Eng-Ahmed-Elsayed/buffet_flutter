@@ -78,7 +78,13 @@ Future<void> confirmDeleteFavourite(
 /// the strip's "show all" link, so it exists only once there is more to see
 /// than the strip shows.
 class FavouritesScreen extends ConsumerWidget {
-  const FavouritesScreen({super.key});
+  const FavouritesScreen({this.returnsPick = false, super.key});
+
+  /// Opened from inside the composer ("show all"): a tap hands the favourite
+  /// back to that composer instead of opening another one on top of it. Two
+  /// composers share one state, and stacking them wiped a guest's name,
+  /// merged their orders and lost a staff member's served confirmation.
+  final bool returnsPick;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -151,15 +157,17 @@ class FavouritesScreen extends ConsumerWidget {
                     available:
                         available == null || favourite.isAvailable(available),
                     // Same as the strip: seeds the composer, never places.
-                    onTap: () => unawaited(
-                      context.push(
-                        Routes.catalogue,
-                        extra: ComposerSeed(
-                          mode: OrderMode.self,
-                          favourite: favourite,
-                        ),
-                      ),
-                    ),
+                    onTap: returnsPick
+                        ? () => context.pop(favourite)
+                        : () => unawaited(
+                            context.push(
+                              Routes.catalogue,
+                              extra: ComposerSeed(
+                                mode: OrderMode.self,
+                                favourite: favourite,
+                              ),
+                            ),
+                          ),
                     onLongPress: () => unawaited(
                       confirmDeleteFavourite(context, ref, favourite),
                     ),

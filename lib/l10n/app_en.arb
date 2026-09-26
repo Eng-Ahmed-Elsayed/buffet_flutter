@@ -435,5 +435,18 @@
   "noLiveOrdersBody": "Orders being made appear here until you receive them.",
   "noPastOrdersBody": "Received and cancelled orders appear here.",
   "listSeparator": ", ",
-  "passwordChanged": "Password changed"
+  "passwordChanged": "Password changed",
+  "favouriteNotAllAddedTitle": "Not everything from this favourite was added",
+  "favouriteNotOnMenu": "No longer on the menu: {names}",
+  "favouriteOverCap": "{count, plural, =1{An order holds one drink, so the rest were left out.} other{An order holds at most {count} drinks, so the rest were left out.}}",
+  "discardOrderTitle": "Discard this order?",
+  "discardOrderBody": "The drinks you chose will be lost.",
+  "discardAfterFailureBody": "The order wasn't confirmed and may have reached the buffet. Check My orders before ordering again.",
+  "keepOrdering": "Keep ordering",
+  "discardOrder": "Discard",
+  "placeFailedTitle": "The order wasn't confirmed",
+  "placeFailedRetry": "Try again — it won't be sent twice.",
+  "favouriteOverBuffetCap": "{count, plural, =1{Only one drink may come from the buffet, so the rest were left out.} other{Only {count} drinks may come from the buffet, so the rest were left out.}}",
+  "placeRejectedTitle": "The order wasn't accepted",
+  "discardAfterFailureBodyStaff": "The order wasn't confirmed and may already have been recorded."
 }

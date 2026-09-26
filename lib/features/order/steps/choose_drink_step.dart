@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../app/routes.dart';
 import '../../../data/models/catalogue_models.dart';
 import '../../../data/models/favourite_models.dart';
 import '../../../l10n/app_localizations.dart';
@@ -30,17 +28,20 @@ class ChooseDrinkStep extends StatelessWidget {
     required this.composer,
     required this.mode,
     required this.guestNameController,
+    required this.guestNameFocusNode,
     required this.guestNameError,
     required this.onGuestNameChanged,
     required this.onGuestNameBlurred,
     required this.favourites,
     required this.onReplayFavourite,
     required this.onDeleteFavourite,
+    required this.onShowAllFavourites,
     required this.searchController,
     required this.query,
     required this.onQueryChanged,
     required this.onSelectDrink,
     required this.onReview,
+    this.header,
     super.key,
   });
 
@@ -48,18 +49,28 @@ class ChooseDrinkStep extends StatelessWidget {
   final ComposerState composer;
   final OrderMode mode;
   final TextEditingController guestNameController;
+
+  /// Focused, and scrolled to, when a way off this step finds the name
+  /// missing: the field is often far above the drink that was tapped.
+  final FocusNode guestNameFocusNode;
   final bool guestNameError;
   final ValueChanged<String> onGuestNameChanged;
   final VoidCallback onGuestNameBlurred;
   final List<FavouriteDto> favourites;
   final ValueChanged<FavouriteDto> onReplayFavourite;
   final ValueChanged<FavouriteDto> onDeleteFavourite;
+
+  /// Opens the full list, which hands the chosen favourite back here.
+  final VoidCallback onShowAllFavourites;
   final TextEditingController searchController;
   final String query;
   final ValueChanged<String> onQueryChanged;
   final void Function(CatalogueItemDto drink, {required bool fromOwn})
   onSelectDrink;
   final VoidCallback onReview;
+
+  /// Shown first, inside the scroll view. Null for none.
+  final Widget? header;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +86,12 @@ class ChooseDrinkStep extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Notices from the composer (a favourite not replayed in full, a failed
+          // placement), inside the scroll view so they never squeeze the step.
+          if (header case final Widget header) ...[
+            header,
+            const SizedBox(height: Dimens.space4),
+          ],
           // Who this is for comes FIRST, and only in guest mode. It changes
           // which rules apply and it is required, so it is asked before the
           // drink rather than discovered after the order is composed.
@@ -93,6 +110,7 @@ class ChooseDrinkStep extends StatelessWidget {
               },
               child: TextField(
                 controller: guestNameController,
+                focusNode: guestNameFocusNode,
                 decoration: InputDecoration(
                   labelText: l10n.guestOrderLabel,
                   hintText: l10n.guestOrderHint,
@@ -141,8 +159,9 @@ class ChooseDrinkStep extends StatelessWidget {
               onReplay: onReplayFavourite,
               onDelete: onDeleteFavourite,
               availableItemIds: {for (final d in catalogue.drinks) d.itemId},
-              // No tab bar here, so the full list is a pushed screen.
-              onShowAll: () => context.push(Routes.favouritesList),
+              // No tab bar here, so the full list is a pushed screen — one
+              // that returns its pick rather than opening a second composer.
+              onShowAll: onShowAllFavourites,
             ),
             const SizedBox(height: Dimens.space5),
           ],

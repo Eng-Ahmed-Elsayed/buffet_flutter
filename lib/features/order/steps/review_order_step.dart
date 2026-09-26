@@ -41,6 +41,7 @@ class ReviewOrderStep extends ConsumerWidget {
     required this.onChooseDrink,
     required this.onAddAnother,
     required this.onPlaceOrder,
+    this.header,
     super.key,
   });
 
@@ -59,6 +60,9 @@ class ReviewOrderStep extends ConsumerWidget {
   final VoidCallback onChooseDrink;
   final VoidCallback onAddAnother;
   final Future<void> Function() onPlaceOrder;
+
+  /// Shown first, inside the scroll view. Null for none.
+  final Widget? header;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,6 +87,12 @@ class ReviewOrderStep extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Notices from the composer (a favourite not replayed in full, a failed
+                // placement), inside the scroll view so they never squeeze the step.
+                if (header case final Widget header) ...[
+                  header,
+                  const SizedBox(height: Dimens.space4),
+                ],
                 // The guest was named on the first step, so here it is a
                 // statement — the name has one field, not two.
                 if (mode == OrderMode.guest &&

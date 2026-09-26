@@ -533,7 +533,10 @@ void main() {
         ],
       });
 
+      // Room for both buffet drinks: the replay now keeps to the buffet cap,
+      // which composer_journeys_test covers on its own.
       final controller = ComposerController()
+        ..applyLimits(maxLines: 5, maxBuffetDrinks: 2)
         ..selectDrink(drink(id: 1))
         ..addLine()
         ..applyFavourite(saved, [drink(id: 4)]);

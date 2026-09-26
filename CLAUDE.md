@@ -123,6 +123,20 @@ Rules a future edit must not undo:
   A missing guest name takes the user back to the field instead.
 - **Home and Choose a drink render the same `DrinkMenu`**, so the two can never list drinks
   differently. It must sit in a non-lazy scroll view (see Home).
+- **A favourite is replayed whole**: every line, the earlier ones added and the last as the draft,
+  within the line cap **and the buffet cap**. What does not fit, or has been retired, is named in a
+  notice; it is never dropped silently. Replaying only the first line placed a different order from
+  the one saved.
+- **`/favourites-list` returns its pick to the composer that opened it** (`returnsPick`). It
+  used to push a second composer, and two composers share one provider: a guest name was wiped, the
+  idempotency key was shared, and a staff member's served confirmation was lost.
+- **Leaving asks before discarding an order** (Review with drinks, lines already added, or a failed
+  placement), and never mid-placement. A single drink opened from Home backs out freely.
+- **A failed placement stays on Review** until the next attempt, scrolled into view with the
+  keyboard lowered, never a SnackBar over the retry button. Only an uncertain failure (no
+  response, or a 5xx) says the order may have gone through; a 4xx is a refusal with the server's
+  reason. The notices live inside the step's scroll view, via its `header` slot, so they never
+  squeeze the step at 320dp. `composer_journeys_test.dart` pins all of this.
 
 **The Orders tab has the design's two tabs**: In progress (Ready first, then Pending and
 InProgress) and Earlier (Completed and Cancelled). The tracking screen shows a vertical four-step

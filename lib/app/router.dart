@@ -224,7 +224,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: Routes.favouritesList,
-        builder: (context, state) => const FavouritesScreen(),
+        // Only ever pushed from the composer, which receives the pick.
+        builder: (context, state) => const FavouritesScreen(returnsPick: true),
       ),
       GoRoute(
         path: Routes.materials,
