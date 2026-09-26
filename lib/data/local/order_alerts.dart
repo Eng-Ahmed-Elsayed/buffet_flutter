@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../models/order_models.dart';
 
 /// Android channel ids.
 ///
@@ -49,6 +52,15 @@ class OrderAlerts {
   /// failure or nag about it.
   bool granted = false;
 
+  /// Called with the order id when the user taps an alert — while the app runs,
+  /// or to launch it. Installed by the app shell, which owns navigation.
+  void Function(int orderId)? onOpen;
+
+  void _opened(String? payload) {
+    final orderId = int.tryParse(payload ?? '');
+    if (orderId != null) onOpen?.call(orderId);
+  }
+
   /// Prepares channels and asks for permission.
   ///
   /// Safe to call more than once — later calls are cheap no-ops. Call it once
@@ -79,7 +91,17 @@ class OrderAlerts {
     try {
       await _plugin.initialize(
         const InitializationSettings(android: android, iOS: darwin),
+        // The payload is the order id: a tap opens that order. It used to do
+        // nothing at all.
+        onDidReceiveNotificationResponse: (response) =>
+            _opened(response.payload),
       );
+      // An alert left in the tray after the process died launches the app
+      // when tapped; honour it the same way.
+      final launch = await _plugin.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp ?? false) {
+        _opened(launch!.notificationResponse?.payload);
+      }
     } on Object catch (error) {
       // No platform implementation — a test binding, a desktop build, anywhere
       // the plugin was never registered. Alerts are an enhancement over the
@@ -207,8 +229,7 @@ class OrderAlerts {
           ),
           iOS: const DarwinNotificationDetails(),
         ),
-        // The order id, so a tap can open the right drink once deep-linking is
-        // wired with push.
+        // The order id, so a tap opens the right drink.
         payload: '$orderId',
       );
     } on Object catch (error) {
@@ -247,4 +268,36 @@ Future<void> prepareOrderAlerts(BuildContext context, WidgetRef ref) {
         cancelledChannelName: l10n.channelCancelledName,
         cancelledChannelDescription: l10n.channelCancelledDescription,
       );
+}
+
+/// Announces an order that has just reached Ready or Cancelled. Anything else
+/// is ignored: the user pressed the button for Pending, no decision changes on
+/// InProgress, and they are holding the cup by Completed.
+void announceOrderChange(
+  OrderAlerts alerts,
+  AppLocalizations l10n,
+  OrderSummaryDto order,
+) {
+  switch (order.orderStatus) {
+    case OrderStatus.ready:
+      unawaited(
+        alerts.orderReady(
+          orderId: order.orderId,
+          title: l10n.alertReadyTitle,
+          body: l10n.alertReadyBody(order.orderId),
+        ),
+      );
+    case OrderStatus.cancelled:
+      unawaited(
+        alerts.orderCancelled(
+          orderId: order.orderId,
+          title: l10n.alertCancelledTitle,
+          body: l10n.alertCancelledBody(order.orderId),
+        ),
+      );
+    case OrderStatus.pending:
+    case OrderStatus.inProgress:
+    case OrderStatus.completed:
+      break;
+  }
 }

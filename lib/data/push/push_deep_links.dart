@@ -31,6 +31,10 @@ class PushDeepLinks {
     if (route is String && route.isNotEmpty) _pending = route;
   }
 
+  /// Records a route directly — a tapped local alert, which carries an order id
+  /// rather than a push message.
+  void rememberRoute(String route) => _pending = route;
+
   /// Takes the pending link, if the session is open enough to honour it.
   ///
   /// Returns null — and **keeps** the link — when it is not, so a later call

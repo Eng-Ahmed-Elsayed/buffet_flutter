@@ -8,7 +8,6 @@ import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
-import '../../data/local/order_alerts.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/models/order_models.dart';
 import '../../data/repositories/order_repository.dart';
@@ -103,8 +102,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
           );
 
       if (!mounted) return;
-      final previous = _order?.orderStatus;
-      final statusChanged = previous != order.orderStatus;
+      final statusChanged = _order?.orderStatus != order.orderStatus;
       setState(() {
         _order = order;
         _errorMessage = null;
@@ -113,15 +111,10 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
       // This screen holds the freshest truth about one order, so it is the
       // right place to expire the cached list the home-screen card reads
       // from. Without this, collecting a drink here would leave "your drink
-      // is ready" standing on the composer behind it.
+      // is ready" standing on the composer behind it. It is also how the
+      // alert fires: Home's tracker sees the change in that list
+      // (OrderStatusTracker), one place for every order and every tab.
       if (statusChanged) ref.invalidate(myOrdersProvider);
-
-      // Announce it on the device. `previous != null` matters: opening this
-      // screen on an already-Ready order is not news, and alerting there would
-      // fire every time the user checked on a drink they know about.
-      if (statusChanged && previous != null) {
-        _announce(previous, order.orderStatus, order.orderId);
-      }
 
       // Only a completed or cancelled order will never change again. A READY
       // order still moves — handover takes it to Completed — so polling must
@@ -129,44 +122,6 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
       if (order.orderStatus.isSettled) _pollTimer?.cancel();
     } on ApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
-    }
-  }
-
-  /// Fires a local notification when an order reaches a state worth knowing.
-  ///
-  /// Only the two states a user is actually waiting on. This is the free half
-  /// of §7.4 — it works with no Firebase and no Apple Developer account, which
-  /// is the whole of what iOS can be given for now, and it covers the app being
-  /// open or merely backgrounded-but-alive. It cannot cover the process being
-  /// killed; nothing on the device can.
-  void _announce(OrderStatus previous, OrderStatus current, int orderId) {
-    final l10n = AppLocalizations.of(context);
-    final alerts = ref.read(orderAlertsProvider);
-
-    switch (current) {
-      case OrderStatus.ready:
-        unawaited(
-          alerts.orderReady(
-            orderId: orderId,
-            title: l10n.alertReadyTitle,
-            body: l10n.alertReadyBody(orderId),
-          ),
-        );
-      case OrderStatus.cancelled:
-        unawaited(
-          alerts.orderCancelled(
-            orderId: orderId,
-            title: l10n.alertCancelledTitle,
-            body: l10n.alertCancelledBody(orderId),
-          ),
-        );
-      // Nothing else earns an interruption: the user pressed the button for
-      // Pending, no decision changes on InProgress, and they are holding the
-      // cup by Completed.
-      case OrderStatus.pending:
-      case OrderStatus.inProgress:
-      case OrderStatus.completed:
-        break;
     }
   }
 

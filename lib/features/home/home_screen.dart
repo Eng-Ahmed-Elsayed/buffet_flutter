@@ -9,6 +9,7 @@ import '../../data/api/api_config.dart';
 import '../../data/local/order_alerts.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/models/favourite_models.dart';
+import '../../data/models/order_models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/error_text.dart';
 import '../../shared/widgets/banners.dart';
@@ -24,6 +25,7 @@ import '../order/favourites_controller.dart';
 import '../order/favourites_screen.dart';
 import '../order/my_orders_screen.dart';
 import '../order/order_mode.dart';
+import '../order/order_status_tracker.dart';
 import '../order/widgets/drink_menu.dart';
 import '../order/widgets/favourites_strip.dart';
 import '../order/widgets/outstanding_order_card.dart';
@@ -49,6 +51,13 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
+  /// Announces an order turning Ready or Cancelled, from every look at the
+  /// list: this screen's poll, a pull-to-refresh, and the tracking screen's
+  /// own refreshes, which reload the list when they see a change. Home stays
+  /// mounted beneath every tab and pushed screen, so this is the one place
+  /// that sees every order while the app is in the foreground.
+  final _tracker = OrderStatusTracker();
+
   Timer? _pollTimer;
   final _search = TextEditingController();
   String _query = '';
@@ -81,16 +90,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // on resume is what makes the card honest for the user who closed the
       // app to wait — the case this whole card is for.
       case AppLifecycleState.resumed:
+        // Forgotten again here, not only on leaving: a load still in flight
+        // when the phone was locked lands in the background and would become
+        // the baseline, and the reload below would then announce a change
+        // already on screen (and already pushed, on Android).
+        _tracker.forget();
         ref
           ..invalidate(myOrdersProvider)
           // The bell's badge reads this list, and nothing else reloads it.
           ..invalidate(notificationsProvider);
         _startPolling();
-      case AppLifecycleState.paused:
       case AppLifecycleState.inactive:
+        _pollTimer?.cancel();
+      case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
         _pollTimer?.cancel();
+        // A change found on return is on screen; a push has announced it.
+        _tracker.forget();
     }
   }
 
@@ -147,6 +164,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<List<OrderSummaryDto>>>(myOrdersProvider, (_, next) {
+      // Settled data only. A refresh passes through loading (and a failed one
+      // through error) still carrying the previous list, and a stale list
+      // taken as the first look after a return would announce what the user
+      // is already looking at.
+      // (Riverpod marks a refresh as data with isLoading set, so both.)
+      if (next is! AsyncData<List<OrderSummaryDto>> || next.isLoading) return;
+      final orders = next.value;
+      final alerts = ref.read(orderAlertsProvider);
+      final l10n = AppLocalizations.of(context);
+      for (final order in _tracker.changed(orders)) {
+        announceOrderChange(alerts, l10n, order);
+      }
+    });
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
     final outstanding = ref.watch(outstandingOrdersProvider);

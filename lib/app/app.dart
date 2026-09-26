@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../data/local/order_alerts.dart';
 import '../data/push/push_controller.dart';
 import '../data/push/push_deep_links.dart';
 import '../features/auth/auth_controller.dart';
@@ -12,6 +13,7 @@ import '../l10n/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'locale_controller.dart';
 import 'router.dart';
+import 'routes.dart';
 
 class BuffetApp extends ConsumerStatefulWidget {
   const BuffetApp({super.key});
@@ -58,6 +60,13 @@ class _BuffetAppState extends ConsumerState<BuffetApp> {
   Widget build(BuildContext context) {
     final locale = ref.watch(localeControllerProvider);
     final router = ref.watch(routerProvider);
+
+    // A tapped local alert goes where a tapped push does: through the held
+    // link, so a tap that lands at the lock screen waits for the unlock.
+    ref.read(orderAlertsProvider).onOpen ??= (orderId) {
+      _deepLinks.rememberRoute(Routes.orderStatusFor(orderId));
+      _drainDeepLink();
+    };
 
     // Installed once, and before any sign-out can happen: unregistering has to
     // run while the bearer token is still valid.
