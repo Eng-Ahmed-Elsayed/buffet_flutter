@@ -35,6 +35,10 @@ class PushDeepLinks {
   /// rather than a push message.
   void rememberRoute(String route) => _pending = route;
 
+  /// Drops a held link. On sign-out: a tap for the last user's order must
+  /// not open, or 404, for whoever signs in next.
+  void forget() => _pending = null;
+
   /// Takes the pending link, if the session is open enough to honour it.
   ///
   /// Returns null — and **keeps** the link — when it is not, so a later call

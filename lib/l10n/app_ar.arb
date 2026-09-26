@@ -98,7 +98,7 @@
   "@favouritesEmptyTitle": { "description": "Empty state on the full favourites screen." },
   "favouritesFullTitle": "وصلت إلى الحد الأقصى",
   "@favouritesFullTitle": { "description": "Shown beside a disabled save control at the per-user cap. A structural limit the server enforces, never a stock reading." },
-  "favouritesFullBody": "يمكنك حفظ {count} طلبات مفضلة. احذف واحدًا لتحفظ غيره.",
+  "favouritesFullBody": "يمكنك حفظ {count, plural, =1{طلب مفضل واحد} =2{طلبين مفضلين} few{{count} طلبات مفضلة} many{{count} طلبًا مفضلًا} other{{count} طلب مفضل}}. احذف واحدًا لتحفظ غيره.",
   "@favouritesFullBody": {
     "description": "Explains the cap and what to do about it, so the disabled control is never a dead end.",
     "placeholders": { "count": { "type": "int" } }
@@ -113,7 +113,7 @@
   "@sugar": { "description": "Section heading above the sugar stepper." },
   "preparation": "طريقة التحضير",
   "@preparation": { "description": "Label above the variant chips — how a drink is made (dark, light, French)." },
-  "orderNotesHint": "أي ملاحظة يحتاج الموظف معرفتها",
+  "orderNotesHint": "أي ملاحظة يحتاج فريق البوفيه إلى معرفتها",
   "@orderNotesHint": { "description": "Hint inside the order notes field." },
   "extras": "إضافات",
   "@extras": { "description": "Section heading above the extras chips." },
@@ -126,7 +126,7 @@
   "@addSpoon": { "description": "Accessibility label for the stepper's increment button." },
   "removeSpoon": "إنقاص ملعقة",
   "@removeSpoon": { "description": "Accessibility label for the stepper's decrement button." },
-  "servingsLeft": "{count, plural, =0{لا يوجد رصيد} =1{متبقٍ كوب واحد} =2{متبقٍ كوبان} few{متبقٍ {count} أكواب} many{متبقٍ {count} كوبًا} other{متبقٍ {count} كوب}}",
+  "servingsLeft": "{count, plural, =0{لم يبقَ شيء} =1{تبقّى كوب واحد} =2{تبقّى كوبان} few{تبقّت {count} أكواب} many{تبقّى {count} كوبًا} other{تبقّى {count} كوب}}",
   "@servingsLeft": {
     "description": "How many servings remain in the user's own jar.",
     "placeholders": { "count": { "type": "int" } }
@@ -387,7 +387,7 @@
   "@noNotifications": { "description": "Empty state for notifications." },
   "exitAppTitle": "إغلاق التطبيق؟",
   "@exitAppTitle": { "description": "Title of the confirmation shown when back is pressed on a landing screen." },
-  "exitAppBody": "أنت في الشاشة الرئيسية. الضغط على رجوع مرة أخرى سيغلق التطبيق.",
+  "exitAppBody": "لا توجد شاشة سابقة للرجوع إليها من هنا.",
   "@exitAppBody": { "description": "Body of the exit confirmation. Explains why back does not simply go back here." },
   "exitAppConfirm": "إغلاق",
   "@exitAppConfirm": { "description": "Confirms closing the app." },
@@ -446,7 +446,7 @@
   "@removeDrink": { "description": "Tooltip on the remove button for an added line." },
   "maxLinesReachedTitle": "بلغت الحد الأقصى للمشروبات",
   "@maxLinesReachedTitle": { "description": "Shown when the order already carries maxLines drinks." },
-  "maxLinesReachedBody": "لا يمكن إضافة أكثر من {count} مشروب في طلب واحد.",
+  "maxLinesReachedBody": "لا يمكن أن يضم الطلب الواحد أكثر من {count, plural, =1{مشروب واحد} =2{مشروبين} few{{count} مشروبات} many{{count} مشروبًا} other{{count} مشروب}}.",
   "@maxLinesReachedBody": { "placeholders": { "count": { "type": "int" } } },
   "buffetCapTitle": "{count, plural, =1{مشروب واحد فقط من البوفيه} =2{مشروبان فقط من البوفيه} few{{count} مشروبات فقط من البوفيه} many{{count} مشروبًا فقط من البوفيه} other{{count} مشروب فقط من البوفيه}}",
   "@buffetCapTitle": { "description": "The buffet cap, from the server.", "placeholders": { "count": { "type": "int" } } },
@@ -562,7 +562,7 @@
   "@greetingMorning": { "description": "Home greeting before noon. name is the user's first name.", "placeholders": { "name": { "type": "String" } } },
   "greetingAfternoon": "مساء الخير، {name}",
   "@greetingAfternoon": { "description": "Home greeting from noon to 5pm.", "placeholders": { "name": { "type": "String" } } },
-  "greetingEvening": "مساء النور، {name}",
+  "greetingEvening": "مساء الخير، {name}",
   "@greetingEvening": { "description": "Home greeting after 5pm.", "placeholders": { "name": { "type": "String" } } },
   "greetingNoName": "أهلًا بك",
   "@greetingNoName": { "description": "Home greeting when the user's name is not known." },

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/landing_prompts.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
 import '../../data/local/order_alerts.dart';
@@ -73,7 +74,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // seen what the app does — never at startup, which is how a permission
     // gets denied permanently.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(prepareOrderAlerts(context, ref));
+      if (mounted) unawaited(prepareLandingPrompts(context, ref));
     });
   }
 
@@ -259,6 +260,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 InlineBanner(
                   tone: BannerTone.warning,
                   title: l10n.sessionNotRefreshed,
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: l10n.dismiss,
+                    onPressed: () => ref
+                        .read(authControllerProvider.notifier)
+                        .acknowledgeSessionNotRefreshed(),
+                  ),
                 ),
                 const SizedBox(height: Dimens.space4),
               ],

@@ -496,7 +496,21 @@ class AuthController extends StateNotifier<AuthState> {
   /// dependency so the auth machine does not have to know push exists.
   Future<void> Function()? onBeforeSignOut;
 
+  /// Work that must reach the server while the token is still valid: the
+  /// staff queue's serves still inside their undo window. Each is sent, as the
+  /// window closing would have sent it; dropped, a drink already made was
+  /// never recorded. Run before [onBeforeSignOut], each best-effort.
+  final Set<Future<void> Function()> beforeSignOut = {};
+
   Future<void> signOut() async {
+    for (final task in beforeSignOut.toList()) {
+      try {
+        await task();
+      } on Object {
+        // Best-effort, as below: nothing may strand the user signed in.
+      }
+    }
+
     // Before _repository.signOut(), which clears the bearer token — a call made
     // after it would arrive unauthenticated and 401. Failures are swallowed: a
     // device we could not unregister is swept server-side after a month,

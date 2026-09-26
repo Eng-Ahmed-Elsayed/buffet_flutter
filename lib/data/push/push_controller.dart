@@ -34,7 +34,8 @@ class PushController {
 
   /// Asks permission, gets a token, and tells the server about it.
   ///
-  /// Idempotent — call it on every transition into `signedIn`. The server
+  /// Idempotent — `prepareLandingPrompts` calls it on every landing, after the
+  /// permission prompt, so FCM finds the permission answered. The server
   /// upserts on the token, so a device that has already registered simply has
   /// its `lastSeenAtUtc` refreshed.
   Future<void> register() async {

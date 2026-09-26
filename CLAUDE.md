@@ -97,7 +97,10 @@ Two rules from that work that a future edit must not undo:
   and grow in height rather than fade a label (`measureTabLabels`). `queue_staff_view_test.dart`.
 - **Foreground polling stays alongside push.** Push closes the closed-app gap; polling closes the
   foreground-freshness gap. They are not duplicates.
-- **`prepareOrderAlerts` is called from BOTH landing screens.** It used to live on the composer,
+- **`prepareLandingPrompts` is called from BOTH landing screens** (`lib/app/landing_prompts.dart`).
+  It is also what registers for push, so a new landing screen that skips it never gets push. It
+  asks one thing at a time: the biometric offer, then the notification permission, then push
+  registration. A notification tap does not wait on any of it. It used to live on the composer,
   which is the *employee* landing screen — so staff, who only reach the composer by pushing it from
   the queue, had no notification channels and were never asked for permission at all. A new landing
   screen must call it.
@@ -207,7 +210,7 @@ that two shortcuts side by side, one silently moving, is worse than either alone
   opaque rejection. Favourites are deliberately **not** pre-filtered server-side — let the order be
   the thing that fails.
 - **The strip lives on the composer's Choose-a-drink step as well as Home**, for the same reason
-  `prepareOrderAlerts` does: staff never see Home, they push the composer from the queue.
+  `prepareLandingPrompts` does: staff never see Home, they push the composer from the queue.
 - **`ComposerSeed` carries the whole `FavouriteDto`**, not an id — favourites are a separate
   endpoint from the catalogue, so an id would mean a refetch between the tap and the drink. And
   `saveAsFavourite` / `favouriteName` / `fromFavouriteId` must stay in **both** `ComposerState`

@@ -47,8 +47,9 @@ class FakeAuthController extends AuthController {
   /// Holds [state] exactly as given. The controller restores from secure
   /// storage on construction, and storage is mocked here, so without this the
   /// restore lands a moment later and replaces a signed-in identity with an
-  /// empty session.
-  final bool pinned;
+  /// empty session. Set false once the restore has had its chance, to let a
+  /// test's own state change through.
+  bool pinned;
 
   @override
   set state(AuthState value) {

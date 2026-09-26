@@ -282,4 +282,23 @@ void main() {
       launched.dispose();
     });
   });
+
+  test('sign-out runs pending work while the token is still valid', () async {
+    // The staff queue's serves still in their undo window: sent from the
+    // queue's dispose, they went after the token and arrived unauthenticated.
+    const tokens = SecureTokenStore(FlutterSecureStorage());
+    _server.mustChange = false;
+    final auth = await _launch();
+    await _signIn(auth);
+
+    String? tokenDuringTask;
+    auth.beforeSignOut.add(() async {
+      tokenDuringTask = await tokens.readToken();
+    });
+    await auth.signOut();
+
+    expect(tokenDuringTask, isNotNull);
+    expect(await tokens.readToken(), isNull);
+    auth.dispose();
+  });
 }

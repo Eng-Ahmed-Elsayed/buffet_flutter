@@ -81,4 +81,14 @@ void main() {
       expect(links.takeIf(sessionIsOpen: true), '/order/2');
     });
   });
+
+  test('a held link is dropped on sign-out', () {
+    // Otherwise the next person to sign in on this device is taken to the
+    // last one's order, which 404s for them.
+    final links = PushDeepLinks()
+      ..rememberRoute('/order/412')
+      ..forget();
+
+    expect(links.takeIf(sessionIsOpen: true), isNull);
+  });
 }

@@ -7,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/brand_backdrop.dart';
 import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/exit_confirmation.dart';
+import '../../shared/widgets/language_toggle.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../../theme/motion.dart';
@@ -131,6 +132,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       child: Text(l10n.signIn),
                     ),
                   ],
+                  // The app opens in Arabic whatever the device language, and
+                  // this is the first screen anyone sees: without the switch
+                  // here, someone who cannot read Arabic met three slides they
+                  // could not read before reaching the one on sign-in.
+                  const SizedBox(height: Dimens.space3),
+                  const LanguageToggle(),
                   const SizedBox(height: Dimens.space4),
                 ],
               ),

@@ -5,11 +5,11 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/landing_prompts.dart';
 import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
-import '../../data/local/order_alerts.dart';
 import '../../data/models/staff_models.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../l10n/app_localizations.dart';
@@ -21,6 +21,7 @@ import '../../shared/widgets/exit_confirmation.dart';
 import '../../shared/widgets/notification_bell.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
+import '../auth/auth_controller.dart';
 import '../notifications/notifications_screen.dart';
 import '../order/self_order_outcome.dart';
 import 'pending_action.dart';
@@ -89,6 +90,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   QueueRepository? _repositoryForFlush;
   String _languageForFlush = 'ar';
 
+  /// Where [_flushPending] is registered to run before sign-out.
+  AuthController? _authForFlush;
+
   @override
   void initState() {
     super.initState();
@@ -98,6 +102,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     // on screen.
     _tabController.addListener(_onTabChanged);
     WidgetsBinding.instance.addObserver(this);
+    final auth = ref.read(authControllerProvider.notifier);
+    _authForFlush = auth;
+    auth.beforeSignOut.add(_flushPending);
     // After the first frame, not during initState: _refresh reads
     // AppLocalizations for its network-error fallback, and an inherited widget
     // cannot legally be looked up before initState has returned.
@@ -108,7 +115,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       // is the EMPLOYEE landing screen — staff only ever reach it by pushing
       // it from here, so a staff member who never ordered their own drink had
       // no notification channels and was never asked for permission at all.
-      unawaited(prepareOrderAlerts(context, ref));
+      unawaited(prepareLandingPrompts(context, ref));
     });
     _startPolling();
   }
@@ -117,7 +124,8 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
-    _flushPending();
+    _authForFlush?.beforeSignOut.remove(_flushPending);
+    unawaited(_flushPending());
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
@@ -138,7 +146,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
         _pollTimer?.cancel();
-        _flushPending();
+        unawaited(_flushPending());
 
       // Not a backgrounding. `inactive` fires for a notification-shade pull or
       // an incoming call, with the card still on screen and seconds left on a
@@ -159,15 +167,20 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   /// swallowed because there is no UI left to report to, and the server-side
   /// outcome is recoverable: a failed `/ready` leaves the order Pending and it
   /// comes back on the next fetch.
-  void _flushPending() {
-    if (_pendingActions.isEmpty) return;
+  ///
+  /// Also run by sign-out, before the token goes (see
+  /// [AuthController.beforeSignOut]): from `dispose` alone it ran after, so
+  /// every send arrived unauthenticated and was lost.
+  Future<void> _flushPending() {
+    if (_pendingActions.isEmpty) return Future.value();
 
     // Captured rather than read: this runs from `dispose`, where `ref` has
     // already been torn down.
     final repository = _repositoryForFlush;
-    if (repository == null) return;
+    if (repository == null) return Future.value();
     final language = _languageForFlush;
 
+    final sends = <Future<void>>[];
     for (final entry in _pendingActions.entries.toList()) {
       _pendingTimers.remove(entry.key)?.cancel();
       final action = entry.value;
@@ -187,10 +200,11 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       };
 
       // An unhandled Future error escaping dispose would take down the zone.
-      unawaited(send.then((_) {}, onError: (_) {}));
+      sends.add(send.then((_) {}, onError: (_) {}));
     }
 
     _pendingActions.clear();
+    return Future.wait(sends);
   }
 
   /// ~10s foregrounded. Staff keep this screen open, and a stale queue is worse
@@ -284,16 +298,21 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     _pendingTimers[order.orderId] = Timer(window, () {
       _pendingTimers.remove(order.orderId);
       if (!mounted) return;
-      // The card goes as the countdown commits, as a handover's does. Left in
-      // place until the server answered, it showed its Ready buttons again
-      // for the whole round trip — read as "undone", and served twice.
-      setState(() {
-        _pendingActions.remove(order.orderId);
-        _serving.add(order.orderId);
-        _queue = _queue.where((o) => o.orderId != order.orderId).toList();
-      });
-      unawaited(_markReady(order, deliverNow: deliverNow));
+      unawaited(_commit(order, deliverNow: deliverNow));
     });
+  }
+
+  /// Sends a serve whose window has closed.
+  Future<void> _commit(StaffOrderDto order, {required bool deliverNow}) {
+    // The card goes as the countdown commits, as a handover's does. Left in
+    // place until the server answered, it showed its Ready buttons again for
+    // the whole round trip — read as "undone", and served twice.
+    setState(() {
+      _pendingActions.remove(order.orderId);
+      _serving.add(order.orderId);
+      _queue = _queue.where((o) => o.orderId != order.orderId).toList();
+    });
+    return _markReady(order, deliverNow: deliverNow);
   }
 
   /// Cancels a pending action before it is sent. Nothing reaches the API.
@@ -575,6 +594,27 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Staff change their password too, and land here after.
+                    if (ref.watch(sessionNotRefreshedProvider))
+                      Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          Dimens.space4,
+                          Dimens.space3,
+                          Dimens.space4,
+                          0,
+                        ),
+                        child: InlineBanner(
+                          tone: BannerTone.warning,
+                          title: l10n.sessionNotRefreshed,
+                          trailing: IconButton(
+                            icon: const Icon(Icons.close),
+                            tooltip: l10n.dismiss,
+                            onPressed: () => ref
+                                .read(authControllerProvider.notifier)
+                                .acknowledgeSessionNotRefreshed(),
+                          ),
+                        ),
+                      ),
                     if (_selfOrderOutcome case final outcome?)
                       Padding(
                         padding: const EdgeInsetsDirectional.fromSTEB(

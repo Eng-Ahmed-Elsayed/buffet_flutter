@@ -12,6 +12,7 @@ import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/button_spinner.dart';
 import '../../shared/widgets/exit_confirmation.dart';
 import '../../shared/widgets/field_label.dart';
+import '../../shared/widgets/language_toggle.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../../theme/motion.dart';
@@ -126,6 +127,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
+
+    // The server's error came in the language it was asked in; after a
+    // switch it would sit there in the other one. Cleared, the next attempt
+    // answers in the new language.
+    ref.listen<Locale>(localeControllerProvider, (previous, next) {
+      if (previous != next && _errorMessage != null) {
+        setState(() => _errorMessage = null);
+      }
+    });
 
     return ExitConfirmation(
       // Nothing sits beneath the login screen, so back would close the app
@@ -299,7 +309,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     // language of the sign-in errors the server returns, which
                     // is the other half of why it has to be reachable before
                     // signing in.
-                    const _LanguageToggle(),
+                    const LanguageToggle(),
 
                     const SizedBox(height: Dimens.space5),
                     Center(
@@ -314,46 +324,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// The language choice, on the one screen that sits in front of settings.
-///
-/// A compact segmented control rather than the radio list settings uses: this
-/// is a secondary affordance under a sign-in form, and a two-row radio group
-/// would carry more visual weight than the password field above it.
-///
-/// Each option is labelled in **its own language** in both locales, exactly as
-/// in settings — somebody who has landed in a language they cannot read still
-/// has to be able to find their way out.
-class _LanguageToggle extends ConsumerWidget {
-  const _LanguageToggle();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final locale = ref.watch(localeControllerProvider);
-    final l10n = AppLocalizations.of(context);
-
-    return Center(
-      child: SegmentedButton<Locale>(
-        segments: [
-          for (final option in LocaleController.supported)
-            ButtonSegment<Locale>(
-              value: option,
-              label: Text(
-                option.languageCode == 'ar'
-                    ? l10n.languageArabic
-                    : l10n.languageEnglish,
-              ),
-            ),
-        ],
-        selected: {locale},
-        showSelectedIcon: false,
-        onSelectionChanged: (selected) => unawaited(
-          ref.read(localeControllerProvider.notifier).setLocale(selected.first),
         ),
       ),
     );

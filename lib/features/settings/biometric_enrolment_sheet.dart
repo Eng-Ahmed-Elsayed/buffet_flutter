@@ -21,14 +21,23 @@ class BiometricEnrolmentSheet extends ConsumerStatefulWidget {
   const BiometricEnrolmentSheet({super.key});
 
   /// Shows the sheet, resolving once the user has chosen either way.
-  static Future<void> show(BuildContext context) => showModalBottomSheet<void>(
-    sheetAnimationStyle: Motion.sheet(context),
-    context: context,
-    isScrollControlled: true,
-    // Dismissing by tapping away is the same choice as "not now": the offer
-    // is a convenience, and nothing should be enabled by walking away from it.
-    builder: (_) => const BiometricEnrolmentSheet(),
-  );
+  ///
+  /// Dismissing by tapping away is the same choice as "not now": the offer is
+  /// a convenience, and nothing should be enabled by walking away from it. So
+  /// however the sheet closes, the offer is cleared. Left standing, the
+  /// permission prompts waiting on it (`prepareLandingPrompts`) waited for
+  /// good, and push was never registered.
+  static Future<void> show(BuildContext context, WidgetRef ref) =>
+      showModalBottomSheet<void>(
+        sheetAnimationStyle: Motion.sheet(context),
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => const BiometricEnrolmentSheet(),
+      ).whenComplete(
+        () => ref
+            .read(authControllerProvider.notifier)
+            .declineBiometricEnrolment(),
+      );
 
   @override
   ConsumerState<BiometricEnrolmentSheet> createState() =>

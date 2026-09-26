@@ -43,9 +43,11 @@ class _BuffetAppState extends ConsumerState<BuffetApp> {
     });
   }
 
+  /// Listens for taps and follows one already waiting. Registration for
+  /// push is not here: the landing screen does it after the permission
+  /// prompts (see `prepareLandingPrompts`), and a tap no longer waits on it —
+  /// it used to wait on the permission dialog and the network both.
   Future<void> _onSignedIn() async {
-    await ref.read(pushControllerProvider).register();
-
     if (!_listeningForTaps && PushController.isSupported) {
       _listeningForTaps = true;
       await _deepLinks.listen(onLink: _drainDeepLink);
@@ -78,6 +80,10 @@ class _BuffetAppState extends ConsumerState<BuffetApp> {
           previous?.stage != AuthStage.signedIn) {
         unawaited(_onSignedIn());
       }
+      if (next.stage == AuthStage.signedOut &&
+          previous?.stage != AuthStage.signedOut) {
+        _deepLinks.forget();
+      }
     });
 
     // The enrolment offer follows the user to whichever screen they land on,
@@ -94,7 +100,7 @@ class _BuffetAppState extends ConsumerState<BuffetApp> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           final context = router.routerDelegate.navigatorKey.currentContext;
           if (context != null && context.mounted) {
-            unawaited(BiometricEnrolmentSheet.show(context));
+            unawaited(BiometricEnrolmentSheet.show(context, ref));
           }
         });
       }
