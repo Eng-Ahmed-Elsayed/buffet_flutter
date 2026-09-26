@@ -622,5 +622,12 @@
   "couldNotRefreshTitle": "تعذّر التحديث",
   "@couldNotRefreshTitle": { "description": "A background refresh failed; the screen keeps what it last loaded." },
   "couldNotRefreshBody": "هذه آخر بيانات وصلت عند {time}.",
-  "@couldNotRefreshBody": { "description": "When the stale data was last loaded.", "placeholders": { "time": { "type": "String" } } }
+  "@couldNotRefreshBody": { "description": "When the stale data was last loaded.", "placeholders": { "time": { "type": "String" } } },
+  "emailRequired": "اكتب بريدك الإلكتروني",
+  "@emailRequired": { "description": "Sign-in validation: the email is empty." },
+  "passwordRequired": "اكتب كلمة المرور",
+  "currentPasswordRequired": "اكتب كلمة المرور الحالية",
+  "chooseItem": "اختر الصنف",
+  "@chooseItem": { "description": "Declare sheet: hint and validation for the item picker." },
+  "itemNameRequired": "اكتب اسم الصنف"
 }

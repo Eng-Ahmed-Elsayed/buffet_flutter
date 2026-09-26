@@ -140,11 +140,39 @@ void main() {
       ),
     );
 
+    testWidgets('the sheet opens with nothing chosen, not "not listed"', (
+      tester,
+    ) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      // A hint, and none of the new-item fields: it used to open showing
+      // «الصنف غير مدرج» as chosen while not in that mode.
+      expect(find.text('اختر الصنف'), findsOneWidget);
+      expect(find.text('الصنف غير مدرج'), findsNothing);
+      expect(find.text('تفاصيل الصنف الجديد'), findsNothing);
+    });
+
+    testWidgets('sending with nothing chosen says what is missing', (
+      tester,
+    ) async {
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('إرسال الإقرار'));
+      await tester.tap(find.text('إرسال الإقرار'));
+      await tester.pumpAndSettle();
+
+      // Words under the picker, not a red outline alone. The hint and the
+      // error read alike, so two matches.
+      expect(find.text('اختر الصنف'), findsNWidgets(2));
+    });
+
     testWidgets('the picker offers «الصنف غير مدرج» last', (tester) async {
       await tester.pumpWidget(app());
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byType(DropdownButtonFormField<DeclarableItem?>));
+      await tester.tap(find.byType(DropdownButtonFormField<Object>));
       await tester.pumpAndSettle();
 
       // Present in the open menu. Two matches is normal — a dropdown renders
@@ -160,7 +188,7 @@ void main() {
       // never be submitted.
       expect(find.text('تفاصيل الصنف الجديد'), findsNothing);
 
-      await tester.tap(find.byType(DropdownButtonFormField<DeclarableItem?>));
+      await tester.tap(find.byType(DropdownButtonFormField<Object>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('الصنف غير مدرج').last);
       await tester.pumpAndSettle();
@@ -176,7 +204,7 @@ void main() {
       // On an existing item the quantity is in base units.
       expect(find.text('عدد العبوات'), findsNothing);
 
-      await tester.tap(find.byType(DropdownButtonFormField<DeclarableItem?>));
+      await tester.tap(find.byType(DropdownButtonFormField<Object>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('الصنف غير مدرج').last);
       await tester.pumpAndSettle();

@@ -235,6 +235,11 @@ refreshed by Home's poll, resume and pull-to-refresh, and by every queue refresh
 button in an `InlineBanner` goes in `action` (under the text), never `trailing`, which squeezed
 the message at large text scales. `staleness_test.dart`.
 
+**A validator always returns words**, from the ARB files, never `''`. An empty message is a red
+border alone (colour as the only signal, and nothing for a screen reader), and on the new-password
+field it also hid the "at least 8 characters" helper at the moment that rule was broken. The
+declare sheet's «الصنف غير مدرج» is a sentinel value of its own; `null` means nothing chosen yet.
+
 **The first-launch explainer (`/welcome`) shows once per install, before the first sign-in, and
 never to someone who already uses the app.** Its flag lives in `PreferencesStore` and survives
 sign-out. **Any session stage (signed in, locked, forced password change) marks it seen**; see

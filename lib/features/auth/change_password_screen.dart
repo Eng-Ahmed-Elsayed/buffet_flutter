@@ -152,8 +152,11 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             obscureText: _obscure,
                             textInputAction: TextInputAction.next,
                             enabled: !_submitting,
+                            // Words, not a red border alone (§2.5).
                             validator: (value) =>
-                                (value == null || value.isEmpty) ? '' : null,
+                                (value == null || value.isEmpty)
+                                ? l10n.currentPasswordRequired
+                                : null,
                           ),
                         ],
                       ),
@@ -194,8 +197,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                           enabled: !_submitting,
                           // Validated locally for instant feedback; the server
                           // enforces the same minimum and its message wins on a 400.
+                          // The rule itself as the error: an error replaces the
+                          // helper text, and an empty one made "at least 8
+                          // characters" vanish the moment it was broken.
                           validator: (value) =>
-                              (value == null || value.length < 8) ? '' : null,
+                              (value == null || value.length < 8)
+                              ? l10n.passwordMinLength
+                              : null,
                         ),
                       ],
                     ),

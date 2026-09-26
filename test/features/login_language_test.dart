@@ -170,4 +170,19 @@ void main() {
       expect(find.widgetWithText(FilledButton, l10n.signIn), findsOneWidget);
     });
   });
+
+  group('an empty sign-in says what is missing, in words', () {
+    testWidgets('both fields name themselves', (tester) async {
+      await pump(tester);
+
+      await tester.ensureVisible(find.text('دخول').last);
+      await tester.tap(find.text('دخول').last);
+      await tester.pumpAndSettle();
+
+      // Not a red border alone (§2.5): a screen reader announces nothing for
+      // an empty message, and a colour-blind user sees nothing at all.
+      expect(find.text('اكتب بريدك الإلكتروني'), findsOneWidget);
+      expect(find.text('اكتب كلمة المرور'), findsOneWidget);
+    });
+  });
 }

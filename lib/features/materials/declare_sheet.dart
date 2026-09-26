@@ -79,6 +79,12 @@ class DeclareSheet extends ConsumerStatefulWidget {
   ConsumerState<DeclareSheet> createState() => _DeclareSheetState();
 }
 
+/// The picker's «الصنف غير مدرج» entry. A value of its own, so that null means
+/// only "nothing chosen yet": with null standing for "not listed", the sheet
+/// opened showing "Item not listed" as chosen while not in that mode, and Send
+/// then refused with a red outline and no words.
+const Object _notListed = Object();
+
 class _DeclareSheetState extends ConsumerState<DeclareSheet> {
   final _formKey = GlobalKey<FormState>();
   final _quantityController = TextEditingController();
@@ -249,12 +255,13 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
 
                 // Every catalogue item, not only the ones already owned —
                 // otherwise a first-time declaration is impossible to make.
-                // Nullable value, with null meaning «الصنف غير مدرج» — the
-                // last entry, so the common case (topping up something known)
-                // stays the default. Mirrors the web's `value="0"` sentinel
-                // without borrowing an id that means "rejected" on the wire.
-                DropdownButtonFormField<DeclarableItem?>(
-                  initialValue: _newItem ? null : _selectedItem,
+                // «الصنف غير مدرج» is the last entry, with its own sentinel
+                // value; null means nothing chosen yet and shows a hint.
+                // Mirrors the web's `value="0"` sentinel without borrowing an
+                // id that means "rejected" on the wire.
+                DropdownButtonFormField<Object>(
+                  initialValue: _newItem ? _notListed : _selectedItem,
+                  hint: Text(l10n.chooseItem),
                   decoration: InputDecoration(
                     labelText: l10n.item,
                     helperText: switch (itemsAsync) {
@@ -271,20 +278,20 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
                         value: item,
                         child: _ItemLabel(item: item, locale: locale),
                       ),
-                    DropdownMenuItem(
-                      value: null,
+                    DropdownMenuItem<Object>(
+                      value: _notListed,
                       child: Text(l10n.itemNotListed),
                     ),
                   ],
                   onChanged: _submitting
                       ? null
                       : (value) => setState(() {
-                          _selectedItem = value;
-                          _newItem = value == null;
+                          _newItem = identical(value, _notListed);
+                          _selectedItem = value is DeclarableItem
+                              ? value
+                              : null;
                         }),
-                  // Null is a legitimate choice here, so the picker cannot
-                  // validate on it — the new-item fields carry their own.
-                  validator: (value) => value == null && !_newItem ? '' : null,
+                  validator: (value) => value == null ? l10n.chooseItem : null,
                 ),
 
                 // Revealed only for «الصنف غير مدرج». Built rather than merely
@@ -329,7 +336,9 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
                   enabled: !_submitting,
                   validator: (value) {
                     final parsed = num.tryParse(value?.trim() ?? '');
-                    return (parsed == null || parsed <= 0) ? '' : null;
+                    return (parsed == null || parsed <= 0)
+                        ? l10n.mustBePositive
+                        : null;
                   },
                 ),
                 const SizedBox(height: Dimens.space4),
@@ -428,7 +437,8 @@ class _NewItemFields extends StatelessWidget {
           ),
           maxLength: 200,
           enabled: enabled,
-          validator: (value) => (value?.trim().isEmpty ?? true) ? '' : null,
+          validator: (value) =>
+              (value?.trim().isEmpty ?? true) ? l10n.itemNameRequired : null,
         ),
         const SizedBox(height: Dimens.space3),
 

@@ -450,5 +450,10 @@
   "placeRejectedTitle": "The order wasn't accepted",
   "discardAfterFailureBodyStaff": "The order wasn't confirmed and may already have been recorded.",
   "couldNotRefreshTitle": "Couldn't refresh",
-  "couldNotRefreshBody": "Showing what was last loaded at {time}."
+  "couldNotRefreshBody": "Showing what was last loaded at {time}.",
+  "emailRequired": "Enter your email",
+  "passwordRequired": "Enter your password",
+  "currentPasswordRequired": "Enter your current password",
+  "chooseItem": "Choose an item",
+  "itemNameRequired": "Enter the item's name"
 }

@@ -217,9 +217,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             autofillHints: const [AutofillHints.username],
                             autocorrect: false,
                             enabled: !_submitting,
+                            // Words, not a red border alone (§2.5).
                             validator: (value) =>
                                 (value == null || value.trim().isEmpty)
-                                ? ''
+                                ? l10n.emailRequired
                                 : null,
                           ),
                         ],
@@ -260,8 +261,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       textInputAction: TextInputAction.done,
                       enabled: !_submitting,
                       onFieldSubmitted: (_) => _submit(),
-                      validator: (value) =>
-                          (value == null || value.isEmpty) ? '' : null,
+                      validator: (value) => (value == null || value.isEmpty)
+                          ? l10n.passwordRequired
+                          : null,
                     ),
                     const SizedBox(height: Dimens.space6),
 

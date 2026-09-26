@@ -52,6 +52,25 @@ void main() {
     });
   });
 
+  group('the new password states its rule, and keeps stating it', () {
+    testWidgets('a short password shows "at least 8 characters" as the error', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_app(AuthStage.mustChangePassword));
+      await tester.pumpAndSettle();
+
+      final fields = find.byType(TextFormField);
+      await tester.enterText(fields.at(0), 'abc');
+      await tester.enterText(fields.at(1), 'abc');
+      await tester.tap(find.text('حفظ ومتابعة'));
+      await tester.pumpAndSettle();
+
+      // An error replaces the helper text. An empty error made the rule
+      // vanish at the very moment it was broken; now the rule IS the error.
+      expect(find.text('٨ أحرف على الأقل'), findsOneWidget);
+    });
+  });
+
   group('the forced screen still cannot be dismissed', () {
     testWidgets('back is blocked and no back arrow is drawn', (tester) async {
       await tester.pumpWidget(_app(AuthStage.mustChangePassword));
