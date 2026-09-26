@@ -9,6 +9,7 @@ import 'package:buffet_app/data/local/secure_token_store.dart';
 import 'package:buffet_app/data/repositories/auth_repository.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -298,6 +299,40 @@ void main() {
     await auth.signOut();
 
     expect(tokenDuringTask, isNotNull);
+    expect(await tokens.readToken(), isNull);
+    auth.dispose();
+  });
+
+  test('an unlock after the enrolment changed signs out instead', () async {
+    // §6: a new fingerprint would satisfy the prompt, so the check comes
+    // first, and a colleague who enrolled their own finger gets no session.
+    const tokens = SecureTokenStore(FlutterSecureStorage());
+    _server.mustChange = false;
+    final auth = await _launch();
+    await _signIn(auth);
+    expect(await tokens.readToken(), isNotNull);
+
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('buffet/biometric_enrolment'),
+          (call) async => call.method == 'check' ? 'CHANGED' : null,
+        );
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('buffet/biometric_enrolment'),
+            (call) async => null,
+          ),
+    );
+
+    final failure = await auth.unlock(reason: 'unlock');
+    debugDefaultTargetPlatformOverride = null;
+
+    expect(failure, isNull);
+    expect(auth.state.stage, AuthStage.signedOut);
+    expect(auth.state.signedOutByEnrolmentChange, isTrue);
     expect(await tokens.readToken(), isNull);
     auth.dispose();
   });

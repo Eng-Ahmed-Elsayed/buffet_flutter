@@ -422,7 +422,6 @@
   "orderForGuest": "Order for a guest",
   "reviewOrderTitle": "Review order",
   "continueToReview": "Continue",
-  "quantity": "Quantity",
   "quantityMore": "One more cup",
   "quantityFewer": "One fewer cup",
   "quantityAtMost": "The most this order can take ({max})",

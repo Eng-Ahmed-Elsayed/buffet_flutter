@@ -39,6 +39,17 @@ class DeclarableItem {
   /// Falls back to Arabic when the admin left `nameEn` empty, which is the
   /// common case on the live server.
   String localisedName(String languageCode) => item.localisedName(languageCode);
+
+  // The same choice whenever it is the same item. The list is rebuilt when the
+  // balances refresh (a send invalidates them), and the dropdown's chosen
+  // value, an instance from the old list, then matched nothing in the new one:
+  // an assertion as the sheet closed.
+  @override
+  bool operator ==(Object other) =>
+      other is DeclarableItem && other.itemId == itemId;
+
+  @override
+  int get hashCode => itemId.hashCode;
 }
 
 /// Every catalogue item, joined to the caller's balances.
