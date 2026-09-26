@@ -84,7 +84,9 @@ class _Repository extends QueueRepository {
 }
 
 Future<void> _pump(WidgetTester tester, _Repository repository) async {
-  tester.view.physicalSize = const Size(1080, 2400);
+  // Tall enough that two whole cards are on screen, buttons and all: the
+  // tests tap the second card's.
+  tester.view.physicalSize = const Size(1080, 3600);
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(

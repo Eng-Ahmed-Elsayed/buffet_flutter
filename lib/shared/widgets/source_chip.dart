@@ -13,10 +13,23 @@ import '../formatters.dart';
 ///
 /// Company stock arrives as an *empty* owner name, which renders neutral.
 class SourceChip extends StatelessWidget {
-  const SourceChip({required this.label, required this.ownerName, super.key});
+  const SourceChip({
+    required this.label,
+    required this.ownerName,
+    this.buffetLabel,
+    this.strong = false,
+    super.key,
+  });
 
   /// What the source is for — the drink, the sugar, a named extra.
   final String label;
+
+  /// What to say instead of [label] for buffet stock, where the label alone
+  /// says nothing: a chip reading just "Drink" named no source at all.
+  final String? buffetLabel;
+
+  /// Bold even for buffet stock: the spoon count, which is read at a glance.
+  final bool strong;
 
   /// Empty string for company stock; otherwise the owner's display name.
   final String ownerName;
@@ -37,14 +50,14 @@ class SourceChip extends StatelessWidget {
     // signal alongside the violet.
     final text = _isPersonal
         ? '$label: ${l10n.fromJarOf(Formatters.isolate(ownerName))}'
-        : label;
+        : buffetLabel ?? label;
 
     return Container(
       padding: const EdgeInsetsDirectional.symmetric(
         horizontal: Dimens.space3,
         vertical: Dimens.space1,
       ),
-      constraints: const BoxConstraints(minHeight: 30),
+      constraints: const BoxConstraints(minHeight: Dimens.chipMinHeight),
       decoration: BoxDecoration(
         color: _isPersonal ? BrandColors.accentSurface : BrandColors.page,
         border: Border.all(
@@ -56,7 +69,7 @@ class SourceChip extends StatelessWidget {
         text,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: _isPersonal ? BrandColors.accent : BrandColors.ink,
-          fontWeight: _isPersonal ? FontWeight.w700 : FontWeight.w400,
+          fontWeight: _isPersonal || strong ? FontWeight.w700 : FontWeight.w400,
         ),
       ),
     );
@@ -77,7 +90,7 @@ class DetailChip extends StatelessWidget {
         horizontal: Dimens.space3,
         vertical: Dimens.space1,
       ),
-      constraints: const BoxConstraints(minHeight: 30),
+      constraints: const BoxConstraints(minHeight: Dimens.chipMinHeight),
       decoration: BoxDecoration(
         color: BrandColors.page,
         borderRadius: BorderRadius.circular(Dimens.radiusLg),

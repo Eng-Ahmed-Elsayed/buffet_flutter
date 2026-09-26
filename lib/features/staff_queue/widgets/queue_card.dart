@@ -13,6 +13,9 @@ import '../../../theme/dimens.dart';
 import '../../../theme/motion.dart';
 import '../pending_action.dart';
 
+/// How long an order may wait before its badge turns amber.
+const _ageingAfterMinutes = 5;
+
 /// One order in the staff queue.
 ///
 /// The card's whole job is saying **which jar to reach for**: every line names
@@ -41,8 +44,9 @@ class QueueCard extends StatelessWidget {
   onMarkReady;
   final Future<void> Function(StaffOrderDto)? onComplete;
 
-  /// Cancels with a reason. Null on the handover list, where the drink is
-  /// already made and cancelling is the wrong remedy.
+  /// Cancels with a reason. Offered on the handover list too: a made drink
+  /// nobody collects has to leave it somehow, and the server re-books its
+  /// consumption as waste (§8.1).
   final Future<void> Function(StaffOrderDto)? onCancel;
 
   /// Non-null while this order's action is waiting out its undo window.
@@ -61,7 +65,7 @@ class QueueCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final minutes = Formatters.minutesFromSeconds(order.waitingSeconds);
-    final isAgeing = minutes >= 5;
+    final isAgeing = minutes >= _ageingAfterMinutes;
     final hasWarnings = warnings != null && warnings!.isNotEmpty;
     final isPending = pending != null;
 
@@ -111,24 +115,39 @@ class QueueCard extends StatelessWidget {
                         ),
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
-                    Text(
-                      // Each half isolated SEPARATELY, not the joined string:
-                      // department and location have independent directions
-                      // (observed live: "المالية · meeting room 1"), and one
-                      // isolate around the pair would still let the bidi
-                      // algorithm reorder them around the separator.
-                      //
-                      // locationText is optional, so the separator is only
-                      // drawn when there are two things to separate —
-                      // otherwise the card showed a dangling "المالية · ".
-                      [
-                        if (order.department.trim().isNotEmpty)
-                          Formatters.isolate(order.department),
-                        if (order.locationText.trim().isNotEmpty)
-                          Formatters.isolate(order.locationText),
-                      ].join(' · '),
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
+                    if (order.department.trim().isNotEmpty)
+                      Text(
+                        // Admin-entered, in either script.
+                        Formatters.isolate(order.department),
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    // Where it goes, on a line of its own and marked: joined
+                    // to the department it was the last thing read, and the
+                    // two could reorder around the separator in English.
+                    if (order.locationText.trim().isNotEmpty) ...[
+                      const SizedBox(height: Dimens.space1),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.place_outlined,
+                            size: Dimens.iconInline,
+                            color: BrandColors.brand,
+                          ),
+                          const SizedBox(width: Dimens.space1),
+                          Flexible(
+                            child: Text(
+                              Formatters.isolate(order.locationText),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: BrandColors.ink,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -146,9 +165,9 @@ class QueueCard extends StatelessWidget {
           const Divider(),
           const SizedBox(height: Dimens.space3),
 
-          for (final line in order.lines) ...[
-            _LineDetails(line: line),
-            if (line != order.lines.last) const SizedBox(height: Dimens.space4),
+          for (final (index, group) in _grouped(order.lines).indexed) ...[
+            if (index > 0) const SizedBox(height: Dimens.space4),
+            _LineDetails(line: group.line, count: group.count),
           ],
 
           if (order.notes.isNotEmpty) ...[
@@ -239,7 +258,7 @@ class _AgeingBadge extends StatelessWidget {
         children: [
           Icon(
             Icons.schedule,
-            size: 13,
+            size: Dimens.iconInline,
             color: isAgeing ? BrandColors.warning : BrandColors.muted,
           ),
           const SizedBox(width: Dimens.space1),
@@ -257,10 +276,47 @@ class _AgeingBadge extends StatelessWidget {
   }
 }
 
+/// Identical cups once, with how many. A guest order of five identical teas
+/// was five blocks to read through to learn it was one drink five times.
+/// Identical means everything the maker acts on: drink, preparation, spoons,
+/// extras, every source, and the note.
+List<({StaffOrderLineDto line, int count})> _grouped(
+  List<StaffOrderLineDto> lines,
+) {
+  final keys = <String>[];
+  final groups = <String, ({StaffOrderLineDto line, int count})>{};
+  for (final line in lines) {
+    final key = [
+      line.drinkItemId,
+      line.variantNameAr ?? '',
+      line.sugarSpoons,
+      line.drinkSourceOwnerName,
+      line.sugarSourceOwnerName,
+      line.extraNamesAr.join('\u0001'),
+      [
+        for (final e in line.extraSources)
+          '${e.itemId}\u0002${e.sourceOwnerName}',
+      ].join('\u0001'),
+      line.lineNote ?? '',
+    ].join('\u0000');
+    final existing = groups[key];
+    if (existing == null) {
+      keys.add(key);
+      groups[key] = (line: line, count: 1);
+    } else {
+      groups[key] = (line: existing.line, count: existing.count + 1);
+    }
+  }
+  return [for (final key in keys) groups[key]!];
+}
+
 class _LineDetails extends StatelessWidget {
-  const _LineDetails({required this.line});
+  const _LineDetails({required this.line, required this.count});
 
   final StaffOrderLineDto line;
+
+  /// How many identical cups this line stands for.
+  final int count;
 
   @override
   Widget build(BuildContext context) {
@@ -286,8 +342,19 @@ class _LineDetails extends StatelessWidget {
               // swap is the wrong trade. Revisit if the staff DTO gains
               // NameEn.
               line.drinkNameAr,
-              style: Theme.of(context).textTheme.titleSmall,
+              // The largest thing on the card after the name at its head:
+              // it is what the maker reads from across the counter.
+              style: Theme.of(context).textTheme.titleMedium,
             ),
+            if (count > 1)
+              Text(
+                '×$count',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: BrandColors.brand,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             if (line.variantNameAr case final String variant)
               Text(variant, style: Theme.of(context).textTheme.bodySmall),
           ],
@@ -300,13 +367,18 @@ class _LineDetails extends StatelessWidget {
           children: [
             // Which jar the drink itself comes from — the most important line
             // on the card.
-            SourceChip(label: l10n.drink, ownerName: line.drinkSourceOwnerName),
+            SourceChip(
+              label: l10n.drink,
+              ownerName: line.drinkSourceOwnerName,
+              buffetLabel: l10n.drinkFromBuffet,
+            ),
 
             // sugarNameAr is always null, so this is the spoon count plus its
             // source — never a sugar name.
             SourceChip(
               label: l10n.spoons(line.sugarSpoons),
               ownerName: line.sugarSourceOwnerName,
+              strong: true,
             ),
 
             for (final extra in line.extraSources)
@@ -349,7 +421,7 @@ class _NoteBlock extends StatelessWidget {
         children: [
           const Icon(
             Icons.sticky_note_2_outlined,
-            size: 15,
+            size: Dimens.iconInline,
             color: BrandColors.muted,
           ),
           const SizedBox(width: Dimens.space2),
@@ -423,23 +495,26 @@ class _Actions extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
-    // The handover list: the drink is already made and stock already deducted,
-    // so the only action left is stamping it as collected.
+    final Widget primary;
     if (onComplete != null) {
-      return SizedBox(
+      // The handover list: the drink is already made and stock already
+      // deducted, so what is left is stamping it as collected.
+      primary = SizedBox(
         width: double.infinity,
         child: FilledButton(
           onPressed: () => onComplete!(order),
           child: Text(l10n.markDelivered),
         ),
       );
+    } else if (onMarkReady != null) {
+      primary = _readyRow(context, l10n);
+    } else {
+      return const SizedBox.shrink();
     }
-
-    if (onMarkReady == null) return const SizedBox.shrink();
 
     return Column(
       children: [
-        _readyRow(context, l10n),
+        primary,
         if (onCancel != null) ...[
           const SizedBox(height: Dimens.space2),
           // Set apart from the two constructive actions above rather than
@@ -531,6 +606,11 @@ class _PendingBarState extends State<_PendingBar>
   Timer? _tick;
   int _secondsLeft = 0;
 
+  /// The seconds left when the bar appeared: what the live region announces,
+  /// once. Not the whole window, which a bar rebuilt partway through (the
+  /// card scrolled off and back) would have over-promised.
+  late final int _announcedSeconds;
+
   /// The full window this action was given, recovered from the deadline.
   ///
   /// Needed because the window is longer under a screen reader, and the bar has
@@ -547,6 +627,7 @@ class _PendingBarState extends State<_PendingBar>
         : ApiConfig.undoWindow;
     _secondsLeft =
         remaining.inSeconds + (remaining.inMilliseconds % 1000 > 0 ? 1 : 0);
+    _announcedSeconds = _secondsLeft;
 
     _controller = AnimationController(vsync: this, duration: _window);
     // Seeded from where the window actually is, not from zero: a rebuild driven
@@ -572,106 +653,94 @@ class _PendingBarState extends State<_PendingBar>
     super.dispose();
   }
 
-  /// Holds the countdown while a finger is down.
-  ///
-  /// Someone reading this card with a screen reader is not racing a clock, and
-  /// neither is someone who has just put a thumb on it to steady the phone.
-  void _pause() => _controller.stop();
-
-  void _resume() {
-    final left = widget.pending.remainingFrom(DateTime.now());
-    if (left == Duration.zero) return;
-    _controller.forward();
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    final isReady = widget.pending.kind == PendingActionKind.ready;
-    final label = isReady ? l10n.servingOrder : l10n.handingOverOrder;
+    final label = switch (widget.pending) {
+      PendingAction(kind: PendingActionKind.ready, deliverNow: true) =>
+        l10n.servingOrder,
+      PendingAction(kind: PendingActionKind.ready) => l10n.markingReady,
+      _ => l10n.handingOverOrder,
+    };
     // Reduced motion still gets a countdown — it is state, not decoration —
     // but it steps rather than sweeps, so nothing moves continuously.
     final stepped = MediaQuery.disableAnimationsOf(context);
 
+    // Announced once, as the bar appears, with the time left then. The label
+    // does not follow the count: a live region whose label changed every
+    // second was re-read every second, over whatever else was being said.
+    // The undo button carries the live count for anyone who moves to it.
     return Semantics(
       liveRegion: true,
-      label: l10n.undoWindowSemantics(widget.orderId, _secondsLeft),
-      child: Listener(
-        onPointerDown: (_) => _pause(),
-        onPointerUp: (_) => _resume(),
-        onPointerCancel: (_) => _resume(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(Dimens.handleRadius),
-              child: SizedBox(
-                height: Dimens.borderSelected,
-                child: ColoredBox(
-                  color: BrandColors.okSurface,
-                  child: stepped
-                      ? _SteppedCountdown(
-                          total: _window.inSeconds,
-                          remaining: _secondsLeft,
-                        )
-                      : AnimatedBuilder(
-                          animation: _controller,
-                          builder: (context, _) => Align(
-                            // Directional, so the bar drains from the start
-                            // edge in both scripts. LinearProgressIndicator
-                            // anchors LTR and reads backwards under RTL for a
-                            // draining semantic.
-                            alignment: AlignmentDirectional.centerStart,
-                            widthFactor: (1 - _controller.value).clamp(
-                              0.0,
-                              1.0,
-                            ),
-                            child: const ColoredBox(
-                              color: BrandColors.ok,
-                              child: SizedBox(
-                                height: Dimens.borderSelected,
-                                width: double.infinity,
-                              ),
+      label: l10n.undoWindowSemantics(widget.orderId, _announcedSeconds),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(Dimens.handleRadius),
+            child: SizedBox(
+              height: Dimens.borderSelected,
+              child: ColoredBox(
+                color: BrandColors.okSurface,
+                child: stepped
+                    ? _SteppedCountdown(
+                        total: _window.inSeconds,
+                        remaining: _secondsLeft,
+                      )
+                    : AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, _) => Align(
+                          // Directional, so the bar drains from the start
+                          // edge in both scripts. LinearProgressIndicator
+                          // anchors LTR and reads backwards under RTL for a
+                          // draining semantic.
+                          alignment: AlignmentDirectional.centerStart,
+                          widthFactor: (1 - _controller.value).clamp(0.0, 1.0),
+                          child: const ColoredBox(
+                            color: BrandColors.ok,
+                            child: SizedBox(
+                              height: Dimens.borderSelected,
+                              width: double.infinity,
                             ),
                           ),
                         ),
-                ),
+                      ),
               ),
             ),
-            const SizedBox(height: Dimens.space2),
-            Row(
-              children: [
-                const Icon(
-                  Icons.local_cafe_outlined,
-                  size: 16,
-                  color: BrandColors.ok,
+          ),
+          const SizedBox(height: Dimens.space2),
+          Row(
+            children: [
+              const Icon(
+                Icons.local_cafe_outlined,
+                size: Dimens.iconInline,
+                color: BrandColors.ok,
+              ),
+              const SizedBox(width: Dimens.space2),
+              Expanded(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelSmall
+                      ?.copyWith(color: BrandColors.ok),
                 ),
-                const SizedBox(width: Dimens.space2),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: Theme.of(context).textTheme.labelSmall
-                        ?.copyWith(color: BrandColors.ok),
-                  ),
-                ),
-                if (widget.onUndo != null)
-                  TextButton(
-                    onPressed: widget.onUndo,
-                    style: TextButton.styleFrom(
-                      foregroundColor: BrandColors.ok,
-                      // Deliberately oversized. This is the affordance whose
-                      // failure is expensive, and it is pressed in a hurry.
-                      minimumSize: const Size(
-                        Dimens.minTarget * 2,
-                        Dimens.controlHeight,
-                      ),
+              ),
+              if (widget.onUndo != null)
+                TextButton(
+                  onPressed: widget.onUndo,
+                  style: TextButton.styleFrom(
+                    foregroundColor: BrandColors.ok,
+                    // Deliberately oversized. This is the affordance whose
+                    // failure is expensive, and it is pressed in a hurry.
+                    minimumSize: const Size(
+                      Dimens.minTarget * 2,
+                      Dimens.controlHeight,
                     ),
-                    child: Text(l10n.undoCountdown(_secondsLeft)),
                   ),
-              ],
-            ),
-          ],
-        ),
+                  child: Text(l10n.undoCountdown(_secondsLeft)),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -700,7 +769,7 @@ class _SteppedCountdown extends StatelessWidget {
               child: const SizedBox(height: Dimens.borderSelected),
             ),
           ),
-          if (i < total - 1) const SizedBox(width: 1),
+          if (i < total - 1) const SizedBox(width: Dimens.borderHairline),
         ],
       ],
     );

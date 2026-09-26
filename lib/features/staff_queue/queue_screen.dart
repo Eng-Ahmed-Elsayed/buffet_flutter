@@ -14,6 +14,7 @@ import '../../data/models/staff_models.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
+import '../../shared/tab_labels.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/exit_confirmation.dart';
@@ -372,9 +373,11 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       // Announced for screen readers, who cannot see the list change — and a
       // shortage said too, since its notice appears without a word.
       _announce(
-        deliverNow && result.hasWarnings
+        !deliverNow
+            ? l10n.orderServed
+            : result.hasWarnings
             ? l10n.servedWithShortage(whom)
-            : l10n.orderServed,
+            : l10n.orderServedAndHandedOver,
       );
     } on ApiException catch (error) {
       if (!mounted) return;
@@ -416,7 +419,11 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     final l10n = AppLocalizations.of(context);
     final reason = await showDialog<String>(
       context: context,
-      builder: (_) => _CancelDialog(orderId: order.orderId),
+      builder: (_) => _CancelDialog(
+        orderId: order.orderId,
+        // By name, never ordinal (rule 5).
+        alreadyMade: order.status == 'Ready',
+      ),
     );
 
     // Dismissing the dialog cancels the cancellation, not the order.
@@ -492,6 +499,15 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    final tabLabels = [
+      l10n.tabWithCount(l10n.queueTab, _queue.length),
+      l10n.tabWithCount(l10n.handoverTab, _handovers.length),
+    ];
+    final tabs = measureTabLabels(
+      context,
+      tabLabels,
+      MediaQuery.sizeOf(context).width,
+    );
 
     return ExitConfirmation(
       // A landing screen: nothing sits beneath it in the stack, so back
@@ -513,25 +529,6 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
             ),
           ),
           actions: [
-            Center(
-              child: Text(
-                // Counts what is actually on screen — the VISIBLE tab's list.
-                // Counting the queue unconditionally made the header read "no
-                // orders" above a handover list holding three. Pending cards
-                // stay in the list now, so they stay in the count too: they are
-                // on screen, and the drink is still the staff member's to make
-                // until the window closes.
-                l10n.orderCount(
-                  (_tabController.index == 0 ? _queue : _handovers).length,
-                ),
-                // Muted on the white bar (5.67:1). It was white on the navy
-                // bar, which is gone.
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: BrandColors.muted,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            ),
             // Staff drink too, and had no way into the composer at all — the
             // queue is their home screen and nothing linked out of it.
             IconButton(
@@ -548,11 +545,18 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
           ],
           // Colours come from the theme's TabBarTheme: primary label, muted
           // unselected label, blue indicator — all readable on the white bar.
+          // Each tab says how many it holds (pending cards included: they are
+          // on screen, and still the staff member's until the window closes).
+          // Scrolls rather than fading a label cut mid-word when the two do
+          // not fit side by side, and grows with the text rather than
+          // clipping it.
           bottom: TabBar(
             controller: _tabController,
+            isScrollable: !tabs.fit,
+            tabAlignment: tabs.fit ? null : TabAlignment.start,
             tabs: [
-              Tab(text: l10n.queueTab),
-              Tab(text: l10n.handoverTab),
+              for (final label in tabLabels)
+                Tab(text: label, height: tabs.height),
             ],
           ),
         ),
@@ -718,10 +722,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                 onRefresh: _refresh,
                 onMarkReady: null,
                 onComplete: _complete,
-                // Not offered on the handover list: the drink is already
-                // made and stock already deducted, so cancelling there is
-                // the wrong remedy.
-                onCancel: null,
+                // A made drink nobody collects has to leave the list somehow;
+                // the server re-books it as waste, and the dialog says so.
+                onCancel: _cancel,
               ),
             ],
           );
@@ -802,9 +805,12 @@ class _QueueList extends StatelessWidget {
 /// cancellation, not the order. The reason is optional on the wire, so an
 /// empty field is allowed rather than blocked: forcing text would invite "x".
 class _CancelDialog extends StatefulWidget {
-  const _CancelDialog({required this.orderId});
+  const _CancelDialog({required this.orderId, required this.alreadyMade});
 
   final int orderId;
+
+  /// A Ready order: its consumption is re-booked as waste.
+  final bool alreadyMade;
 
   @override
   State<_CancelDialog> createState() => _CancelDialogState();
@@ -823,25 +829,37 @@ class _CancelDialogState extends State<_CancelDialog> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
 
+    // The buttons say what they do. "Cancel" beside "Confirm" in a dialog
+    // about cancelling left it unclear which one cancelled the order.
     return AlertDialog(
-      title: Text(l10n.cancelWithReason),
-      content: TextField(
-        controller: _controller,
-        decoration: InputDecoration(labelText: l10n.cancelReason),
-        autofocus: true,
-        maxLines: 2,
-        textInputAction: TextInputAction.done,
-        onSubmitted: (value) => Navigator.of(context).pop(value),
+      title: Text(l10n.cancelOrderTitle(widget.orderId)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (widget.alreadyMade) ...[
+            Text(l10n.cancelReadyWaste),
+            const SizedBox(height: Dimens.space3),
+          ],
+          TextField(
+            controller: _controller,
+            decoration: InputDecoration(labelText: l10n.cancelReason),
+            autofocus: true,
+            maxLines: 2,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (value) => Navigator.of(context).pop(value),
+          ),
+        ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: Text(l10n.cancel),
+          child: Text(l10n.keepOrder),
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(_controller.text),
           style: TextButton.styleFrom(foregroundColor: BrandColors.danger),
-          child: Text(l10n.confirm),
+          child: Text(l10n.cancelWithReason),
         ),
       ],
     );

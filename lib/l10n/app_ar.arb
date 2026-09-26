@@ -107,6 +107,8 @@
   "@delete": { "description": "Generic destructive confirmation action." },
   "drink": "المشروب",
   "@drink": { "description": "Section heading above the drink tiles." },
+  "drinkFromBuffet": "المشروب: من البوفيه",
+  "@drinkFromBuffet": {"description": "Queue card chip: the drink comes from buffet stock."},
   "sugar": "السكر",
   "@sugar": { "description": "Section heading above the sugar stepper." },
   "preparation": "طريقة التحضير",
@@ -240,13 +242,10 @@
   "@queueTitle": { "description": "The staff queue's name for screen readers; the top bar itself shows the brand lockup, as on Home." },
   "queueTab": "الطابور",
   "@queueTab": { "description": "Tab showing Pending + InProgress only." },
-  "handoverTab": "جاهز للتسليم",
+  "handoverTab": "للتسليم",
   "@handoverTab": { "description": "Tab fetched separately with ?status=Ready." },
-  "orderCount": "{count, plural, =0{لا توجد طلبات} =1{طلب واحد} =2{طلبان} few{{count} طلبات} many{{count} طلبًا} other{{count} طلب}}",
-  "@orderCount": {
-    "description": "Number of orders in the queue.",
-    "placeholders": { "count": { "type": "int" } }
-  },
+  "tabWithCount": "{label} ({count})",
+  "@tabWithCount": {"description": "A staff tab with how many orders it holds, e.g. \"Queue (3)\".", "placeholders": {"label": {"type": "String"}, "count": {"type": "int"}}},
   "waitingMinutes": "{count, plural, =0{الآن} =1{دقيقة} =2{دقيقتان} few{{count} دقائق} many{{count} دقيقة} other{{count} دقيقة}}",
   "@waitingMinutes": {
     "description": "Ageing indicator derived from waitingSeconds.",
@@ -304,10 +303,12 @@
     "description": "The drink was still made — a shortfall is for an admin to reconcile, not a failure.",
     "placeholders": { "names": { "type": "String" } }
   },
-  "servingOrder": "جارٍ التجهيز…",
+  "servingOrder": "يُعلَّم جاهزًا ومُسلَّمًا…",
   "@servingOrder": {
-    "description": "Label on the in-card pending bar, while the action waits out its undo window."
+    "description": "On a card while \"ready and handed over\" waits out its undo window."
   },
+  "markingReady": "يُعلَّم جاهزًا…",
+  "@markingReady": {"description": "On a card while plain \"ready\" waits out its undo window."},
   "handingOverOrder": "جارٍ التسليم…",
   "@handingOverOrder": {
     "description": "Pending-bar label for a handover, which shares the bar but not the undo window."
@@ -319,18 +320,20 @@
     "description": "Undo button with the seconds left before the action is sent.",
     "placeholders": { "seconds": { "type": "int" } }
   },
-  "undoWindowSemantics": "سيُجهَّز الطلب رقم {orderId} خلال {seconds} ثانية. فعِّل التراجع لإيقافه.",
+  "undoWindowSemantics": "سيُرسَل الطلب رقم {orderId} خلال {seconds, plural, =1{ثانية واحدة} =2{ثانيتين} few{{seconds} ثوانٍ} other{{seconds} ثانية}}. فعِّل التراجع لإيقافه.",
   "@undoWindowSemantics": {
-    "description": "Live-region announcement on the pending bar, re-read as the count changes.",
+    "description": "Announced once as the pending bar appears, with the seconds left then; never re-read as the count falls.",
     "placeholders": { "orderId": { "type": "int" }, "seconds": { "type": "int" } }
   },
   "undoneAnnouncement": "تم التراجع",
   "@undoneAnnouncement": {
     "description": "Screen-reader announcement when an action is cancelled inside its window."
   },
-  "orderServed": "تم تحضير الطلب",
-  "@orderServed": { "description": "Confirmation after a successful /ready." },
-  "fromJarOf": "جرة {owner}",
+  "orderServed": "جاهز للتسليم",
+  "@orderServed": { "description": "Screen-reader announcement after a plain /ready: the order moved to the handover list." },
+  "orderServedAndHandedOver": "جاهز وتم التسليم",
+  "@orderServedAndHandedOver": {"description": "Screen-reader announcement after \"ready and handed over\"."},
+  "fromJarOf": "من مواد {owner}",
   "@fromJarOf": {
     "description": "Source label naming whose jar a component comes from. Shown in violet.",
     "placeholders": { "owner": { "type": "String" } }
@@ -357,6 +360,10 @@
   "@cancelWithReason": { "description": "The one staff action that warrants a dialog." },
   "cancelReason": "سبب الإلغاء",
   "@cancelReason": { "description": "Field label in the cancel dialog." },
+  "cancelOrderTitle": "إلغاء الطلب رقم {orderId}؟",
+  "@cancelOrderTitle": {"description": "Title of the staff cancel dialog.", "placeholders": {"orderId": {"type": "int"}}},
+  "cancelReadyWaste": "حُضِّر بالفعل، لذا سيُسجَّل هدرًا.",
+  "@cancelReadyWaste": {"description": "In the cancel dialog for a Ready order: the server re-books its consumption as waste."},
   "confirm": "تأكيد",
   "@confirm": { "description": "Generic confirm action." },
   "cancel": "إلغاء",

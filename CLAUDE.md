@@ -88,6 +88,13 @@ Two rules from that work that a future edit must not undo:
   buttons coming back read as "undone" and got the drink made twice. Put back only if the serve fails.
   **A shortage from "ready and handed over" is shown above the tabs**, named, until dismissed,
   since that order leaves both lists and its card with it. `queue_serve_test.dart`.
+- **The pending bar is announced once, with the seconds left when it appeared.** Its live region
+  used to carry the ticking count and was re-read every second. There is no press-to-pause: it
+  stopped the bar but not the commit, so the bar lied. **A handover card can be cancelled**: the
+  server re-books a Ready order's consumption as waste, and the dialog says so. The dialog's buttons
+  are "Keep order" and "Cancel order", never "Cancel"/"Confirm". Identical cups show once with ×N,
+  where identical means every field the maker acts on. The two tabs carry their counts, scroll
+  and grow in height rather than fade a label (`measureTabLabels`). `queue_staff_view_test.dart`.
 - **Foreground polling stays alongside push.** Push closes the closed-app gap; polling closes the
   foreground-freshness gap. They are not duplicates.
 - **`prepareOrderAlerts` is called from BOTH landing screens.** It used to live on the composer,
@@ -237,7 +244,7 @@ noise. The unread badge lives on the bell alone for the same reason. Pinned by
 
 **Both landing screens carry the brand lockup in their top bar**, Home and the staff queue alike.
 Each is named for screen readers (`homeTitle`, `queueTitle`), since the lockup is decorative. The
-queue's lockup scales down so its count and three actions still fit at 320dp
+queue's lockup scales down so its three actions still fit at 320dp; its two tabs carry their counts
 (`queue_undo_test.dart`).
 
 **A failed refresh keeps what is on screen, and says so.** My orders, notifications, the queue and

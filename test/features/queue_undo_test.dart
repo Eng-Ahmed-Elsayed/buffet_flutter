@@ -87,6 +87,14 @@ class _FakeQueueRepository extends QueueRepository {
   }
 }
 
+/// A surface tall enough that two whole cards, buttons and all, are on screen:
+/// a ListView does not build a card below the fold, and a tap there misses.
+void _twoCardsTall(WidgetTester tester) {
+  tester.view.physicalSize = const Size(800, 1400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 Widget _app(_FakeQueueRepository repository) => ProviderScope(
   overrides: [queueRepositoryProvider.overrideWithValue(repository)],
   child: const MaterialApp(
@@ -107,9 +115,9 @@ void main() {
     testWidgets('no undo affordance survives the window — the reported bug', (
       tester,
     ) async {
-      // Two, not more: the default test surface only renders two of these
-      // cards, and a ListView will not build the third. Two concurrent
-      // windows is already the case the old snackbar could not handle.
+      // Two, not more: two concurrent windows is already the case the old
+      // snackbar could not handle. The surface is sized to hold both cards.
+      _twoCardsTall(tester);
       final repository = _FakeQueueRepository([_order(1), _order(2)]);
       await tester.pumpWidget(_app(repository));
       await tester.pumpAndSettle();
@@ -167,6 +175,7 @@ void main() {
     });
 
     testWidgets('undoing one order leaves the others pending', (tester) async {
+      _twoCardsTall(tester);
       final repository = _FakeQueueRepository([_order(1), _order(2)]);
       await tester.pumpWidget(_app(repository));
       await tester.pumpAndSettle();

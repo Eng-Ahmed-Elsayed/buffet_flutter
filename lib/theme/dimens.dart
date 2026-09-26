@@ -64,6 +64,12 @@ abstract final class Dimens {
   /// A small leading icon, as on a banner.
   static const iconSm = 20.0;
 
+  /// An icon inline with small label text: a clock, a note, a pin.
+  static const iconInline = 16.0;
+
+  /// A chip's least height: a label, not a control.
+  static const chipMinHeight = 30.0;
+
   /// A trailing chevron on a row.
   static const iconXs = 18.0;
 

@@ -61,6 +61,7 @@
   },
   "delete": "Delete",
   "drink": "Drink",
+  "drinkFromBuffet": "Drink: from the buffet",
   "sugar": "Sugar",
   "preparation": "Preparation",
   "@preparation": { "description": "Label above the variant chips — how a drink is made (dark, light, French)." },
@@ -149,12 +150,8 @@
 
   "queueTitle": "Orders",
   "queueTab": "Queue",
-  "handoverTab": "Ready for handover",
-  "orderCount": "{count, plural, =0{No orders} =1{1 order} other{{count} orders}}",
-  "@orderCount": {
-    "description": "Number of orders in the queue.",
-    "placeholders": { "count": { "type": "int" } }
-  },
+  "handoverTab": "Handover",
+  "tabWithCount": "{label} ({count})",
   "waitingMinutes": "{count, plural, =0{Just now} =1{1 min} other{{count} min}}",
   "@waitingMinutes": {
     "description": "Ageing indicator derived from waitingSeconds.",
@@ -209,10 +206,11 @@
     "description": "The drink was still made — a shortfall is for an admin to reconcile, not a failure.",
     "placeholders": { "names": { "type": "String" } }
   },
-  "servingOrder": "Serving…",
+  "servingOrder": "Marking ready and handed over…",
   "@servingOrder": {
     "description": "Label on the in-card pending bar, while the action waits out its undo window."
   },
+  "markingReady": "Marking ready…",
   "handingOverOrder": "Handing over…",
   "@handingOverOrder": {
     "description": "Pending-bar label for a handover, which shares the bar but not the undo window."
@@ -223,17 +221,18 @@
     "description": "Undo button with the seconds left before the action is sent.",
     "placeholders": { "seconds": { "type": "int" } }
   },
-  "undoWindowSemantics": "Order {orderId} will be served in {seconds} seconds. Activate undo to stop it.",
+  "undoWindowSemantics": "Order {orderId} will be sent in {seconds} seconds. Activate undo to stop it.",
   "@undoWindowSemantics": {
-    "description": "Live-region announcement on the pending bar, re-read as the count changes.",
+    "description": "Announced once as the pending bar appears, with the seconds left then; never re-read as the count falls.",
     "placeholders": { "orderId": { "type": "int" }, "seconds": { "type": "int" } }
   },
   "undoneAnnouncement": "Undone",
   "@undoneAnnouncement": {
     "description": "Screen-reader announcement when an action is cancelled inside its window."
   },
-  "orderServed": "Drink made",
-  "fromJarOf": "{owner}'s jar",
+  "orderServed": "Ready for handover",
+  "orderServedAndHandedOver": "Ready and handed over",
+  "fromJarOf": "from {owner}'s materials",
   "@fromJarOf": {
     "description": "Source label naming whose jar a component comes from. Shown in violet.",
     "placeholders": { "owner": { "type": "String" } }
@@ -256,6 +255,8 @@
   },
   "cancelWithReason": "Cancel order",
   "cancelReason": "Reason for cancelling",
+  "cancelOrderTitle": "Cancel order {orderId}?",
+  "cancelReadyWaste": "It has already been made, so it will be recorded as waste.",
   "confirm": "Confirm",
   "cancel": "Cancel",
   "emptyQueueTitle": "No orders",
