@@ -205,9 +205,16 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(l10n.myOrderTitle),
+          // The number the alerts and notifications cite, so "order 142"
+          // can be matched to this screen.
+          title: Text(
+            order == null
+                ? l10n.myOrderTitle
+                : l10n.orderNumberTitle(order.orderId),
+          ),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             onPressed: () =>
                 canPopToCaller ? context.pop() : context.go(Routes.home),
           ),
@@ -258,8 +265,9 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
                     _OrderSummary(order: order),
                     const SizedBox(height: Dimens.space3),
 
-                    for (final line in order.lines) ...[
-                      _OrderLineCard(line: line, order: order),
+                    // Identical cups once, with ×N — as Review showed them.
+                    for (final (line, count) in _grouped(order.lines)) ...[
+                      _OrderLineCard(line: line, count: count, order: order),
                       const SizedBox(height: Dimens.space3),
                     ],
 
@@ -288,8 +296,10 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
                           Routes.catalogue,
                           extra: const ComposerSeed(),
                         ),
-                        icon: const Icon(Icons.refresh),
-                        label: Text(l10n.orderAgain),
+                        // "New order", as the design has it: this opens an
+                        // empty composer, and "order again" promised a repeat.
+                        icon: const Icon(Icons.add),
+                        label: Text(l10n.newOrder),
                       ),
                     ],
                   ],
@@ -349,7 +359,7 @@ class _StatusHeader extends StatelessWidget {
       ),
       OrderStatus.cancelled => (
         l10n.statusCancelled,
-        '',
+        l10n.cancelledBody,
         Icons.cancel_outlined,
         BrandColors.surface,
         BrandColors.danger,
@@ -460,8 +470,20 @@ class _Timeline extends StatelessWidget {
     final l10n = AppLocalizations.of(context);
     final locale = Localizations.localeOf(context).toLanguageTag();
     final status = order.orderStatus;
-    String? at(DateTime? utc) =>
-        utc == null ? null : Formatters.timeOfDay(utc, locale);
+    // A date as well once it is not today: an order opened from Earlier read
+    // "Order sent 10:00 AM" with no day.
+    String? at(DateTime? utc) {
+      if (utc == null) return null;
+      final local = utc.toLocal();
+      final now = DateTime.now();
+      final today =
+          local.year == now.year &&
+          local.month == now.month &&
+          local.day == now.day;
+      return today
+          ? Formatters.timeOfDay(utc, locale)
+          : Formatters.dateTime(utc, locale);
+    }
 
     // Compared by name via the enum — the server's ordinals are not in
     // workflow order (Ready = 4).
@@ -567,62 +589,81 @@ class _TimelineRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
 
-    // IntrinsicHeight so the connector runs the full height of a label that
-    // wraps at a large text scale, rather than stopping short of it.
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: _dot,
-            child: Column(
-              children: [
-                Container(
-                  width: _dot,
-                  height: _dot,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    // The current step is filled; one already passed is a
-                    // ring in its colour; one still to come is a pale ring.
-                    color: isCurrent ? colour : BrandColors.surface,
-                    border: Border.all(
-                      color: reached ? colour : BrandColors.outline,
-                      width: Dimens.borderSelected,
-                    ),
-                  ),
-                  child: Icon(
-                    step.icon,
-                    size: Dimens.space4,
-                    color: isCurrent
-                        ? BrandColors.surface
-                        : (reached ? colour : BrandColors.outline),
-                  ),
-                ),
-                if (!isLast)
-                  Expanded(
-                    child: Container(
-                      width: Dimens.borderSelected,
-                      constraints: const BoxConstraints(
-                        minHeight: Dimens.space5,
-                      ),
-                      color: connectorColour,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: Dimens.space3),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsetsDirectional.only(
-                top: Dimens.space1,
-                bottom: isLast ? 0 : Dimens.space4,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final l10n = AppLocalizations.of(context);
+    final state = isCurrent
+        ? l10n.timelineNow
+        : (reached ? l10n.timelineDone : l10n.timelineNotYet);
+    final time = reached ? step.time : null;
+
+    // One node per step that says where the order is, not colour alone:
+    // "Ready, not yet" rather than a bare "Ready".
+    return Semantics(
+      // Its own node per step, not merged into the card's.
+      container: true,
+      label: time == null
+          ? l10n.timelineStep(step.label, state)
+          : l10n.timelineStepAt(step.label, state, time),
+      excludeSemantics: true,
+      // IntrinsicHeight so the connector runs the full height of a label that
+      // wraps at a large text scale, rather than stopping short of it.
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: _dot,
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Text(
+                  Container(
+                    width: _dot,
+                    height: _dot,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      // The current step is filled; one already passed is a
+                      // ring in its colour; one still to come is a pale ring.
+                      color: isCurrent ? colour : BrandColors.surface,
+                      border: Border.all(
+                        color: reached ? colour : BrandColors.outline,
+                        width: Dimens.borderSelected,
+                      ),
+                    ),
+                    child: Icon(
+                      // A check on a step already passed, as the design draws
+                      // it: done reads as done, not only as a colour.
+                      reached && !isCurrent ? Icons.check : step.icon,
+                      size: Dimens.space4,
+                      color: isCurrent
+                          ? BrandColors.surface
+                          : (reached ? colour : BrandColors.outline),
+                    ),
+                  ),
+                  if (!isLast)
+                    Expanded(
+                      child: Container(
+                        width: Dimens.borderSelected,
+                        constraints: const BoxConstraints(
+                          minHeight: Dimens.space5,
+                        ),
+                        color: connectorColour,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: Dimens.space3),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(
+                  top: Dimens.space1,
+                  bottom: isLast ? 0 : Dimens.space4,
+                ),
+                // The time under the label, not beside it: on another day it
+                // carries the date, and beside the label it ran off a 320dp
+                // phone at a large text scale.
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
                       step.label,
                       style: text.titleSmall?.copyWith(
                         color: reached ? colour : BrandColors.muted,
@@ -631,28 +672,58 @@ class _TimelineRow extends StatelessWidget {
                             : FontWeight.w500,
                       ),
                     ),
-                  ),
-                  if (step.time case final String time) ...[
-                    const SizedBox(width: Dimens.space2),
-                    Text(
-                      time,
-                      style: text.bodySmall?.merge(AppTheme.tabularFigures),
-                    ),
+                    // Only on a step that has happened: a Ready time on an
+                    // order still being made read as if it were ready.
+                    if (time != null)
+                      Text(
+                        time,
+                        style: text.bodySmall?.merge(AppTheme.tabularFigures),
+                      ),
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
+/// Identical lines once, with how many, in order of first appearance. Identity
+/// is everything that was ordered for the cup, the jar and the note included.
+List<(OrderLineDto, int)> _grouped(List<OrderLineDto> lines) {
+  final order = <String, OrderLineDto>{};
+  final counts = <String, int>{};
+  for (final line in lines) {
+    final key = [
+      line.drinkItemId,
+      line.variantId,
+      line.sugarItemId,
+      line.sugarSpoons,
+      line.drinkFromOwn,
+      line.sugarFromOwn,
+      ([...line.extraItemIds]..sort()).join(','),
+      ([...line.ownExtraItemIds]..sort()).join(','),
+      line.lineNote ?? '',
+    ].join('|');
+    order.putIfAbsent(key, () => line);
+    counts.update(key, (n) => n + 1, ifAbsent: () => 1);
+  }
+  return [for (final key in order.keys) (order[key]!, counts[key]!)];
+}
+
 class _OrderLineCard extends ConsumerWidget {
-  const _OrderLineCard({required this.line, required this.order});
+  const _OrderLineCard({
+    required this.line,
+    required this.count,
+    required this.order,
+  });
 
   final OrderLineDto line;
+
+  /// How many identical cups this card stands for.
+  final int count;
   final OrderSummaryDto order;
 
   @override
@@ -673,7 +744,12 @@ class _OrderLineCard extends ConsumerWidget {
           Text(
             // The order stores the Arabic name; prefer the catalogue's
             // localised one so an English user is not shown Arabic here alone.
-            _drinkName(catalogue, languageCode) ?? line.drinkNameAr,
+            [
+              Formatters.isolate(
+                _drinkName(catalogue, languageCode) ?? line.drinkNameAr,
+              ),
+              if (count > 1) '×$count',
+            ].join(' '),
             style: Theme.of(context).textTheme.titleSmall,
           ),
           const SizedBox(height: Dimens.space2),
@@ -688,9 +764,41 @@ class _OrderLineCard extends ConsumerWidget {
               // The user's own jar, said plainly. The staff chip's "X's jar"
               // form read "From my own materials's jar" here.
               if (line.drinkFromOwn)
-                _OwnJarChip(label: l10n.sectionMyMaterials),
+                _OwnJarChip(label: l10n.fromMyMaterialsChip),
+              // The extras asked for, each by name; one drawn from the user's
+              // own jar says so in words and in violet (rule 3).
+              for (final id in line.extraItemIds)
+                if (_extraName(catalogue, languageCode, id) case final name?)
+                  line.ownExtraItemIds.contains(id)
+                      ? _OwnJarChip(
+                          label: l10n.extraFromMyMaterials(
+                            Formatters.isolate(name),
+                          ),
+                        )
+                      : DetailChip(label: Formatters.isolate(name)),
             ],
           ),
+          if ((line.lineNote ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: Dimens.space2),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.notes_outlined,
+                  size: Dimens.space4,
+                  color: BrandColors.muted,
+                ),
+                const SizedBox(width: Dimens.space2),
+                Expanded(
+                  child: Text(
+                    // User-entered, in whichever script it was typed.
+                    Formatters.isolate(line.lineNote!),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+              ],
+            ),
+          ],
           // Location and times used to be repeated here, once per drink. They
           // belong to the ORDER, not to a line, and are now stated once in
           // _OrderSummary above.
@@ -703,6 +811,20 @@ class _OrderLineCard extends ConsumerWidget {
   /// person reading it.
   /// The drink's name in the current locale, or null when the catalogue has
   /// not loaded — the caller falls back to the Arabic name on the order.
+  /// An extra's name in the reader's language; null while the catalogue loads
+  /// or for an extra since retired, which then shows no chip rather than a
+  /// bare number.
+  String? _extraName(
+    CatalogueResponse? catalogue,
+    String languageCode,
+    int id,
+  ) {
+    for (final item in catalogue?.extras ?? const <CatalogueItemDto>[]) {
+      if (item.itemId == id) return item.localisedName(languageCode);
+    }
+    return null;
+  }
+
   String? _drinkName(CatalogueResponse? catalogue, String languageCode) {
     if (catalogue == null) return null;
     for (final item in catalogue.drinks) {

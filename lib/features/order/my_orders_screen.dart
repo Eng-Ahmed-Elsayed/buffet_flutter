@@ -408,6 +408,12 @@ class _OrderRow extends StatelessWidget {
                             // and may run counter to the page direction.
                             [
                               Formatters.dateTime(order.createdAtUtc, locale),
+                              // A guest's order says whose it is: three
+                              // identical coffees for three visitors could not
+                              // be told apart.
+                              if (order.onBehalfOfName case final String guest
+                                  when guest.trim().isNotEmpty)
+                                l10n.forGuestLabel(Formatters.isolate(guest)),
                               if (order.lines.isNotEmpty &&
                                   order.locationText.trim().isNotEmpty)
                                 Formatters.isolate(order.locationText),

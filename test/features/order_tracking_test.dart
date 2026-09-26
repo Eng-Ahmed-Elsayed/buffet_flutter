@@ -126,7 +126,11 @@ class _RoutedStatus extends StatelessWidget {
   );
 }
 
-Future<void> _pumpStatus(WidgetTester tester, OrderSummaryDto order) async {
+Future<void> _pumpStatus(
+  WidgetTester tester,
+  OrderSummaryDto order, {
+  List<CatalogueItemDto> extras = const [],
+}) async {
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
@@ -135,11 +139,11 @@ Future<void> _pumpStatus(WidgetTester tester, OrderSummaryDto order) async {
       overrides: [
         orderRepositoryProvider.overrideWithValue(_OneOrderRepo(order)),
         catalogueProvider.overrideWith(
-          (r) async => const CatalogueResponse(
-            drinks: [],
-            sugars: [],
-            extras: [],
-            locations: [],
+          (r) async => CatalogueResponse(
+            drinks: const [],
+            sugars: const [],
+            extras: extras,
+            locations: const [],
           ),
         ),
       ],
@@ -230,8 +234,9 @@ void main() {
       expect(find.text(_l10n.timelineSent), findsOneWidget);
       expect(find.text(_l10n.statusInProgress), findsOneWidget);
       expect(find.text(_l10n.statusReady), findsOneWidget);
-      expect(find.text(Formatters.timeOfDay(ready, 'ar')), findsOneWidget);
-      expect(find.text(Formatters.timeOfDay(handled, 'ar')), findsOneWidget);
+      // Another day, so the date comes with the time.
+      expect(find.text(Formatters.dateTime(ready, 'ar')), findsOneWidget);
+      expect(find.text(Formatters.dateTime(handled, 'ar')), findsOneWidget);
     });
 
     testWidgets('a cancelled order stops after Sent', (tester) async {
@@ -254,6 +259,105 @@ void main() {
 
       expect(find.text(_l10n.statusReady), findsWidgets);
       expect(find.text(_l10n.readyBody), findsOneWidget);
+    });
+  });
+
+  group('the tracking screen says what it knows, and only that', () {
+    testWidgets('no time on a step that has not happened', (tester) async {
+      final ready = DateTime.utc(2026, 8, 20, 7, 5);
+      await _pumpStatus(tester, _order(41, 'Pending', readyAtUtc: ready));
+
+      expect(find.text(Formatters.dateTime(ready, 'ar')), findsNothing);
+    });
+
+    testWidgets('each step tells a screen reader where the order is', (
+      tester,
+    ) async {
+      await _pumpStatus(tester, _order(41, 'Pending'));
+
+      expect(
+        find.bySemanticsLabel(
+          _l10n.timelineStep(_l10n.statusReady, _l10n.timelineNotYet),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('the number the alerts cite, and "New order" when done', (
+      tester,
+    ) async {
+      await _pumpStatus(tester, _order(41, 'Completed'));
+
+      expect(find.text(_l10n.orderNumberTitle(41)), findsOneWidget);
+      expect(find.text(_l10n.newOrder), findsOneWidget);
+      expect(find.text(_l10n.orderAgain), findsNothing);
+    });
+
+    testWidgets('a cancelled order says it will not be made', (tester) async {
+      await _pumpStatus(tester, _order(41, 'Cancelled'));
+
+      expect(find.text(_l10n.cancelledBody), findsOneWidget);
+    });
+
+    testWidgets('identical cups once, with their extras and whose jar', (
+      tester,
+    ) async {
+      const milk = CatalogueItemDto(
+        itemId: 10,
+        nameAr: 'حليب',
+        nameEn: 'Milk',
+        category: 'Extra',
+        unit: 'ج',
+        imageUrl: null,
+        inStock: true,
+        hasOwnStock: true,
+        ownServingsLeft: 3,
+        variants: [],
+        allowedExtraItemIds: null,
+      );
+      const withMilk = OrderLineDto(
+        drinkItemId: 1,
+        drinkNameAr: 'قهوة',
+        sugarSpoons: 1,
+        variantId: null,
+        sugarItemId: null,
+        extraItemIds: [10],
+        lineNote: null,
+        drinkFromOwn: false,
+        sugarFromOwn: false,
+        ownExtraItemIds: [10],
+      );
+      await _pumpStatus(
+        tester,
+        _order(41, 'Pending', lines: const [withMilk, withMilk]),
+        extras: const [milk],
+      );
+
+      expect(find.textContaining('×2'), findsOneWidget);
+      expect(
+        find.text(_l10n.extraFromMyMaterials(Formatters.isolate('حليب'))),
+        findsOneWidget,
+      );
+    });
+  });
+
+  group('a guest order says whose it is', () {
+    testWidgets('the row names the guest', (tester) async {
+      await _pumpOrders(tester, [
+        OrderSummaryDto(
+          orderId: 42,
+          status: 'Pending',
+          createdAtUtc: DateTime.utc(2026, 8, 20, 7),
+          readyAtUtc: null,
+          handledAtUtc: null,
+          locationText: '',
+          onBehalfOfName: 'وفد الوزارة',
+          notes: '',
+          lines: [_line('قهوة')],
+        ),
+      ]);
+
+      expect(find.textContaining('وفد الوزارة'), findsOneWidget);
     });
   });
 }

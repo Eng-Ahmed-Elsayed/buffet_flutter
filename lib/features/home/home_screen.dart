@@ -12,6 +12,7 @@ import '../../data/models/favourite_models.dart';
 import '../../data/models/order_models.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/error_text.dart';
+import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/brand_lockup.dart';
 import '../../shared/widgets/notification_bell.dart';
@@ -126,6 +127,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ..invalidate(myOrdersProvider)
         ..invalidate(notificationsProvider),
     );
+  }
+
+  /// The outstanding card's body: what was ordered, and for whom when it is a
+  /// guest's — "your drink" is a visitor's then. Null falls back to the
+  /// card's own line.
+  String? _cardBody(OrderSummaryDto order, CatalogueResponse? catalogue) {
+    final l10n = AppLocalizations.of(context);
+    final parts = [
+      ?describeOrderDrinks(
+        order,
+        catalogue,
+        l10n,
+        Localizations.localeOf(context).languageCode,
+      ),
+      if (order.onBehalfOfName case final String guest
+          when guest.trim().isNotEmpty)
+        l10n.forGuestLabel(Formatters.isolate(guest)),
+    ];
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
   void _openComposer({
@@ -265,12 +285,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               if (outstanding.isNotEmpty) ...[
                 OutstandingOrderCard(
                   order: outstanding.first,
-                  drinks: describeOrderDrinks(
-                    outstanding.first,
-                    catalogue.valueOrNull,
-                    l10n,
-                    Localizations.localeOf(context).languageCode,
-                  ),
+                  drinks: _cardBody(outstanding.first, catalogue.valueOrNull),
                   othersCount: outstanding.length - 1,
                   onTap: () => context.push(
                     Routes.orderStatusFor(outstanding.first.orderId),

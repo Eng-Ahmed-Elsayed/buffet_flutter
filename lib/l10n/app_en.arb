@@ -102,7 +102,7 @@
   "@pastOrders": { "description": "Heading above completed and cancelled orders." },
   "myOrderTitle": "My order",
   "statusPending": "Pending",
-  "statusInProgress": "In progress",
+  "statusInProgress": "Being prepared",
   "statusReady": "Ready",
   "statusCompleted": "Received",
   "statusCancelled": "Cancelled",
@@ -456,5 +456,16 @@
   "currentPasswordRequired": "Enter your current password",
   "chooseItem": "Choose an item",
   "itemNameRequired": "Enter the item's name",
-  "servedWithShortage": "{name}'s order was served short of stock"
+  "servedWithShortage": "{name}'s order was served short of stock",
+  "orderNumberTitle": "Order #{orderId}",
+  "newOrder": "New order",
+  "cancelledBody": "This order won't be made. Any reason given is in your notifications.",
+  "timelineDone": "done",
+  "timelineNow": "now",
+  "timelineNotYet": "not yet",
+  "timelineStep": "{step}, {state}",
+  "timelineStepAt": "{step}, {state}, {time}",
+  "fromMyMaterialsChip": "From my materials",
+  "extraFromMyMaterials": "{name}, from my materials",
+  "forGuestLabel": "For {name}"
 }

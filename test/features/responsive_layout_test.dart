@@ -492,30 +492,45 @@ void main() {
     'Completed',
     'Cancelled',
   ]) {
-    for (final scale in [1.0, 2.0]) {
-      testWidgets('order status $status fits 320dp at ${scale}x', (t) async {
-        t.view.physicalSize = const Size(320, 900);
-        t.view.devicePixelRatio = 1;
-        addTearDown(t.view.reset);
+    for (final locale in const [Locale('ar'), Locale('en')]) {
+      for (final scale in [1.0, 1.5, 2.0]) {
+        testWidgets('order status $status fits 320dp at ${scale}x in '
+            '${locale.languageCode}', (t) async {
+          t.view.physicalSize = const Size(320, 900);
+          t.view.devicePixelRatio = 1;
+          addTearDown(t.view.reset);
 
-        await t.pumpWidget(
-          ProviderScope(
-            overrides: [
-              orderRepositoryProvider.overrideWithValue(_StatusRepo(status)),
-              catalogueProvider.overrideWith((r) async => _cat),
-            ],
-            child: testApp(home: const _RoutedStatus(), textScale: scale),
-          ),
-        );
-        await t.pump();
-        await t.pump(const Duration(milliseconds: 50));
+          await t.pumpWidget(
+            ProviderScope(
+              overrides: [
+                orderRepositoryProvider.overrideWithValue(_StatusRepo(status)),
+                catalogueProvider.overrideWith((r) async => _cat),
+              ],
+              child: testApp(
+                home: const _RoutedStatus(),
+                textScale: scale,
+                locale: locale,
+              ),
+            ),
+          );
+          await t.pump();
+          await t.pump(const Duration(milliseconds: 50));
 
-        expect(
-          t.takeException(),
-          isNull,
-          reason: 'order status $status overflows at ${scale}x',
-        );
-      });
+          // Never measure a spinner: that passes for the wrong reason.
+          expect(
+            find.byType(CircularProgressIndicator),
+            findsNothing,
+            reason: 'order status $status never finished loading',
+          );
+          expect(
+            t.takeException(),
+            isNull,
+            reason:
+                'order status $status overflows at ${scale}x in '
+                '${locale.languageCode}',
+          );
+        });
+      }
     }
   }
 }

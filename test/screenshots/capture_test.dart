@@ -95,7 +95,14 @@ class _StatusRepo implements OrderRepository {
     status,
     onBehalfOfName: onBehalfOfName,
     notes: notes,
-    readyAtUtc: DateTime.utc(2026, 9, 19, 7, 6),
+    // Each time only once its step has happened, as the server sends them:
+    // a Ready time on a Pending order showed a time that had not occurred.
+    readyAtUtc: const {'Ready', 'Completed'}.contains(status)
+        ? DateTime.utc(2026, 9, 19, 7, 6)
+        : null,
+    handledAtUtc: const {'Completed', 'Cancelled'}.contains(status)
+        ? DateTime.utc(2026, 9, 19, 7, 11)
+        : null,
   );
 
   @override
