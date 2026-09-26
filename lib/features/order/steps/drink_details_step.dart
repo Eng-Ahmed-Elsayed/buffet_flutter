@@ -33,7 +33,7 @@ class DrinkDetailsStep extends ConsumerWidget {
   final ComposerState composer;
   final VoidCallback onContinue;
 
-  static const _heroSize = 160.0;
+  static const _heroSize = Dimens.imageHero;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -113,6 +113,7 @@ class DrinkDetailsStep extends ConsumerWidget {
                       // order still goes through (rule 2).
                       AnimatedSwitcher(
                         duration: Motion.of(context, Motion.base),
+                        reverseDuration: Motion.of(context, Motion.exit),
                         switchInCurve: Motion.easeOut,
                         switchOutCurve: Motion.easeSoft,
                         child: composer.ownStockIsShort
@@ -408,7 +409,7 @@ class _ExtraChip extends StatelessWidget {
               const SizedBox(width: Dimens.space1),
               const Icon(
                 Icons.add_circle_outline,
-                size: 14,
+                size: Dimens.iconMicro,
                 color: BrandColors.warning,
               ),
             ],

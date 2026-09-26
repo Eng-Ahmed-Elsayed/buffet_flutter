@@ -426,7 +426,7 @@ class _StatusHeader extends StatelessWidget {
                   children: [
                     const Icon(
                       Icons.person_outline,
-                      size: 14,
+                      size: Dimens.iconMicro,
                       color: BrandColors.brand,
                     ),
                     const SizedBox(width: Dimens.space1),
@@ -472,18 +472,8 @@ class _Timeline extends StatelessWidget {
     final status = order.orderStatus;
     // A date as well once it is not today: an order opened from Earlier read
     // "Order sent 10:00 AM" with no day.
-    String? at(DateTime? utc) {
-      if (utc == null) return null;
-      final local = utc.toLocal();
-      final now = DateTime.now();
-      final today =
-          local.year == now.year &&
-          local.month == now.month &&
-          local.day == now.day;
-      return today
-          ? Formatters.timeOfDay(utc, locale)
-          : Formatters.dateTime(utc, locale);
-    }
+    String? at(DateTime? utc) =>
+        utc == null ? null : Formatters.moment(utc, locale);
 
     // Compared by name via the enum — the server's ordinals are not in
     // workflow order (Ready = 4).
@@ -590,7 +580,9 @@ class _TimelineRow extends StatelessWidget {
     final text = Theme.of(context).textTheme;
 
     final l10n = AppLocalizations.of(context);
-    final state = isCurrent
+    // The last step is where a finished order ends, not where it is: a
+    // received or cancelled order read "current step" there.
+    final state = isCurrent && !isLast
         ? l10n.timelineNow
         : (reached ? l10n.timelineDone : l10n.timelineNotYet);
     final time = reached ? step.time : null;
@@ -935,7 +927,7 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: BrandColors.muted),
+        Icon(icon, size: Dimens.iconInline, color: BrandColors.muted),
         const SizedBox(width: Dimens.space2),
         Expanded(
           child: Text(value, style: Theme.of(context).textTheme.bodySmall),

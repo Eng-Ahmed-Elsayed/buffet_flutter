@@ -125,7 +125,7 @@ void main() {
       );
 
       // Two beyond the one the card leads with — the dual, in Arabic.
-      expect(find.text('طلبان آخران ما زالا قائمين'), findsOneWidget);
+      expect(find.text('طلبان آخران لم يكتملا بعد'), findsOneWidget);
     });
 
     testWidgets('a single outstanding order carries no "more" line', (

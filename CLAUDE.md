@@ -175,6 +175,8 @@ card does not repeat them. Rules a future edit must not undo:
   status screen does, falling back to the stored `drinkNameAr`. `OrderSummaryDto` carries Arabic
   names only, and a row saying «قهوة» that opens onto "Coffee" names one drink two ways.
   `order_tracking_test.dart` pins it in English.
+- **Times say the day only when it is not today** (`Formatters.moment`), in the list and on the
+  timeline alike. A finished order's last step is announced as done, never as the current step.
 
 **The Account tab is the design's Settings frame**: the name and department, then stacked card
 rows. The rows are My materials (employees only), Change password, the biometric switch (its own
@@ -234,6 +236,8 @@ that two shortcuts side by side, one silently moving, is worse than either alone
   server does not filter these (§7.6), and it is right not to: one that vanished silently would
   leave the user nothing to act on and no way to delete what they cannot see. It still taps — the
   composer is where the missing drink becomes a visible line. `favourites_strip_test.dart` pins it.
+- **A favourite is a heart everywhere**, as the design's tab bar draws it. A star beside a heart
+  read as two different things.
 - **An order already saved says so; it does not offer to save again.** `FavouriteDto.orders()`
   compares only what is *ordered* — drink, preparation, sugar, extras — ignoring the name and the
   jar, so two saves of the same coffee are one favourite. The action is **replaced by a statement**,

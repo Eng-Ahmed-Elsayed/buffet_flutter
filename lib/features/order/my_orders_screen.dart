@@ -145,6 +145,13 @@ class MyOrdersScreen extends ConsumerWidget {
                   emptyBody: all.isEmpty
                       ? l10n.noOrdersBody
                       : l10n.noLiveOrdersBody,
+                  // With nothing ordered yet, the way on is ordering.
+                  emptyAction: all.isEmpty
+                      ? OutlinedButton(
+                          onPressed: () => context.go(Routes.home),
+                          child: Text(l10n.orderADrink),
+                        )
+                      : null,
                   rowFor: (order) =>
                       _OrderRow(order: order, catalogue: catalogue),
                 ),
@@ -194,6 +201,7 @@ class _OrderList extends ConsumerWidget {
     required this.emptyTitle,
     required this.emptyBody,
     required this.rowFor,
+    this.emptyAction,
   });
 
   /// Why the last refresh failed, when it did; the list is what was last
@@ -203,6 +211,9 @@ class _OrderList extends ConsumerWidget {
   final IconData emptyIcon;
   final String emptyTitle;
   final String emptyBody;
+
+  /// A way on from an empty tab, when there is one.
+  final Widget? emptyAction;
   final Widget Function(OrderSummaryDto order) rowFor;
 
   @override
@@ -232,7 +243,12 @@ class _OrderList extends ConsumerWidget {
         child: Stack(
           children: [
             ListView(),
-            EmptyState(icon: emptyIcon, title: emptyTitle, body: emptyBody),
+            EmptyState(
+              icon: emptyIcon,
+              title: emptyTitle,
+              body: emptyBody,
+              action: emptyAction,
+            ),
             if (notice != null)
               Padding(
                 padding: const EdgeInsetsDirectional.symmetric(
@@ -407,7 +423,7 @@ class _OrderRow extends StatelessWidget {
                             // The place, when given, is isolated: user-entered
                             // and may run counter to the page direction.
                             [
-                              Formatters.dateTime(order.createdAtUtc, locale),
+                              Formatters.moment(order.createdAtUtc, locale),
                               // A guest's order says whose it is: three
                               // identical coffees for three visitors could not
                               // be told apart.
@@ -425,7 +441,7 @@ class _OrderRow extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right, size: 18),
+                    const Icon(Icons.chevron_right, size: Dimens.iconXs),
                   ],
                 ),
 
@@ -453,8 +469,8 @@ class _OrderRow extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.star,
-                            size: 16,
+                            Icons.favorite,
+                            size: Dimens.iconInline,
                             color: BrandColors.brand,
                           ),
                           const SizedBox(width: Dimens.space2),
@@ -475,7 +491,10 @@ class _OrderRow extends StatelessWidget {
                     alignment: AlignmentDirectional.centerStart,
                     child: TextButton.icon(
                       onPressed: save,
-                      icon: const Icon(Icons.star_outline, size: 16),
+                      icon: const Icon(
+                        Icons.favorite_border,
+                        size: Dimens.iconInline,
+                      ),
                       label: Text(l10n.saveAsFavourite),
                     ),
                   ),

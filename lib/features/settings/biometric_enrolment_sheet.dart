@@ -111,7 +111,11 @@ class _BiometricEnrolmentSheetState
           ),
           const SizedBox(height: Dimens.space5),
 
-          const Icon(Icons.fingerprint, size: 40, color: BrandColors.brand),
+          const Icon(
+            Icons.fingerprint,
+            size: Dimens.iconFeature,
+            color: BrandColors.brand,
+          ),
           const SizedBox(height: Dimens.space3),
 
           Text(

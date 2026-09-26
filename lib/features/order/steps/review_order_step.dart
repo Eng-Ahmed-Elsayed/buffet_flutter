@@ -380,7 +380,7 @@ class _LineCard extends StatelessWidget {
               ItemImage(
                 imageUrl: line.drink.imageUrl,
                 category: line.drink.category,
-                size: 56,
+                size: Dimens.imageReview,
               ),
               const SizedBox(width: Dimens.space3),
               Expanded(
@@ -496,7 +496,11 @@ class SaveFavouriteControl extends ConsumerWidget {
     if (alreadySaved) {
       return Row(
         children: [
-          const Icon(Icons.star, size: 16, color: BrandColors.brand),
+          const Icon(
+            Icons.favorite,
+            size: Dimens.iconInline,
+            color: BrandColors.brand,
+          ),
           const SizedBox(width: Dimens.space2),
           Flexible(
             child: Text(
@@ -538,7 +542,7 @@ class SaveFavouriteControl extends ConsumerWidget {
             decoration: InputDecoration(
               labelText: l10n.favouriteNameLabel,
               hintText: l10n.favouriteNameHint,
-              prefixIcon: const Icon(Icons.star_outline),
+              prefixIcon: const Icon(Icons.favorite_border),
             ),
             textInputAction: TextInputAction.done,
             onChanged: controller.setFavouriteName,

@@ -38,7 +38,7 @@
   "favouriteSaved": "Saved to your favourites",
   "favouriteDeleted": "Favourite deleted",
   "favouriteDelete": "Delete favourite",
-  "favouriteDeleteConfirm": "Delete \"{name}\"?",
+  "favouriteDeleteConfirm": "Delete “{name}”?",
   "@favouriteDeleteConfirm": {
     "placeholders": { "name": { "type": "String" } }
   },
@@ -113,7 +113,6 @@
   "inProgressBody": "Your drink is being made now",
   "readyBody": "The buffet has made it — it's ready for you",
   "cancelOrder": "Cancel order",
-  "orderAgain": "Order again",
 
   "outstandingReadyTitle": "Your drink is ready",
   "@outstandingReadyTitle": { "description": "Home-screen banner title when the user has an order sitting in Ready, waiting to be collected." },
@@ -257,7 +256,6 @@
   "cancelReason": "Reason for cancelling",
   "cancelOrderTitle": "Cancel order {orderId}?",
   "cancelReadyWaste": "It has already been made, so it will be recorded as waste.",
-  "confirm": "Confirm",
   "cancel": "Cancel",
   "emptyQueueTitle": "No orders",
   "emptyQueueBody": "New orders appear here automatically.",
@@ -469,7 +467,7 @@
   "newOrder": "New order",
   "cancelledBody": "This order won't be made. Any reason given is in your notifications.",
   "timelineDone": "done",
-  "timelineNow": "now",
+  "timelineNow": "current step",
   "timelineNotYet": "not yet",
   "timelineStep": "{step}, {state}",
   "timelineStepAt": "{step}, {state}, {time}",

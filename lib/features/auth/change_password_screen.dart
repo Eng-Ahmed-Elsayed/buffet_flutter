@@ -10,6 +10,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/button_spinner.dart';
 import '../../shared/widgets/field_label.dart';
+import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'auth_controller.dart';
 
@@ -235,6 +236,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                   if (isForced) ...[
                     const SizedBox(height: Dimens.space3),
                     TextButton(
+                      // Danger, as Sign out is on Account: it ends the session.
+                      style: TextButton.styleFrom(
+                        foregroundColor: BrandColors.danger,
+                      ),
                       onPressed: _submitting
                           ? null
                           : () => unawaited(

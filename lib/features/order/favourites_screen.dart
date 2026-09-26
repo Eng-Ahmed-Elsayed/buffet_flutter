@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
+import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import 'composer_screen.dart';
 import 'favourites_controller.dart';
@@ -49,6 +50,7 @@ Future<void> confirmDeleteFavourite(
         ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(foregroundColor: BrandColors.danger),
           child: Text(l10n.delete),
         ),
       ],
@@ -74,10 +76,10 @@ Future<void> confirmDeleteFavourite(
 
 /// The full list of saved orders.
 ///
-/// The hub and composer show only the first few — this is where the rest live,
-/// and where somebody goes to tidy the list rather than to order. Reached from
-/// the strip's "show all" link, so it exists only once there is more to see
-/// than the strip shows.
+/// The Favourites tab, and `/favourites-list` from the composer's "show all"
+/// (where [returnsPick] hands the choice back). The strips show only the four
+/// most recently used; this is where the rest live, and where somebody goes to
+/// tidy the list rather than to order.
 class FavouritesScreen extends ConsumerWidget {
   const FavouritesScreen({this.returnsPick = false, super.key});
 
@@ -125,7 +127,7 @@ class FavouritesScreen extends ConsumerWidget {
                 children: [
                   ListView(),
                   EmptyState(
-                    icon: Icons.star_outline,
+                    icon: Icons.favorite_border,
                     title: l10n.favouritesEmptyTitle,
                     // Says where a favourite is saved from, and leads there:
                     // an empty tab with no way on was a dead end. Not when

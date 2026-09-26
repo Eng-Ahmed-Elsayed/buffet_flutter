@@ -156,7 +156,7 @@ class _MaterialCard extends StatelessWidget {
                 ItemImage(
                   imageUrl: ApiConfig.imageUrl(material.imageUrl),
                   category: material.nameAr,
-                  size: 44,
+                  size: Dimens.imageThumb,
                 ),
                 const SizedBox(width: Dimens.space3),
                 Expanded(

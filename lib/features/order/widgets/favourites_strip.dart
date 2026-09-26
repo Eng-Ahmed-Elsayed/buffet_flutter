@@ -90,7 +90,11 @@ class FavouritesStrip extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Icon(Icons.star_outline, size: 18, color: BrandColors.brand),
+            const Icon(
+              Icons.favorite_border,
+              size: Dimens.iconXs,
+              color: BrandColors.brand,
+            ),
             const SizedBox(width: Dimens.space2),
             // Expanded so the heading wraps rather than pushing itself off the
             // edge at a large text scale on a narrow phone.
@@ -226,7 +230,7 @@ class FavouriteCard extends StatelessWidget {
                   children: [
                     Icon(
                       available ? Icons.replay : Icons.error_outline,
-                      size: 16,
+                      size: Dimens.iconInline,
                       color: available
                           ? BrandColors.brand
                           : BrandColors.warning,
@@ -260,7 +264,10 @@ class FavouriteCard extends StatelessWidget {
                     // there would not survive a 320dp phone.
                     if (fullWidth)
                       IconButton(
-                        icon: const Icon(Icons.delete_outline, size: 20),
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: Dimens.iconSm,
+                        ),
                         tooltip: l10n.favouriteDelete,
                         onPressed: onLongPress,
                       ),

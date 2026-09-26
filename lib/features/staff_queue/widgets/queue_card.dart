@@ -75,8 +75,8 @@ class QueueCard extends StatelessWidget {
         color: BrandColors.surface,
         border: Border.all(
           // Pending reads as pending by weight as well as by colour: a thicker
-          // green edge, plus dimmed content, plus an icon, plus a label.
-          // Colour is never the only signal.
+          // green edge, plus an icon, a label and the countdown in place of
+          // the buttons. Colour is never the only signal.
           color: isPending
               ? BrandColors.ok
               : hasWarnings
@@ -185,6 +185,7 @@ class QueueCard extends StatelessWidget {
             // fast, not base: this acknowledges a press rather than moving the
             // user somewhere.
             duration: Motion.of(context, Motion.fast),
+            reverseDuration: Motion.of(context, Motion.instant),
             switchInCurve: Motion.easeSoft,
             switchOutCurve: Motion.easeSoft,
             child: isPending

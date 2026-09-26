@@ -74,6 +74,19 @@ abstract final class Formatters {
   static String dateTime(DateTime utc, String locale) =>
       DateFormat.yMMMd(locale).add_jm().format(utc.toLocal());
 
+  /// The time alone for today, the date and time for anything older: a list
+  /// of today's orders each repeating today's date buried the part that
+  /// differed.
+  static String moment(DateTime utc, String locale, {DateTime? now}) {
+    final local = utc.toLocal();
+    final today = now ?? DateTime.now();
+    final isToday =
+        local.year == today.year &&
+        local.month == today.month &&
+        local.day == today.day;
+    return isToday ? timeOfDay(utc, locale) : dateTime(utc, locale);
+  }
+
   /// Whole minutes from a `waitingSeconds` value, for the ageing indicator.
   /// Rounds down: an order is "2 min" old until it is genuinely three.
   static int minutesFromSeconds(int seconds) => seconds ~/ 60;

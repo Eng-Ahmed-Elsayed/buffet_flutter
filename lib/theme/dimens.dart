@@ -64,6 +64,19 @@ abstract final class Dimens {
   /// A small leading icon, as on a banner.
   static const iconSm = 20.0;
 
+  /// The smallest icon: a mark inside a line of small text.
+  static const iconMicro = 14.0;
+
+  /// A feature glyph heading a sheet.
+  static const iconFeature = 40.0;
+
+  /// Item pictures: a material's thumbnail, a Review line, a menu row, and
+  /// the Drink Details hero.
+  static const imageThumb = 44.0;
+  static const imageReview = 56.0;
+  static const imageMenu = 64.0;
+  static const imageHero = 160.0;
+
   /// An icon inline with small label text: a clock, a note, a pin.
   static const iconInline = 16.0;
 

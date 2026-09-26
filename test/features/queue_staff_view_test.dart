@@ -184,20 +184,31 @@ void main() {
     );
     expect(find.text(_ar.servingOrder), findsOneWidget);
 
-    final announced = find.bySemanticsLabel(
-      RegExp(RegExp.escape(_ar.undoWindowSemantics(2, 3))),
+    // The seconds left are read from the real clock, so compare before and
+    // after rather than expect exact figures: a loaded machine shifts them.
+    final liveRegion = find.bySemanticsLabel(
+      RegExp(RegExp.escape(_ar.undoWindowSemantics(2, 0).split('0').first)),
     );
-    expect(announced, findsOneWidget);
+    final announcedBefore = tester.getSemantics(liveRegion).label;
+    String undoLabel() => tester
+        .widget<Text>(
+          find.descendant(
+            of: find.byType(TextButton),
+            matching: find.byType(Text),
+          ),
+        )
+        .data!;
+    final undoBefore = undoLabel();
 
-    // The bar reads the real clock, so let real time pass, then the tick.
-    // The digit on the button moves on; the live region's words do not — a
-    // label that changed every second was re-read every second.
+    // Let real time pass, then the tick. The digit on the button moves on;
+    // the live region's words do not — a label that changed every second
+    // was re-read every second.
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 1100)),
     );
     await tester.pump(const Duration(seconds: 1));
-    expect(find.text(_ar.undoCountdown(2)), findsOneWidget);
-    expect(announced, findsOneWidget);
+    expect(undoLabel(), isNot(undoBefore));
+    expect(tester.getSemantics(liveRegion).label, announcedBefore);
     handle.dispose();
   });
 

@@ -97,7 +97,7 @@ class OutstandingOrderCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: Dimens.space2),
-          Icon(Icons.chevron_right, size: 18, color: foreground),
+          Icon(Icons.chevron_right, size: Dimens.iconXs, color: foreground),
         ],
       ),
     );

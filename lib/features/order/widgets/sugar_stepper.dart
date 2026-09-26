@@ -113,7 +113,7 @@ class _StepperButton extends StatelessWidget {
             ),
             child: Icon(
               icon,
-              size: 18,
+              size: Dimens.iconXs,
               color: onPressed == null ? BrandColors.muted : BrandColors.brand,
             ),
           ),

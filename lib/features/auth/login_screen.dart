@@ -30,9 +30,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  /// §5.1: hiding a shared seeded password typed on a phone keyboard helps
-  /// nobody. Starts revealed on the first sign-in, hidden once we know the
-  /// user has their own password.
+  /// Hidden to start, with a toggle beside it: §5.1, a shared seeded password
+  /// typed on a phone keyboard is easier to get right when it can be seen.
   bool _obscurePassword = true;
   bool _submitting = false;
   String? _errorMessage;

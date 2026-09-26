@@ -29,7 +29,7 @@ class MenuItemRow extends StatelessWidget {
   final bool fromOwn;
   final VoidCallback onTap;
 
-  static const _imageSize = 64.0;
+  static const _imageSize = Dimens.imageMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +113,7 @@ class _OutOfStockBadge extends StatelessWidget {
         children: [
           const Icon(
             Icons.warning_amber_rounded,
-            size: 14,
+            size: Dimens.iconMicro,
             color: BrandColors.warning,
           ),
           const SizedBox(width: Dimens.space1),

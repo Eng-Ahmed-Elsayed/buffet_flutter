@@ -290,7 +290,6 @@ void main() {
 
       expect(find.text(_l10n.orderNumberTitle(41)), findsOneWidget);
       expect(find.text(_l10n.newOrder), findsOneWidget);
-      expect(find.text(_l10n.orderAgain), findsNothing);
     });
 
     testWidgets('a cancelled order says it will not be made', (tester) async {
