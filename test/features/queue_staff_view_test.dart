@@ -42,6 +42,7 @@ StaffOrderDto _order(
   int id, {
   String status = 'Pending',
   List<StaffOrderLineDto>? lines,
+  String? fulfilment,
 }) => StaffOrderDto(
   orderId: id,
   status: status,
@@ -54,6 +55,7 @@ StaffOrderDto _order(
   notes: '',
   waitingSeconds: 30,
   lines: lines ?? [_line()],
+  fulfilment: fulfilment,
 );
 
 class _Repository extends QueueRepository {
@@ -267,6 +269,41 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  group('the card says how the drink leaves the counter (§8.1)', () {
+    testWidgets('a delivery names where to carry it', (tester) async {
+      await tester.pumpWidget(_card(_order(1, fulfilment: 'Delivery')));
+      await tester.pump();
+      expect(
+        find.textContaining(_ar.queueDeliverTo('').trim()),
+        findsOneWidget,
+      );
+      expect(find.textContaining('الدور الثالث'), findsOneWidget);
+      expect(find.text(_ar.queuePickup), findsNothing);
+    });
+
+    testWidgets('a pickup says so, and still where the person sits', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_card(_order(1, fulfilment: 'Pickup')));
+      await tester.pump();
+      expect(find.text(_ar.queuePickup), findsOneWidget);
+      expect(find.textContaining('الدور الثالث'), findsOneWidget);
+    });
+
+    testWidgets('an order from before the choice shows the place alone', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_card(_order(1)));
+      await tester.pump();
+      expect(find.text(_ar.queuePickup), findsNothing);
+      expect(
+        find.textContaining(_ar.queueDeliverTo('').trim()),
+        findsNothing,
+      );
+      expect(find.textContaining('الدور الثالث'), findsOneWidget);
+    });
+  });
 
   group('Start making', () {
     testWidgets('a Pending order starts once, then says it is being made, '

@@ -168,6 +168,8 @@
   },
   "readyAndDelivered": "Ready and handed over",
   "markReady": "Ready",
+  "queuePickup": "Collecting from the kitchen",
+  "queueDeliverTo": "Deliver to {location}",
   "startMaking": "Start making",
   "beingMade": "Being made now",
   "markDelivered": "Handed over",

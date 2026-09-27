@@ -104,7 +104,10 @@ Two rules from that work that a future edit must not undo:
   where identical means every field the maker acts on. The two tabs carry their counts, scroll
   and grow in height rather than fade a label (`measureTabLabels`). **"Start making" (`/start`)
   is optional, never a gate**: a Pending card offers it above the ready pair, which still serve a
-  Pending order directly, and an InProgress card says "being made" in its place. It is a text
+  Pending order directly, and an InProgress card says "being made" in its place. **The card says
+  how the drink leaves the counter** (§8.1): "Deliver to {location}", or "Collecting from the
+  kitchen" with the location kept as where the person sits; an order with no mode shows the
+  location alone. It is a text
   button, so Ready stays the largest target. It is immediate, with no undo, since it writes no
   ledger rows, and it is announced. `queue_staff_view_test.dart`.
 - **Foreground polling stays alongside push.** Push closes the closed-app gap; polling closes the

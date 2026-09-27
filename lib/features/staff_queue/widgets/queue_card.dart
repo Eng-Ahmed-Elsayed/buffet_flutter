@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../data/api/api_config.dart';
+import '../../../data/models/order_models.dart';
 import '../../../data/models/staff_models.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/formatters.dart';
@@ -135,30 +136,11 @@ class QueueCard extends StatelessWidget {
                     // Where it goes, on a line of its own and marked: joined
                     // to the department it was the last thing read, and the
                     // two could reorder around the separator in English.
-                    if (order.locationText.trim().isNotEmpty) ...[
-                      const SizedBox(height: Dimens.space1),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(
-                            Icons.place_outlined,
-                            size: Dimens.iconInline,
-                            color: BrandColors.brand,
-                          ),
-                          const SizedBox(width: Dimens.space1),
-                          Flexible(
-                            child: Text(
-                              Formatters.isolate(order.locationText),
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: BrandColors.ink,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    // How it leaves the counter (§8.1): carried, or left
+                    // for the person. A pickup's location still says where
+                    // they sit. No mode recorded: the location alone, as
+                    // before the choice existed.
+                    ..._whereItGoes(context, l10n),
                   ],
                 ),
               ),
@@ -219,6 +201,48 @@ class QueueCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// The lines under the name that say where the drink goes.
+extension on QueueCard {
+  List<Widget> _whereItGoes(BuildContext context, AppLocalizations l10n) {
+    final location = order.locationText.trim();
+    final mode = order.fulfilmentMode;
+    Widget line(IconData icon, String text) => Padding(
+      padding: const EdgeInsetsDirectional.only(top: Dimens.space1),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: Dimens.iconInline, color: BrandColors.brand),
+          const SizedBox(width: Dimens.space1),
+          Flexible(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: BrandColors.ink,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return [
+      if (mode == Fulfilment.delivery && location.isNotEmpty)
+        line(
+          Icons.delivery_dining_outlined,
+          l10n.queueDeliverTo(Formatters.isolate(location)),
+        )
+      else ...[
+        if (mode == Fulfilment.pickup)
+          line(Icons.storefront_outlined, l10n.queuePickup),
+        // A person's own words or a managed place, in either script.
+        if (location.isNotEmpty)
+          line(Icons.place_outlined, Formatters.isolate(location)),
+      ],
+    ];
   }
 }
 
@@ -648,9 +672,8 @@ class _BeingMade extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: BrandColors.brand,
-            ),
+            style: Theme.of(context).textTheme.labelLarge
+                ?.copyWith(color: BrandColors.brand),
           ),
         ),
       ],

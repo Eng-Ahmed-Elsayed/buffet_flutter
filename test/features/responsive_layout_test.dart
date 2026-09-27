@@ -239,6 +239,8 @@ Widget _wrap(
 StaffOrderDto _staffOrderAt(String status) => StaffOrderDto(
   orderId: 41,
   status: status,
+  // "Deliver to" and the long location on one line: the widest form (§8.1).
+  fulfilment: 'Delivery',
   createdAtUtc: DateTime.utc(2026, 8, 20, 7),
   readyAtUtc: null,
   requesterDisplayName: 'سارة عبد الرحمن',
