@@ -137,3 +137,9 @@ ios/Runner/GoogleService-Info.plist
 # Screenshot captures written by test/screenshots/capture_test.dart — output,
 # not source. The capture test and its fixtures are tracked.
 /test/screenshots/out/
+
+# The iOS CI workflow is kept locally but not committed: there is no iOS
+# pipeline yet (no funded Apple Developer account), and a tracked workflow
+# would run a billed macOS job on every push. Track it again once iOS CI is
+# actually wanted.
+/.github/workflows/ios-build.yml
