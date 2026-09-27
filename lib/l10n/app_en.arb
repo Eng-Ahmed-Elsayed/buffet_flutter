@@ -5,7 +5,7 @@
 
   "signIn": "Sign in",
   "email": "Email",
-  "emailHint": "Your name in your work email",
+  "emailHint": "Your name",
   "password": "Password",
   "passwordHint": "Enter your password",
   "showPassword": "Show password",

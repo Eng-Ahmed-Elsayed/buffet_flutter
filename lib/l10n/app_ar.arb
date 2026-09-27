@@ -10,7 +10,7 @@
   "@signIn": { "description": "Primary action on the login screen." },
   "email": "البريد الإلكتروني",
   "@email": { "description": "Label for the username/email field." },
-  "emailHint": "اسمك في بريد العمل",
+  "emailHint": "اسمك",
   "@emailHint": { "description": "Hint inside the sign-in email field. The user types only the part before @defi.com.eg, which the field shows once focused; a full address also works." },
   "password": "كلمة المرور",
   "@password": { "description": "Label for the password field." },
