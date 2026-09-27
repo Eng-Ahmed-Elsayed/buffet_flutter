@@ -5,7 +5,7 @@
 
   "signIn": "Sign in",
   "email": "Email",
-  "emailHint": "Your work email",
+  "emailHint": "Your name in your work email",
   "password": "Password",
   "passwordHint": "Enter your password",
   "showPassword": "Show password",
@@ -299,6 +299,7 @@
   "@biometricsUnavailable": { "description": "Shown when the device cannot satisfy a prompt, so the preference stays off." },
   "enableBiometrics": "Enable biometric sign-in",
   "signOut": "Sign out",
+  "appVersion": "Version {version}",
   "signOutConfirmTitle": "Sign out?",
   "signOutConfirmBody": "You'll need your password to sign in again.",
 

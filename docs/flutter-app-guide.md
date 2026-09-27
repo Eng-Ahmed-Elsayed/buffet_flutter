@@ -418,7 +418,7 @@ Four rules:
 
 The friction is real: the username is a full email address and the seeded password is shared.
 
-- **Default the email domain.** Show the field pre-filled with `@company.com` and let the user
+- **Default the email domain.** Show the field pre-filled with `@defi.com.eg` and let the user
   type only the local part, while still accepting a full address if pasted.
 - **Keyboard and autofill:** `TextInputType.emailAddress`, `autofillHints: [AutofillHints.username]`
   and `[AutofillHints.password]`, wrapped in an `AutofillGroup` so the OS password manager offers

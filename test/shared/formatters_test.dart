@@ -53,6 +53,17 @@ void main() {
       expect(formatted, contains('$expectedHour'));
     });
 
+    test('Arabic times and dates use Latin digits, like every count', () {
+      final utc = DateTime.utc(2026, 8, 18, 9, 42);
+      final arabicIndic = RegExp('[\u{0660}-\u{0669}]');
+      // A regional tag is where intl switches to Arabic-Indic digits.
+      final time = Formatters.timeOfDay(utc, 'ar-EG');
+      final date = Formatters.dateTime(utc, 'ar-EG');
+      expect(time, isNot(contains(arabicIndic)));
+      expect(date, isNot(contains(arabicIndic)));
+      expect(date, contains('2026'));
+    });
+
     test('a UTC instant keeps its isUtc flag before conversion', () {
       final utc = DateTime.parse('2026-08-18T09:42:00Z');
       expect(utc.isUtc, isTrue);

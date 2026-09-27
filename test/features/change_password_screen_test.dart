@@ -67,7 +67,7 @@ void main() {
 
       // An error replaces the helper text. An empty error made the rule
       // vanish at the very moment it was broken; now the rule IS the error.
-      expect(find.text('٨ أحرف على الأقل'), findsOneWidget);
+      expect(find.text('8 أحرف على الأقل'), findsOneWidget);
     });
   });
 

@@ -103,6 +103,9 @@ Shown once per install. Skip and Sign in both go to login.
 - 🔁 **Use Biometric** moves to the **lock screen**, restyled into the same layout. Biometrics
   unlock a *stored* token, and there is none at login.
 - ➕ The language switch, which must stay on login (see CLAUDE.md).
+- 🔁 The hint `mail@defi.com.eg` becomes the domain itself: the user types the name and the field
+  shows `@defi.com.eg` beside it (guide §5.1, domain confirmed 2026-09-27). A full address still
+  goes as typed.
 
 ### Home 🔁
 | Figma | Ours |
@@ -172,9 +175,8 @@ Shown once per install. Skip and Sign in both go to login.
 
 ### Account (Figma "Settings") 🔁
 - ✅ Name, Logout (in `danger`).
-- ⏸ Version (in `muted`, not Figma's unreadable tint) **is not built yet**. It needs either the
-  `package_info_plus` dependency or a version passed at build time (`--dart-define`), and that
-  choice is the user's.
+- ✅ Version (in `muted`, not Figma's unreadable tint), from `package_info_plus` (decided
+  2026-09-27), with the build number. "Built for DEFI" is left out.
 - 🔁 "Member since" becomes **department**, which we have.
 - ➕ **My materials** row. It opens the materials screen and the declare sheet (D4).
 - ❌ Order History (duplicates the Orders tab), Payment Methods, Notifications (the bell already

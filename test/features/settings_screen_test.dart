@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 Widget wrap({Locale locale = const Locale('ar'), String? role}) =>
     ProviderScope(
@@ -115,6 +116,26 @@ void main() {
       // screen.
       expect(find.text('Sign out'), findsOneWidget);
     });
+  });
+
+  testWidgets('the foot carries the installed version and build', (
+    tester,
+  ) async {
+    PackageInfo.setMockInitialValues(
+      appName: 'buffet_app',
+      packageName: 'eg.defi.buffet',
+      version: '1.2.3',
+      buildNumber: '45',
+      buildSignature: '',
+    );
+    tester.view.physicalSize = const Size(400, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(wrap(locale: const Locale('en'), role: 'Employee'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Version'), findsOneWidget);
+    expect(find.textContaining('1.2.3 (45)'), findsOneWidget);
   });
 }
 

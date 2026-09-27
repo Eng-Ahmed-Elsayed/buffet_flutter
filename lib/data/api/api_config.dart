@@ -29,6 +29,17 @@ abstract final class ApiConfig {
     return '$host$path';
   }
 
+  /// The domain every work address shares, so sign-in asks only for the name
+  /// before it (§5.1). A full address, typed or pasted, is sent as it is.
+  static const emailDomain = 'defi.com.eg';
+
+  /// The username sign-in sends: [typed] as it is when it holds an `@`,
+  /// otherwise the name with [emailDomain] after it.
+  static String username(String typed) {
+    final name = typed.trim();
+    return name.contains('@') ? name : '$name@$emailDomain';
+  }
+
   static const connectTimeout = Duration(seconds: 15);
   static const receiveTimeout = Duration(seconds: 20);
   static const sendTimeout = Duration(seconds: 20);

@@ -32,6 +32,7 @@ dependencies:
   # the platform config files are missing for iOS.
   firebase_core: ^4.1.1
   firebase_messaging: ^16.0.2
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:

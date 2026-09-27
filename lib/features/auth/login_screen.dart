@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/locale_controller.dart';
+import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/brand_backdrop.dart';
 import '../../shared/widgets/brand_lockup.dart';
@@ -41,6 +43,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.initState();
     final remembered = ref.read(authControllerProvider).rememberedEmail;
     if (remembered != null) _emailController.text = remembered;
+    _emailController.addListener(_onEmailChanged);
+  }
+
+  /// Whether the field holds only a name, so the domain is shown after it.
+  bool get _nameOnly => !_emailController.text.contains('@');
+  late bool _showsDomain = _nameOnly;
+
+  /// Isolated, or an Arabic line would carry the `@` to the far side.
+  static final _domain = Formatters.isolate('@${ApiConfig.emailDomain}');
+
+  void _onEmailChanged() {
+    if (_showsDomain != _nameOnly) setState(() => _showsDomain = _nameOnly);
   }
 
   @override
@@ -65,7 +79,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       await ref
           .read(authControllerProvider.notifier)
           .signIn(
-            username: _emailController.text.trim(),
+            username: ApiConfig.username(_emailController.text),
             password: _passwordController.text,
             languageCode: locale.languageCode,
             networkErrorFallback: l10n.networkError,
@@ -126,6 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
 
     // The server's error came in the language it was asked in; after a
     // switch it would sit there in the other one. Cleared, the next attempt
@@ -216,9 +231,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       label: l10n.email,
                       child: TextFormField(
                         controller: _emailController,
+                        // An address reads left to right in either language,
+                        // and the domain sits on its right: at the end in
+                        // English, at the start (beside the icon) in Arabic.
+                        textDirection: TextDirection.ltr,
+                        // Against the domain, so the two read as one address
+                        // rather than with the field's width between them.
+                        textAlign: rtl ? TextAlign.end : TextAlign.start,
                         decoration: InputDecoration(
                           hintText: l10n.emailHint,
                           prefixIcon: const Icon(Icons.mail_outline),
+                          prefixText: _showsDomain && rtl ? _domain : null,
+                          suffixText: _showsDomain && !rtl ? _domain : null,
                         ),
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,

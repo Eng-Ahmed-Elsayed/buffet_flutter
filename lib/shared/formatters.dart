@@ -68,11 +68,17 @@ abstract final class Formatters {
   /// `expiresUtc`) and the server reports in Arab Standard Time. Never render a
   /// raw UTC value — parse as UTC and convert.
   static String timeOfDay(DateTime utc, String locale) =>
-      DateFormat.jm(locale).format(utc.toLocal());
+      _latin(DateFormat.jm(locale)).format(utc.toLocal());
 
   /// A date and time, for anything older than today.
   static String dateTime(DateTime utc, String locale) =>
-      DateFormat.yMMMd(locale).add_jm().format(utc.toLocal());
+      _latin(DateFormat.yMMMd(locale).add_jm()).format(utc.toLocal());
+
+  /// Latin digits in every locale and region, decided 2026-09-27, so a date
+  /// matches the counts and order numbers beside it. `ar` alone already
+  /// writes Latin; a regional tag such as `ar-EG` would switch to Arabic-Indic.
+  static DateFormat _latin(DateFormat format) =>
+      format..useNativeDigits = false;
 
   /// The time alone for today, the date and time for anything older: a list
   /// of today's orders each repeating today's date buried the part that

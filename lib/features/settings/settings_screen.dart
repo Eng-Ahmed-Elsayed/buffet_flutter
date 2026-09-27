@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
+import '../../data/local/app_version.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/formatters.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
@@ -147,6 +149,17 @@ class SettingsScreen extends ConsumerWidget {
               style: Theme.of(context).textTheme.labelSmall,
             ),
           ),
+          // The design's version line, in `muted` (labelSmall) rather than
+          // its 1.64:1 tint. Nothing at all until the platform answers.
+          if (ref.watch(appVersionProvider).valueOrNull case final version?)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(top: Dimens.space2),
+              child: Text(
+                l10n.appVersion(Formatters.isolate(version)),
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ),
         ],
       ),
     );

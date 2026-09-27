@@ -185,7 +185,14 @@ is `/password`, a separate route from the forced `/change-password`**, and the s
 both by reading the auth stage. Signed in, it asks for the current password and pops with a
 confirmation. Forced, it never asks for the current password and never lets the user back. The
 forced stage bounces every route, `/password` included, so rule 10 holds without a special case.
-The design's Version line waits on a decision: a dependency, or a build-time define.
+The design's Version line is at the foot, from `package_info_plus` (`appVersionProvider`),
+with the build number after it.
+
+**Sign-in asks only for the name before `@defi.com.eg`** (`ApiConfig.emailDomain`, §5.1). The
+domain shows beside the name, on its right in both languages, since the field is LTR; a full
+address, typed or pasted, goes as it is, which is how the `company.com` test accounts still sign
+in. **Every digit is Latin**, dates included (`Formatters` sets `useNativeDigits = false`), and
+no translation writes an Arabic-Indic one (`test/l10n/digits_test.dart`).
 
 **An extra's violet follows the jar it is drawn from, not ownership.** Ticking an extra the user
 owns, with servings left, puts it in `ownExtraItemIds`. A source row under the extras (the same
