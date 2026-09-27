@@ -14,8 +14,8 @@ changes:
 - Ordering becomes (Choose a drink →) Drink Details → Review.
 - The palette moves to the Figma blues, fixed for contrast.
 - English text uses Inter, with Cairo for Arabic.
-- Pickup vs delivery becomes a per-order choice, and the employee can confirm a pickup. This waits
-  on [a backend request](docs/backend-request-fulfilment-mode.md).
+- Pickup vs delivery is a per-order choice, and the employee can confirm a pickup (guide §7.8).
+  The backend has built it but not deployed it, so every field is optional in the client.
 
 Until each phase lands, the rules below describe the app as it stands; the "Rules this redesign
 changes" table in that document says which are about to move. Figma MCP is capped on the current
@@ -146,6 +146,13 @@ employees off the queue. Three rules a future edit must not undo:
   path from inside a flow; that would stack a second shell.
 - **Never build a `GoRouter` at test-file load time.** It initialises the wrong binding and fails
   the whole file. Build it in `initState` or inside `testWidgets`.
+
+**Review asks pickup or delivery** (§7.8, `fulfilment`), except of staff, whose own order is made
+and handed over at once. Nothing is preselected until a first choice, which is then remembered on
+the device (`pref_fulfilment`, cleared with the account) and carried through `addLine` and a
+confirmed order like `mode`. **Never a disabled button**: Place order with neither chosen says so
+under the choice, and delivery with no location puts the error on the location field, which the
+server would otherwise refuse with a `400`. `composer_journeys_test.dart`.
 
 **The composer is one route with three steps**, `ComposerStep` Choose a drink → Drink Details →
 Review ([docs/figma-redesign.md](docs/figma-redesign.md), *Ordering*). It is not three routes:

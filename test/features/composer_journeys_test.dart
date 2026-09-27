@@ -12,6 +12,7 @@ import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -73,6 +74,7 @@ class _FailingRepository extends CatalogueRepository {
 
   int attempts = 0;
   final keys = <String?>[];
+  final requests = <PlaceOrderApiRequest>[];
 
   @override
   Future<PlaceOrderResponse> placeOrder({
@@ -82,6 +84,7 @@ class _FailingRepository extends CatalogueRepository {
   }) async {
     attempts++;
     keys.add(request.idempotencyKey);
+    requests.add(request);
     throw ApiException(
       message: statusCode == null ? 'تعذّر الاتصال' : 'تجاوزت حد البوفيه',
       statusCode: statusCode,
@@ -159,6 +162,7 @@ Future<_FailingRepository> _open(
   bool canOrderForGuests = false,
   int? failWith,
   Size size = const Size(1400, 4000),
+  bool fulfilmentChosen = true,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -180,6 +184,14 @@ Future<_FailingRepository> _open(
   await tester.pumpAndSettle();
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
+  // A returning user: the pickup-or-delivery choice is remembered (§7.8),
+  // so these journeys are about what they test, not about choosing.
+  if (fulfilmentChosen) {
+    ProviderScope.containerOf(tester.element(find.byType(ComposerScreen)))
+        .read(composerControllerProvider.notifier)
+        .setFulfilment(Fulfilment.pickup);
+    await tester.pump();
+  }
   return repository;
 }
 
@@ -355,6 +367,110 @@ void main() {
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.text(_l10n.discardAfterFailureBody), findsOneWidget);
+    });
+  });
+
+  group('pickup or delivery is asked, and never by a disabled button', () {
+    testWidgets('neither chosen: Place order says so, and sends nothing', (
+      tester,
+    ) async {
+      final repository = await _open(
+        tester,
+        seed: ComposerSeed(favourite: _favourite([_line(1, 'قهوة')])),
+        fulfilmentChosen: false,
+      );
+      expect(find.text(_l10n.fulfilmentTitle), findsOneWidget);
+
+      await tester.tap(find.text(_l10n.placeOrder));
+      await tester.pumpAndSettle();
+      expect(repository.attempts, 0);
+      expect(find.text(_l10n.fulfilmentRequired), findsOneWidget);
+
+      await tester.tap(find.text(_l10n.fulfilmentPickup));
+      await tester.pumpAndSettle();
+      expect(find.text(_l10n.fulfilmentRequired), findsNothing);
+      await tester.tap(find.text(_l10n.placeOrder));
+      await tester.pumpAndSettle();
+      expect(repository.requests.single.fulfilment, 'Pickup');
+    });
+
+    testWidgets('delivery with nowhere to deliver to asks on the location '
+        'field', (tester) async {
+      final repository = await _open(
+        tester,
+        seed: ComposerSeed(favourite: _favourite([_line(1, 'قهوة')])),
+        fulfilmentChosen: false,
+      );
+      await tester.tap(find.text(_l10n.fulfilmentDelivery));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_l10n.placeOrder));
+      await tester.pumpAndSettle();
+
+      // The server would refuse it with a 400; the field says why first.
+      expect(repository.attempts, 0);
+      expect(find.text(_l10n.deliveryNeedsLocation), findsOneWidget);
+      final field = tester.widget<TextField>(
+        find.widgetWithText(TextField, _l10n.locationHint),
+      );
+      expect(field.focusNode?.hasFocus, isTrue);
+
+      await tester.enterText(
+        find.widgetWithText(TextField, _l10n.locationHint),
+        'Desk 3',
+      );
+      await tester.tap(find.text(_l10n.placeOrder));
+      await tester.pumpAndSettle();
+      final sent = repository.requests.single;
+      expect(sent.fulfilment, 'Delivery');
+      expect(sent.locationText, 'Desk 3');
+    });
+  });
+
+  group('the choice is order-wide and remembered', () {
+    testWidgets('Review opens on the last choice made on this device', (
+      tester,
+    ) async {
+      const channel = MethodChannel(
+        'plugins.it_nomads.com/flutter_secure_storage',
+      );
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        (call) async => call.method == 'read' &&
+                (call.arguments as Map)['key'] == 'pref_fulfilment'
+            ? 'Delivery'
+            : null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await _open(
+        tester,
+        seed: ComposerSeed(favourite: _favourite([_line(1, 'قهوة')])),
+        fulfilmentChosen: false,
+      );
+      expect(_state(tester).fulfilment, Fulfilment.delivery);
+    });
+
+    test('it survives adding a drink and a confirmed order', () {
+      final c = ComposerController()
+        ..applyLimits(maxLines: 5, maxBuffetDrinks: 5)
+        ..restoreFulfilment(Fulfilment.delivery)
+        ..selectDrink(_menu.drinks.first);
+      expect(c.state.fulfilment, Fulfilment.delivery);
+
+      c.addLine();
+      expect(c.state.fulfilment, Fulfilment.delivery);
+      c.resetAfterConfirmedOrder();
+      expect(c.state.fulfilment, Fulfilment.delivery);
+
+      // A remembered choice never overrides one made on this order.
+      c
+        ..setFulfilment(Fulfilment.pickup)
+        ..restoreFulfilment(Fulfilment.delivery);
+      expect(c.state.fulfilment, Fulfilment.pickup);
     });
   });
 

@@ -7,8 +7,10 @@ import 'package:go_router/go_router.dart';
 import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_exception.dart';
+import '../../data/local/preferences_store.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/models/favourite_models.dart';
+import '../../data/models/order_models.dart';
 import '../../data/repositories/catalogue_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/error_text.dart';
@@ -107,6 +109,13 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   /// Focused and scrolled to whenever a way on finds the guest name missing.
   final _guestNameFocus = FocusNode();
 
+  /// Pickup or delivery (§7.8): the choice, brought into view when missing,
+  /// and the location, focused when delivery has none. The errors show only
+  /// once Place order has found them, not while the user is still filling in.
+  final _fulfilmentKey = GlobalKey();
+  final _locationFocus = FocusNode();
+  bool _fulfilmentChecked = false;
+
   /// What the last favourite replayed could not add, said on screen rather
   /// than dropped: drinks no longer on the menu, and any past the line cap.
   List<OrderLineDto> _favouriteRetired = const [];
@@ -137,7 +146,28 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   bool _placeFailed = false;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(_restoreFulfilment());
+  }
+
+  /// Opens Review on the last pickup-or-delivery choice made here. Storage
+  /// failing is no loss: the user is simply asked.
+  Future<void> _restoreFulfilment() async {
+    try {
+      final wire = await ref.read(preferencesStoreProvider).readFulfilment();
+      if (!mounted) return;
+      ref
+          .read(composerControllerProvider.notifier)
+          .restoreFulfilment(Fulfilment.fromWire(wire));
+    } on Object catch (error) {
+      debugPrint('Could not read the last fulfilment choice: $error');
+    }
+  }
+
+  @override
   void dispose() {
+    _locationFocus.dispose();
     _guestNameFocus.dispose();
     _guestNameController.dispose();
     _favouriteNameController.dispose();
@@ -266,6 +296,23 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
     return false;
   }
 
+  /// Staff are never asked: their own order is made and handed over at once.
+  bool get _asksFulfilment =>
+      !ref.read(authControllerProvider).role.startsOnQueue;
+
+  void _bringIntoView(BuildContext? target) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || target == null || !target.mounted) return;
+      unawaited(
+        Scrollable.ensureVisible(
+          target,
+          duration: Motion.of(context, Motion.base),
+          curve: Motion.easeOut,
+        ),
+      );
+    });
+  }
+
   /// Takes the user to the name field. It sits above the menu, often far out
   /// of view from the drink that was tapped, so an error there alone read as
   /// a tap that did nothing.
@@ -365,6 +412,23 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
     }
     if (!composer.canPlaceOrder) return;
 
+    // Asked of everyone but staff, whose own order is made and handed over
+    // in the same call. Never a disabled button: the handler says what is
+    // missing, where it is.
+    if (_asksFulfilment) {
+      if (composer.fulfilment == null) {
+        setState(() => _fulfilmentChecked = true);
+        _bringIntoView(_fulfilmentKey.currentContext);
+        return;
+      }
+      if (composer.deliveryLocationMissing) {
+        setState(() => _fulfilmentChecked = true);
+        _locationFocus.requestFocus();
+        _bringIntoView(_locationFocus.context);
+        return;
+      }
+    }
+
     setState(() {
       _placing = true;
       _placeError = null;
@@ -385,6 +449,11 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
       // second means a retry matched an existing order. Same confirmation.
       // `favouriteId` null is NOT an error: saving is best-effort.
       if (result.favouriteId != null) ref.invalidate(favouritesProvider);
+      // Remembered for the next order, on this device, for this account.
+      if (composer.fulfilment case final Fulfilment mode) {
+        unawaited(ref.read(preferencesStoreProvider).writeFulfilment(mode.wire));
+      }
+      _fulfilmentChecked = false;
       ref.read(composerControllerProvider.notifier).resetAfterConfirmedOrder();
       // The new order belongs in the outstanding list the moment it exists.
       ref.invalidate(myOrdersProvider);
@@ -585,6 +654,11 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
                 onChooseDrink: () => _go(ComposerStep.chooseDrink),
                 onAddAnother: _addAnother,
                 onPlaceOrder: _placeOrder,
+                askFulfilment: _asksFulfilment,
+                fulfilmentError: _fulfilmentChecked,
+                locationError: _fulfilmentChecked,
+                fulfilmentKey: _fulfilmentKey,
+                locationFocus: _locationFocus,
                 header: header,
               ),
             };

@@ -92,7 +92,20 @@ class ComposerState {
     this.saveAsFavourite = false,
     this.favouriteName,
     this.fromFavouriteId,
+    this.fulfilment,
   });
+
+  /// Pickup or delivery (§7.8), or null while unchosen. Opens on the last
+  /// choice made on this device. Order-wide, so it survives adding a drink
+  /// and a confirmed order alike.
+  final Fulfilment? fulfilment;
+
+  /// Delivery with nowhere to deliver to, which the server refuses: the
+  /// error belongs on the location field, never on a disabled button.
+  bool get deliveryLocationMissing =>
+      fulfilment == Fulfilment.delivery &&
+      locationId == null &&
+      (locationText ?? '').trim().isEmpty;
 
   /// How many identical cups the draft stands for — the design's quantity
   /// stepper. There is no per-line quantity on the wire, so the draft becomes
@@ -349,6 +362,7 @@ class ComposerState {
     bool? saveAsFavourite,
     String? Function()? favouriteName,
     int? Function()? fromFavouriteId,
+    Fulfilment? Function()? fulfilment,
   }) => ComposerState(
     idempotencyKey: idempotencyKey ?? this.idempotencyKey,
     lines: lines ?? this.lines,
@@ -376,6 +390,7 @@ class ComposerState {
     fromFavouriteId: fromFavouriteId != null
         ? fromFavouriteId()
         : this.fromFavouriteId,
+    fulfilment: fulfilment != null ? fulfilment() : this.fulfilment,
   );
 
   /// Builds the wire request. Each line carries which jar its components come
@@ -394,6 +409,9 @@ class ComposerState {
         ? null
         : favouriteName!.trim(),
     fromFavouriteId: fromFavouriteId,
+    // Null (a staff member's own order, never asked) is omitted, and the
+    // server infers it from the location as it always has.
+    fulfilment: fulfilment?.wire,
   );
 }
 
@@ -571,6 +589,15 @@ class ComposerController extends StateNotifier<ComposerState> {
 
   void setNotes(String? notes) => state = state.copyWith(notes: () => notes);
 
+  /// Pickup or delivery. Null is only ever the starting state.
+  void setFulfilment(Fulfilment mode) =>
+      state = state.copyWith(fulfilment: () => mode);
+
+  /// Opens on a remembered choice, unless one was made meanwhile.
+  void restoreFulfilment(Fulfilment? mode) {
+    if (mode != null && state.fulfilment == null) setFulfilment(mode);
+  }
+
   /// Names the guest this order is for. Only ever called when the signed-in
   /// user holds `canOrderForGuests` — the server reads that from the token and
   /// rejects a guest name from anyone else.
@@ -619,6 +646,8 @@ class ComposerController extends StateNotifier<ComposerState> {
       saveAsFavourite: state.saveAsFavourite,
       favouriteName: state.favouriteName,
       fromFavouriteId: state.fromFavouriteId,
+      // Order-wide, like the location: carried for the same reason as `mode`.
+      fulfilment: state.fulfilment,
     );
   }
 
@@ -780,6 +809,8 @@ class ComposerController extends StateNotifier<ComposerState> {
     mode: state.mode,
     maxLines: state.maxLines,
     maxBuffetDrinks: state.maxBuffetDrinks,
+    // Carried: the next order is most likely collected the same way.
+    fulfilment: state.fulfilment,
     // Deliberately NOT carried, unlike `mode`. The favourite was saved with
     // the order that just went out; leaving the toggle on would save a second
     // copy of the next one, and `fromFavouriteId` would credit a favourite the

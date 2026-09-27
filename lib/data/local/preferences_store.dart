@@ -28,6 +28,7 @@ class PreferencesStore {
   static const _biometricsKey = 'pref_biometrics';
   static const _onboardingKey = 'pref_onboarding_seen';
   static const _mustChangeKey = 'pref_must_change_password';
+  static const _fulfilmentKey = 'pref_fulfilment';
 
   /// The last successfully used email, so the second sign-in is password-only
   /// and biometric-only after that (§5.1). Not a secret, and never the password.
@@ -109,6 +110,12 @@ class PreferencesStore {
   Future<void> writeBiometricsEnabled(bool enabled) =>
       _storage.write(key: _biometricsKey, value: '$enabled');
 
+  /// The last pickup-or-delivery choice, so Review opens on it (§7.8, D5).
+  /// The wire name, or null when none was ever made.
+  Future<String?> readFulfilment() => _storage.read(key: _fulfilmentKey);
+  Future<void> writeFulfilment(String wire) =>
+      _storage.write(key: _fulfilmentKey, value: wire);
+
   /// Clears preferences tied to the signed-in account.
   ///
   /// The language stays — it is a device preference, not an account one, and
@@ -123,6 +130,8 @@ class PreferencesStore {
     await _storage.delete(key: _departmentKey);
     await _storage.delete(key: _guestsKey);
     await _storage.delete(key: _mustChangeKey);
+    // One person's habit, not the next user's of this device.
+    await _storage.delete(key: _fulfilmentKey);
   }
 }
 

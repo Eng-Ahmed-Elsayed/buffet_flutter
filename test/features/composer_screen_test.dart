@@ -19,6 +19,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import '../helpers/fake_auth_controller.dart';
+
 CatalogueItemDto _item(
   int id,
   String nameAr,
@@ -1083,6 +1085,22 @@ void main() {
               (ref) async => const FavouritesResponse(favourites: []),
             ),
             canOrderForGuestsProvider.overrideWith((ref) => false),
+            // A staff member: their own order is made and handed over at once,
+            // so they are never asked pickup or delivery.
+            authControllerProvider.overrideWith(
+              (ref) => FakeAuthController(
+                const AuthState(
+                  stage: AuthStage.signedIn,
+                  restoredIdentity: (
+                    role: 'Staff',
+                    displayName: 'أحمد',
+                    department: 'البوفيه',
+                    canOrderForGuests: false,
+                  ),
+                ),
+                pinned: true,
+              ),
+            ),
             catalogueRepositoryProvider.overrideWithValue(_AutoServing()),
           ],
           child: MaterialApp.router(

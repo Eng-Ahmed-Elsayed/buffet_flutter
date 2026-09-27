@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/models/catalogue_models.dart';
 import '../../../data/models/favourite_models.dart';
+import '../../../data/models/order_models.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/banners.dart';
@@ -42,9 +43,30 @@ class ReviewOrderStep extends ConsumerWidget {
     required this.onChooseDrink,
     required this.onAddAnother,
     required this.onPlaceOrder,
+    required this.askFulfilment,
+    required this.fulfilmentError,
+    required this.locationError,
+    required this.fulfilmentKey,
+    required this.locationFocus,
     this.header,
     super.key,
   });
+
+  /// False for a staff member's own order: it is made and handed over in the
+  /// same call, so there is nothing to collect or deliver.
+  final bool askFulfilment;
+
+  /// Place order was pressed with neither chosen.
+  final bool fulfilmentError;
+
+  /// Delivery chosen with no location, once Place order found it so.
+  final bool locationError;
+
+  /// On the choice, so a missing one can be brought into view.
+  final GlobalKey fulfilmentKey;
+
+  /// On the location field, focused when delivery finds it empty.
+  final FocusNode locationFocus;
 
   final CatalogueResponse catalogue;
   final ComposerState composer;
@@ -197,16 +219,38 @@ class ReviewOrderStep extends ConsumerWidget {
                   ),
                 const SizedBox(height: Dimens.space5),
 
+                // Pickup or delivery (§7.8). Nothing is chosen for someone
+                // who has never chosen; after that it opens on their last.
+                if (askFulfilment) ...[
+                  _FulfilmentChoice(
+                    key: fulfilmentKey,
+                    selected: composer.fulfilment,
+                    error: fulfilmentError && composer.fulfilment == null,
+                    onChanged: controller.setFulfilment,
+                  ),
+                  const SizedBox(height: Dimens.space4),
+                ],
+
                 // Plain text, deliberately — no suggestion list. Free text
                 // always sends `locationText`, which the server accepts for
                 // any place at all, so an unlisted spot never blocks an order.
+                // Needed for delivery; for pickup it tells staff where the
+                // person sits, and is optional.
                 LabelledField(
                   label: l10n.deliveryLocation,
                   child: TextField(
                     controller: locationController,
+                    focusNode: locationFocus,
                     decoration: InputDecoration(
-                      hintText: l10n.locationHint,
+                      hintText: composer.fulfilment == Fulfilment.pickup
+                          ? l10n.pickupLocationHint
+                          : l10n.locationHint,
                       prefixIcon: const Icon(Icons.place_outlined),
+                      // Words on the field, never a disabled button (§7.8).
+                      errorText:
+                          locationError && composer.deliveryLocationMissing
+                          ? l10n.deliveryNeedsLocation
+                          : null,
                     ),
                     textInputAction: TextInputAction.next,
                     onChanged: (text) =>
@@ -268,6 +312,88 @@ class ReviewOrderStep extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The two ways a drink reaches the person, as the language choice is drawn
+/// in Account: labelled rows in one card, neither preselected until chosen.
+class _FulfilmentChoice extends StatelessWidget {
+  const _FulfilmentChoice({
+    required this.selected,
+    required this.error,
+    required this.onChanged,
+    super.key,
+  });
+
+  final Fulfilment? selected;
+  final bool error;
+  final void Function(Fulfilment) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
+    // The visible label is decorative for screen readers (FieldLabel), so the
+    // group carries the question itself, read before its two answers.
+    return Semantics(
+      container: true,
+      label: l10n.fulfilmentTitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          FieldLabel(label: l10n.fulfilmentTitle),
+          AppCard(
+            padding: const EdgeInsetsDirectional.symmetric(
+              horizontal: Dimens.space2,
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: RadioGroup<Fulfilment>(
+                groupValue: selected,
+                onChanged: (value) {
+                  if (value != null) onChanged(value);
+                },
+                child: Column(
+                  children: [
+                    for (final (mode, label, icon) in [
+                      (
+                        Fulfilment.pickup,
+                        l10n.fulfilmentPickup,
+                        Icons.storefront_outlined,
+                      ),
+                      (
+                        Fulfilment.delivery,
+                        l10n.fulfilmentDelivery,
+                        Icons.delivery_dining_outlined,
+                      ),
+                    ])
+                      RadioListTile<Fulfilment>(
+                        value: mode,
+                        title: Text(label),
+                        secondary: Icon(icon, color: BrandColors.iconBlue),
+                        activeColor: BrandColors.brand,
+                        contentPadding: EdgeInsetsDirectional.zero,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (error) ...[
+            const SizedBox(height: Dimens.space2),
+            // Words, not a red outline alone, and announced as it appears.
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                l10n.fulfilmentRequired,
+                style: Theme.of(context).textTheme.bodySmall
+                    ?.copyWith(color: BrandColors.danger),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
