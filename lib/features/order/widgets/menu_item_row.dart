@@ -35,9 +35,9 @@ class MenuItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;
-    final name = drink.localisedName(
-      Localizations.localeOf(context).languageCode,
-    );
+    final language = Localizations.localeOf(context).languageCode;
+    final name = drink.localisedName(language);
+    final description = drink.localisedDescription(language);
     final ownOut = drink.ownServingsLeft <= 0;
 
     return AppCard(
@@ -61,6 +61,17 @@ class MenuItemRow extends StatelessWidget {
                     color: BrandColors.brandSecondary,
                   ),
                 ),
+                // The design's one line under the name (§7.9). Two at most
+                // here; Drink Details shows it whole.
+                if (description != null) ...[
+                  const SizedBox(height: Dimens.space1),
+                  Text(
+                    description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodySmall?.copyWith(color: BrandColors.muted),
+                  ),
+                ],
                 if (fromOwn) ...[
                   const SizedBox(height: Dimens.space1),
                   // Violet: this row is the user's own jar. A depleted jar

@@ -124,7 +124,10 @@ Two rules from that work that a future edit must not undo:
 `StatefulShellRoute`): **Home · Favourites · Orders · Account** at `/home`, `/favourites`,
 `/orders`, `/account`. Home is the design's Home: greeting, drink search (`foldForSearch`, which
 treats «قهوه» and «قهوة» as the same), the outstanding-order card, the favourites strip and the menu
-of every drink grouped «من موادي» then «من البوفيه». **There is no "New order" button; a menu row
+of every drink grouped «من موادي» then «من البوفيه». **Menu groups filter both sections** (All, each
+group, and «أخرى» for a drink with none or a retired one); with no groups the chips jump to the two
+jars instead. A row shows two lines of description, Drink Details the whole
+(`menu_groups_test.dart`). **There is no "New order" button; a menu row
 is the way in.** It opens the composer seeded with `ComposerSeed.drinkItemId` and `drinkFromOwn`,
 the row's jar. Home builds its whole menu (a `Column`, not a lazy `ListView`), because the jump
 chips scroll to a section heading and a lazy list never builds an off-screen one. My materials is a

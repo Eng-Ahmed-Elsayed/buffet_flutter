@@ -176,6 +176,7 @@ class ChooseDrinkStep extends StatelessWidget {
 
           DrinkMenu(
             drinks: catalogue.drinks,
+            groups: catalogue.drinkGroups,
             query: query,
             onSelect: onSelectDrink,
           ),

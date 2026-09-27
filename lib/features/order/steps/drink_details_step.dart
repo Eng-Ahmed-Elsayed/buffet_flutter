@@ -76,6 +76,18 @@ class DrinkDetailsStep extends ConsumerWidget {
                         drink.localisedName(language),
                         style: text.headlineMedium,
                       ),
+                      // Whole, under the name (§7.9). None written: straight
+                      // from the title to the controls.
+                      if (drink.localisedDescription(language)
+                          case final description?) ...[
+                        const SizedBox(height: Dimens.space2),
+                        Text(
+                          description,
+                          style: text.bodyMedium?.copyWith(
+                            color: BrandColors.muted,
+                          ),
+                        ),
+                      ],
 
                       // Which jar: only for a drink the user owns any of.
                       // Violet for their own jar, brand for the buffet — never

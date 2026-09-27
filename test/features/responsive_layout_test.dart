@@ -65,7 +65,9 @@ CatalogueItemDto _e(int id, String n, {int own = 0}) => CatalogueItemDto(
 
 /// The widest menu the composer draws: an out-of-stock drink (its badge), a
 /// drink made two ways whose preparation pours an extra (the double-portion
-/// mark), and three extras, one the user owns.
+/// mark), and three extras, one the user owns. Long descriptions and menu
+/// groups (§7.9), including a drink with no group, so the chip row carries
+/// Other too.
 final _cat = CatalogueResponse(
   drinks: [
     const CatalogueItemDto(
@@ -80,6 +82,10 @@ final _cat = CatalogueResponse(
       ownServingsLeft: 0,
       variants: [],
       allowedExtraItemIds: null,
+      descriptionAr:
+          'قهوة تركية محوّجة بالهيل، تُحضّر على نار هادئة وتُقدّم مع كوب ماء '
+          'بارد، كما يحبها الجميع في المكتب منذ الصباح الباكر',
+      drinkGroupId: 1,
     ),
     const CatalogueItemDto(
       itemId: 2,
@@ -118,6 +124,20 @@ final _cat = CatalogueResponse(
   locations: const [],
   maxLines: 5,
   maxBuffetDrinks: 1,
+  drinkGroups: const [
+    DrinkGroupDto(
+      drinkGroupId: 1,
+      nameAr: 'القهوة والمشروبات الساخنة',
+      nameEn: 'Coffee and hot drinks',
+      sortOrder: 1,
+    ),
+    DrinkGroupDto(
+      drinkGroupId: 2,
+      nameAr: 'العصائر الطازجة',
+      nameEn: 'Fresh juices',
+      sortOrder: 2,
+    ),
+  ],
 );
 
 final _orders = [
@@ -345,6 +365,10 @@ void main() {
     // the violet jar choice, the shortage banner, sugar and the stepper.
     'composer-details': const ComposerScreen(
       seed: ComposerSeed(drinkItemId: 2, drinkFromOwn: true),
+    ),
+    // The long description, whole, above the controls.
+    'composer-details-described': const ComposerScreen(
+      seed: ComposerSeed(drinkItemId: 1),
     ),
     // Review, from a favourite: grouped identical cups, a line with extras,
     // a drink no longer on the menu and one past the buffet cap (so the

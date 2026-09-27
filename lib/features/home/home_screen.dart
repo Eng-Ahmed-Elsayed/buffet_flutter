@@ -407,6 +407,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     // list drinks differently.
                     DrinkMenu(
                       drinks: data.drinks,
+                      groups: data.drinkGroups,
                       query: _query,
                       onSelect: (drink, {required fromOwn}) => _openComposer(
                         mode: OrderMode.self,

@@ -114,9 +114,9 @@ Shown once per install. Skip and Sign in both go to login.
 | "Good Morning, Salma" | ✅ time-of-day greeting with `displayName` |
 | Tagline "Boost your metabolism…" | ❌ a health claim with no data behind it |
 | Search | ✅ client-side over `/catalogue`, matching `nameAr` and `nameEn` |
-| Category chips | 🔁 Filters over the menu. The menu itself **keeps guide §7.1's source sections in every case: «من موادي» first** (violet, only when the user owns something), **then «من البوفيه»** (neutral). The chips are the menu groups once the backend ships them, with drinks that have no group under «أخرى» / "Other"; they filter within both sections. Until then, the chips are the two source sections themselves, as jump links |
+| Category chips | 🔁 Filters over the menu. The menu itself **keeps guide §7.1's source sections in every case: «من موادي» first** (violet, only when the user owns something), **then «من البوفيه»** (neutral). ✅ Built (2026-09-27, guide §7.9): All, then the menu groups in the server's order, with drinks that have no group (or a retired one) under «أخرى» / "Other"; they filter within both sections. While the server has no groups (`drinkGroups` empty, and on a deployment that predates them), the chips are the two source sections themselves, as jump links |
 | "Popular" cards | 🔁 **Favourites.** Popularity does not exist, and the favourites are the user's own one-tap repeats. The strip rules still hold (4 most recent, measured two per row, retired items marked). **No "See all" on Home**: the Favorites tab is that destination, and a link to it would be a second control for the same place |
-| "Recommended for you" | 🔁 **the full menu**: image, name, description (once shipped) |
+| "Recommended for you" | 🔁 **the full menu**: image, name, and up to two lines of description when one is written |
 | "OUT OF STOCK" badge | 🔁 `inStock == false` shows a **warning badge and the row stays tappable**. Shortages never block |
 | — | ➕ outstanding-order card (above everything while an order is live) · ➕ guest order entry (when `canOrderForGuests`) |
 
@@ -126,7 +126,7 @@ Shown once per install. Skip and Sign in both go to login.
 | Top bar with no back arrow | ➕ **back arrow**. It is a pushed screen |
 | Hero image, title | ✅ `imageUrl`, with the `ItemImage` fallback glyph |
 | ★ rating | ❌ no ratings exist |
-| Description | ✅ once the backend ships it; otherwise omitted |
+| Description | ✅ whole, under the name; omitted when none is written (guide §7.9) |
 | "Choose size" S/M/L | 🔁 **Preparation** (`variants`), shown only when there is more than one |
 | Extras chips | ✅ filtered by `allowedExtraItemIds`, with the double-portion mark kept |
 | Sugar chip-stepper **and** sugar slider | 🔁 **one** stepper; 0 is an explicit "no sugar". A slider cannot make zero a stated choice |
