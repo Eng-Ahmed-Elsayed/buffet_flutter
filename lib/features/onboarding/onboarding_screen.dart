@@ -56,19 +56,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // Each photograph with the part of it the portrait card keeps: the cup
+    // sits right of centre in the first two.
     final slides = [
       (
-        Icons.local_cafe_outlined,
+        'assets/images/onboarding/order.jpg',
+        const Alignment(0.3, 0),
         l10n.onboardingOrderTitle,
         l10n.onboardingOrderBody,
       ),
       (
-        Icons.notifications_active_outlined,
+        'assets/images/onboarding/ready.jpg',
+        const Alignment(-0.05, 0),
         l10n.onboardingReadyTitle,
         l10n.onboardingReadyBody,
       ),
       (
-        Icons.inventory_2_outlined,
+        'assets/images/onboarding/own.jpg',
+        const Alignment(0.2, -0.3),
         l10n.onboardingOwnTitle,
         l10n.onboardingOwnBody,
       ),
@@ -109,9 +114,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       itemCount: slides.length,
                       onPageChanged: (i) => setState(() => _index = i),
                       itemBuilder: (context, i) => _Slide(
-                        icon: slides[i].$1,
-                        title: slides[i].$2,
-                        body: slides[i].$3,
+                        image: slides[i].$1,
+                        focus: slides[i].$2,
+                        title: slides[i].$3,
+                        body: slides[i].$4,
                       ),
                     ),
                   ),
@@ -149,13 +155,26 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 }
 
-/// One slide: the design's hero card, with the brand gradient in place of a
-/// photograph. White text holds 8.21:1 on [BrandColors.brand] and 6.11:1 on
-/// [BrandColors.brandSecondary], the two ends of the gradient.
+/// One slide, as the design draws it: a photograph filling the card, the
+/// title and text over its foot on a fade, so white text reads over any
+/// picture (white on [BrandColors.photoScrim] holds 8.4:1 at worst). Real,
+/// licensed photographs, never generated ones (D3).
 class _Slide extends StatelessWidget {
-  const _Slide({required this.icon, required this.title, required this.body});
+  const _Slide({
+    required this.image,
+    required this.focus,
+    required this.title,
+    required this.body,
+  });
 
-  final IconData icon;
+  /// An asset under assets/images/onboarding/.
+  final String image;
+
+  /// Which part of the photograph the card keeps when it crops it. An
+  /// `Alignment`, not a directional one, deliberately: a photograph is not
+  /// mirrored in Arabic, so the cup stays where the camera put it.
+  final Alignment focus;
+
   final String title;
   final String body;
 
@@ -163,61 +182,82 @@ class _Slide extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(Dimens.radiusLg),
-        gradient: const LinearGradient(
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
-          colors: [BrandColors.brandSecondary, BrandColors.brand],
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsetsDirectional.all(Dimens.space5),
-        // Scrolls rather than overflowing when a large text scale makes the
-        // copy taller than the card.
-        child: LayoutBuilder(
-          builder: (context, constraints) => SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: constraints.maxHeight),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Padding(
-                    padding: const EdgeInsetsDirectional.only(
-                      top: Dimens.space4,
-                    ),
-                    child: Icon(
-                      icon,
-                      size: Dimens.iconSlide,
-                      color: BrandColors.surface,
-                    ),
-                  ),
-                  const SizedBox(height: Dimens.space5),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: text.headlineMedium?.copyWith(
-                          color: BrandColors.surface,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(Dimens.radiusLg),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Decorative: the title and text say what the slide is about.
+          Image.asset(
+            image,
+            fit: BoxFit.cover,
+            alignment: focus,
+            excludeFromSemantics: true,
+          ),
+          // Scrolls rather than overflowing when a large text scale makes the
+          // copy taller than the card; the fade grows with it.
+          LayoutBuilder(
+            builder: (context, constraints) => SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // A fixed band that fades the photograph in, then a solid
+                    // box under every line of text: the text never sits on
+                    // anything see-through, however tall a large text scale
+                    // makes it.
+                    SizedBox(
+                      height: Dimens.space8,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              BrandColors.photoScrim.withAlpha(0),
+                              BrandColors.photoScrim,
+                            ],
+                          ),
                         ),
                       ),
-                      const SizedBox(height: Dimens.space2),
-                      Text(
-                        body,
-                        style: text.bodyLarge?.copyWith(
-                          color: BrandColors.surface,
+                    ),
+                    ColoredBox(
+                      color: BrandColors.photoScrim,
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(
+                          Dimens.space5,
+                          0,
+                          Dimens.space5,
+                          Dimens.space5,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              style: text.headlineMedium?.copyWith(
+                                color: BrandColors.surface,
+                              ),
+                            ),
+                            const SizedBox(height: Dimens.space2),
+                            Text(
+                              body,
+                              style: text.bodyLarge?.copyWith(
+                                color: BrandColors.surface,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

@@ -59,6 +59,12 @@ abstract final class BrandColors {
   /// Headings and body text. 13.48:1 on white, 11.75:1 on the page.
   static const ink = Color(0xFF1C2F4B);
 
+  /// The box under text laid over a photograph: [ink] at 85%. Even over a
+  /// pure white photo it composites to about #3E4E66, where white text holds
+  /// 8.4:1, so the text reads whatever the picture does beneath it. Text sits
+  /// only on the solid colour, never on the fade that leads into it.
+  static const photoScrim = Color(0xD91C2F4B);
+
   /// Secondary text, hints and placeholders. 5.67:1 on white, 4.94:1 on the
   /// page. It replaces the design's greys (`#ACACAC`, `#BEBEBE`, `#919191`),
   /// which measured 1.86–2.43:1 and could not be read.

@@ -319,7 +319,9 @@ signed-out device with a remembered email or a just-ended session (`hasUsedAppPr
 the emulator); see `onboardingControllerProvider`. Without that, everyone who signed in before it existed would be sent
 through three slides the moment their session ended, burying the "session expired" notice below.
 `signedOutRedirect` holds on the splash while the flag loads. The entry screens (splash, explainer,
-sign-in, lock) share `BrandBackdrop` and `BrandLockup`. **No text sits over the glow's peak**: the
+sign-in, lock) share `BrandBackdrop` and `BrandLockup`. The explainer's slides are licensed photographs
+([docs/asset-credits.md](docs/asset-credits.md)), never generated ones, with the text on
+`BrandColors.photoScrim`; a new photo is credited there. **No text sits over the glow's peak**: the
 link blue drops to about 4:1 there, so the explainer's Skip is in ink.
 
 **The forced password change survives a relaunch** (rule 10). `pref_must_change_password` is

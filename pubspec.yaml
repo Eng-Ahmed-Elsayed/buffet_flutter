@@ -50,6 +50,9 @@ flutter:
 
   assets:
     - assets/images/
+    # Real photographs under the free Unsplash License; credits in
+    # docs/asset-credits.md.
+    - assets/images/onboarding/
 
   # Cairo ships as a single variable font covering ExtraLight..ExtraBlack.
   # Bundled rather than fetched so the app works offline with no CDN (§2.4).
