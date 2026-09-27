@@ -216,9 +216,9 @@ Widget _wrap(
   child: testApp(home: home, locale: locale, textScale: scale),
 );
 
-final _staffOrder = StaffOrderDto(
+StaffOrderDto _staffOrderAt(String status) => StaffOrderDto(
   orderId: 41,
-  status: 'Pending',
+  status: status,
   createdAtUtc: DateTime.utc(2026, 8, 20, 7),
   readyAtUtc: null,
   requesterDisplayName: 'سارة عبد الرحمن',
@@ -441,11 +441,23 @@ void main() {
     // ran 210dp off a 320dp card at 2x.
     'staff-queue-card': SingleChildScrollView(
       child: QueueCard(
-        order: _staffOrder,
+        order: _staffOrderAt('Pending'),
         warnings: null,
         onMarkReady: (o, {required deliverNow}) async {},
         onComplete: null,
         onCancel: (o) async {},
+        onStart: (o) async {},
+      ),
+    ),
+    // Started: the "being made" statement in the start button's place.
+    'staff-queue-card-in-progress': SingleChildScrollView(
+      child: QueueCard(
+        order: _staffOrderAt('InProgress'),
+        warnings: null,
+        onMarkReady: (o, {required deliverNow}) async {},
+        onComplete: null,
+        onCancel: (o) async {},
+        onStart: (o) async {},
       ),
     ),
   };

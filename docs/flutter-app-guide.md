@@ -846,6 +846,11 @@ Constraints the backend holds, and the app must not work around:
 - **`Ready` is the important button.** Make it the largest target on the card. `deliverNow` (ready
   and handed over in one motion) is the common case at the counter — offer it as the primary
   action with plain `Ready` secondary.
+- **"Start making" (`/start`) is offered, never required** (decided 2026-09-27). On a `Pending`
+  card it sits above the ready pair; once `InProgress`, a "being made" statement takes its place.
+  It tells the employee their drink is under way, and from then on only staff can cancel it. It is
+  immediate, with no undo: it writes no ledger rows. The ready buttons still serve a `Pending`
+  order in one tap, because the counter case is the common one.
 - **Never disable an action on a stock shortage.** `/ready` returns `200` with a `warnings` array —
   surface it on the card after serving; do not treat it as a failure.
 - **Handovers need a second list.** The default queue is `Pending` + `InProgress` only, so an order

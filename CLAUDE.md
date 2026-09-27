@@ -94,7 +94,11 @@ Two rules from that work that a future edit must not undo:
   server re-books a Ready order's consumption as waste, and the dialog says so. The dialog's buttons
   are "Keep order" and "Cancel order", never "Cancel"/"Confirm". Identical cups show once with ×N,
   where identical means every field the maker acts on. The two tabs carry their counts, scroll
-  and grow in height rather than fade a label (`measureTabLabels`). `queue_staff_view_test.dart`.
+  and grow in height rather than fade a label (`measureTabLabels`). **"Start making" (`/start`)
+  is optional, never a gate**: a Pending card offers it above the ready pair, which still serve a
+  Pending order directly, and an InProgress card says "being made" in its place. It is a text
+  button, so Ready stays the largest target. It is immediate, with no undo, since it writes no
+  ledger rows, and it is announced. `queue_staff_view_test.dart`.
 - **Foreground polling stays alongside push.** Push closes the closed-app gap; polling closes the
   foreground-freshness gap. They are not duplicates.
 - **`prepareLandingPrompts` is called from BOTH landing screens** (`lib/app/landing_prompts.dart`).

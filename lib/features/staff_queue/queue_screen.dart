@@ -465,6 +465,50 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     }
   }
 
+  /// Orders whose `/start` is in flight, so a second tap cannot post again.
+  final _starting = <int>{};
+
+  /// Tells the employee their drink is being made (`Pending → InProgress`).
+  ///
+  /// **Immediate, with no undo window**: it writes no ledger rows, and its
+  /// only lasting effect is that the employee can no longer cancel, which
+  /// staff still can. A `400` means the order moved first (the employee
+  /// cancelled it, or a colleague served it); the server says which, and the
+  /// refresh shows it.
+  Future<void> _start(StaffOrderDto order) async {
+    if (!_starting.add(order.orderId)) return;
+    setState(() {});
+
+    final l10n = AppLocalizations.of(context);
+    final locale = ref.read(localeControllerProvider);
+    try {
+      await ref
+          .read(queueRepositoryProvider)
+          .start(
+            orderId: order.orderId,
+            languageCode: locale.languageCode,
+            networkErrorFallback: l10n.networkError,
+          );
+      if (mounted) _announce(l10n.orderStartedAnnouncement);
+    } on ApiException catch (error) {
+      // A slow start overtaken by this device's own serve is refused because
+      // the drink is already made: no error for an order served correctly.
+      final servedHere =
+          _serving.contains(order.orderId) ||
+          _pendingActions.containsKey(order.orderId);
+      if (mounted && !servedHere) _showError(error.message);
+    } finally {
+      // With its rebuild, so the spinner goes with the answer rather than
+      // waiting on the refresh behind it.
+      if (mounted) {
+        setState(() => _starting.remove(order.orderId));
+      } else {
+        _starting.remove(order.orderId);
+      }
+    }
+    if (mounted) await _refresh();
+  }
+
   /// Hands an order over. **Immediate, with no undo window and no dialog.**
   ///
   /// Unlike `/ready`, this writes no ledger rows: a mistaken handover is a
@@ -751,6 +795,8 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                 onMarkReady: _markReadyAfterUndoWindow,
                 onComplete: null,
                 onCancel: _cancel,
+                onStart: _start,
+                starting: _starting,
               ),
               _QueueList(
                 orders: _handovers,
@@ -761,6 +807,8 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                 emptyBody: l10n.noHandoversBody,
                 onRefresh: _refresh,
                 onMarkReady: null,
+                onStart: null,
+                starting: const {},
                 onComplete: _complete,
                 // A made drink nobody collects has to leave the list somehow;
                 // the server re-books it as waste, and the dialog says so.
@@ -783,6 +831,8 @@ class _QueueList extends StatelessWidget {
     required this.onMarkReady,
     required this.onComplete,
     required this.onCancel,
+    required this.onStart,
+    required this.starting,
   });
 
   final List<StaffOrderDto> orders;
@@ -796,6 +846,8 @@ class _QueueList extends StatelessWidget {
   onMarkReady;
   final Future<void> Function(StaffOrderDto)? onComplete;
   final Future<void> Function(StaffOrderDto)? onCancel;
+  final Future<void> Function(StaffOrderDto)? onStart;
+  final Set<int> starting;
 
   @override
   Widget build(BuildContext context) {
@@ -832,6 +884,8 @@ class _QueueList extends StatelessWidget {
             onMarkReady: onMarkReady,
             onComplete: onComplete,
             onCancel: onCancel,
+            onStart: onStart,
+            starting: starting.contains(order.orderId),
           );
         },
       ),

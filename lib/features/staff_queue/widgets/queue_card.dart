@@ -7,6 +7,7 @@ import '../../../data/models/staff_models.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/banners.dart';
+import '../../../shared/widgets/button_spinner.dart';
 import '../../../shared/widgets/source_chip.dart';
 import '../../../theme/brand_colors.dart';
 import '../../../theme/dimens.dart';
@@ -29,12 +30,22 @@ class QueueCard extends StatelessWidget {
     required this.onMarkReady,
     required this.onComplete,
     required this.onCancel,
+    this.onStart,
+    this.starting = false,
     this.pending,
     this.onUndo,
     super.key,
   });
 
   final StaffOrderDto order;
+
+  /// `Pending → InProgress`: tells the employee their drink is being made,
+  /// and from then on they can no longer cancel it. Optional, never a gate:
+  /// the ready buttons still serve a Pending order in one tap at the counter.
+  final Future<void> Function(StaffOrderDto)? onStart;
+
+  /// True while this order's start is in flight.
+  final bool starting;
 
   /// Warnings from a recent serve. A populated list is **not** a failure — the
   /// drink was made and the shortfall is for an admin to reconcile.
@@ -201,6 +212,8 @@ class QueueCard extends StatelessWidget {
                     onMarkReady: onMarkReady,
                     onComplete: onComplete,
                     onCancel: onCancel,
+                    onStart: onStart,
+                    starting: starting,
                   ),
           ),
         ],
@@ -483,6 +496,8 @@ class _Actions extends StatelessWidget {
     required this.onMarkReady,
     required this.onComplete,
     required this.onCancel,
+    required this.onStart,
+    required this.starting,
     super.key,
   });
 
@@ -491,6 +506,8 @@ class _Actions extends StatelessWidget {
   onMarkReady;
   final Future<void> Function(StaffOrderDto)? onComplete;
   final Future<void> Function(StaffOrderDto)? onCancel;
+  final Future<void> Function(StaffOrderDto)? onStart;
+  final bool starting;
 
   @override
   Widget build(BuildContext context) {
@@ -508,7 +525,19 @@ class _Actions extends StatelessWidget {
         ),
       );
     } else if (onMarkReady != null) {
-      primary = _readyRow(context, l10n);
+      // By name, never ordinal (rule 5).
+      final beingMade = order.status == 'InProgress';
+      primary = Column(
+        children: [
+          if (beingMade)
+            _BeingMade(label: l10n.beingMade)
+          else if (onStart != null)
+            _startButton(l10n),
+          if (beingMade || onStart != null)
+            const SizedBox(height: Dimens.space2),
+          _readyRow(context, l10n),
+        ],
+      );
     } else {
       return const SizedBox.shrink();
     }
@@ -536,6 +565,27 @@ class _Actions extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+
+  /// Before the ready pair, in the order the work happens: start, then serve.
+  /// A text button, so Ready stays the largest target on the card (§8.1),
+  /// though still a full 44dp one. While the call is out it names its working
+  /// state rather than going blank, and a second tap cannot post again.
+  Widget _startButton(AppLocalizations l10n) {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: starting ? null : () => onStart!(order),
+        style: TextButton.styleFrom(
+          foregroundColor: BrandColors.brand,
+          minimumSize: const Size(Dimens.minTarget, Dimens.minTarget),
+        ),
+        icon: starting
+            ? ButtonSpinner(label: l10n.pleaseWait)
+            : const Icon(Icons.coffee_maker_outlined),
+        label: Text(l10n.startMaking),
+      ),
     );
   }
 
@@ -571,6 +621,36 @@ class _Actions extends StatelessWidget {
               minimumSize: const Size(Dimens.minTarget, Dimens.controlHeight),
             ),
             child: Text(l10n.markReady),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Where "Start making" was, once the order is InProgress: a statement, so
+/// the card says why the button went.
+class _BeingMade extends StatelessWidget {
+  const _BeingMade({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const Icon(
+          Icons.coffee_maker_outlined,
+          size: Dimens.iconSm,
+          color: BrandColors.brand,
+        ),
+        const SizedBox(width: Dimens.space2),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: BrandColors.brand,
+            ),
           ),
         ),
       ],

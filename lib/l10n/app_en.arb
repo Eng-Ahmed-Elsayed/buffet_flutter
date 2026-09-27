@@ -158,6 +158,8 @@
   },
   "readyAndDelivered": "Ready and handed over",
   "markReady": "Ready",
+  "startMaking": "Start making",
+  "beingMade": "Being made now",
   "markDelivered": "Handed over",
   "noNotificationsBody": "Anything the buffet tells you shows up here.",
   "@noNotificationsBody": {
@@ -231,6 +233,7 @@
   },
   "orderServed": "Ready for handover",
   "orderServedAndHandedOver": "Ready and handed over",
+  "orderStartedAnnouncement": "Being made now",
   "fromJarOf": "from {owner}'s materials",
   "@fromJarOf": {
     "description": "Source label naming whose jar a component comes from. Shown in violet.",

@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:buffet_app/data/api/api_config.dart';
+import 'package:buffet_app/data/api/api_exception.dart';
 import 'package:buffet_app/data/models/staff_models.dart';
 import 'package:buffet_app/data/repositories/queue_repository.dart';
 import 'package:buffet_app/features/notifications/notifications_screen.dart';
@@ -9,6 +12,7 @@ import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -89,7 +93,7 @@ Widget _card(StaffOrderDto order, {PendingAction? pending}) => testApp(
 
 Future<void> _queue(
   WidgetTester tester,
-  _Repository repository, {
+  QueueRepository repository, {
   Size size = const Size(400, 1200),
   double scale = 1,
   Locale locale = const Locale('ar'),
@@ -262,5 +266,115 @@ void main() {
       }
       expect(tester.takeException(), isNull);
     });
+  }
+
+  group('Start making', () {
+    testWidgets('a Pending order starts once, then says it is being made, '
+        'and can still be served', (tester) async {
+      final handle = tester.ensureSemantics();
+      final announced = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockDecodedMessageHandler<
+        Object?
+      >(SystemChannels.accessibility, (message) async {
+        final data = (message! as Map)['data'] as Map;
+        if (data['message'] case final String text) announced.add(text);
+        return null;
+      });
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger
+            .setMockDecodedMessageHandler<Object?>(
+              SystemChannels.accessibility,
+              null,
+            ),
+      );
+      final repository = _Starting([_order(5)]);
+      await _queue(tester, repository);
+
+      expect(find.text(_ar.beingMade), findsNothing);
+      await tester.tap(find.text(_ar.startMaking));
+      await tester.pump();
+      // In flight: a second tap cannot post again, and the button says why
+      // it is not answering.
+      await tester.tap(find.text(_ar.startMaking), warnIfMissed: false);
+      await tester.pump();
+      // Merged into the button's own name.
+      expect(
+        find.bySemanticsLabel(RegExp(RegExp.escape(_ar.pleaseWait))),
+        findsOneWidget,
+      );
+
+      repository.answer.complete();
+      await tester.pumpAndSettle();
+      expect(repository.started, [5]);
+      expect(find.text(_ar.startMaking), findsNothing);
+      expect(find.text(_ar.beingMade), findsOneWidget);
+      expect(find.text(_ar.readyAndDelivered), findsOneWidget);
+      expect(find.text(_ar.markReady), findsOneWidget);
+      // The list changing is not narrated on its own.
+      expect(announced, contains(_ar.orderStartedAnnouncement));
+      handle.dispose();
+    });
+
+    testWidgets("a refused start shows the server's reason and keeps the "
+        'button', (tester) async {
+      final repository = _Starting([_order(5)], refusal: 'تم إلغاء الطلب');
+      await _queue(tester, repository);
+
+      await tester.tap(find.text(_ar.startMaking));
+      repository.answer.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('تم إلغاء الطلب'), findsOneWidget);
+      expect(find.text(_ar.startMaking), findsOneWidget);
+    });
+
+    testWidgets('a made drink awaiting handover offers no start', (
+      tester,
+    ) async {
+      await _queue(tester, _Repository(ready: [_order(9, status: 'Ready')]));
+      await tester.tap(find.text(_ar.tabWithCount(_ar.handoverTab, 1)));
+      await tester.pumpAndSettle();
+      expect(find.text(_ar.markDelivered), findsOneWidget);
+      expect(find.text(_ar.startMaking), findsNothing);
+    });
+  });
+}
+
+/// A queue whose `/start` waits for [answer], then moves the order to
+/// InProgress, or refuses with [refusal] as a server would.
+class _Starting extends QueueRepository {
+  _Starting(this.queue, {this.refusal}) : super(Dio());
+
+  List<StaffOrderDto> queue;
+  final String? refusal;
+  final started = <int>[];
+  final answer = Completer<void>();
+
+  @override
+  Future<List<StaffOrderDto>> fetchQueue({
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async => queue;
+
+  @override
+  Future<List<StaffOrderDto>> fetchReadyForHandover({
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async => const [];
+
+  @override
+  Future<void> start({
+    required int orderId,
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async {
+    started.add(orderId);
+    await answer.future;
+    if (refusal != null) {
+      throw ApiException(message: refusal!, statusCode: 400);
+    }
+    queue = [
+      for (final o in queue)
+        o.orderId == orderId ? _order(orderId, status: 'InProgress') : o,
+    ];
   }
 }
