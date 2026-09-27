@@ -1,5 +1,7 @@
 # Backend request: client-written Arabic is stored as `?`
 
+**Status: FIXED on the deployment, verified 2026-09-27** — an order placed with the note «سكر خفيف» and the location «مكتبي» read both back as written. Closed.
+
 **Repo:** `../buffet_app` (ASP.NET Core 10)
 **Severity:** high — this is an Arabic-first application in which users currently cannot write
 Arabic free text.

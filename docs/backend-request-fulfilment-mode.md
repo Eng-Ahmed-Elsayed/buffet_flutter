@@ -1,7 +1,7 @@
 # Backend request: pickup or delivery, chosen per order, and "I picked it up"
 
 **Repo:** `../buffet_app` (ASP.NET Core 10)
-**Status: SHIPPED in the backend repo 2026-09-27** (commits `4c91a7e`, `19e80f0`, `9337d8d`; contracts synced into `docs/contracts/`). **Not yet deployed** to digitalbuffet.runasp.net as of that date. The client builds against it with every field optional.
+**Status: SHIPPED in the backend repo 2026-09-27** (commits `4c91a7e`, `19e80f0`, `9337d8d`; contracts synced into `docs/contracts/`). **Deployed** to digitalbuffet.runasp.net and verified from the app the same day. Closed.
 **Severity:** medium. This is a **new business capability**, decided 2026-09-24. It is not a bug.
 **Raised:** 2026-09-24, from the Figma redesign (see [figma-redesign.md](figma-redesign.md), D5–D6).
 

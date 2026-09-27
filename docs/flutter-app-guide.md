@@ -810,9 +810,9 @@ their past orders was actually a habit, instead of the server guessing that the 
 
 ### 7.8 Pickup or delivery, and "I picked it up"
 
-Synced from the backend's guide (commit `9337d8d`, 2026-09-27). **Built but not yet deployed**:
-the live server lacks the fields and the route ([backend-findings.md](backend-findings.md)), so
-the client treats every one as optional.
+Synced from the backend's guide (commit `9337d8d`, 2026-09-27). **Deployed and verified on the
+live server the same day** ([backend-findings.md](backend-findings.md)); the client still treats
+every field as optional.
 
 `PlaceOrderApiRequest.fulfilment` is `"Pickup"` or `"Delivery"`, by name.
 

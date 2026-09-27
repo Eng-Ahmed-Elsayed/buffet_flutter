@@ -182,7 +182,10 @@ Exercised with the user's approval, against the deployment:
 | Stock at `Ready` | Sara's own Nescafé jar went `160` → `150` g on `/ready` (order 70), as rule 1 says |
 | An overdrawn own jar in `/catalogue` | Item 7 at `-6` g comes back with `hasOwnStock: false`, so the app never offers it as "mine" |
 | **Push on Ready** | **Nothing arrived** on a registered emulator within 25 s, though the notification row was written (id 61). Most likely `Push__ServiceAccountJson` is unset on the host, which the backend treats as push off (`PushSender.cs`). Not confirmed: the host's settings cannot be read from here. |
-| Contracts synced 2026-09-27 | `fulfilment`, `startedAtUtc`, `descriptionAr/En`, `drinkGroupId`, `drinkGroups` and `POST /orders/{id}/collected` are **not deployed yet**: the fields are absent and the route `404`s with an empty body |
+| Contracts synced 2026-09-27 | Deployed later the same day and exercised from the app: order 73 was placed as a pickup, started, served, shown with its start time and the pickup wording, and closed by "I picked it up" (`/collected`, now `Completed`). No menu groups or descriptions exist yet on the server, so the menu keeps its jar chips |
+| Arabic text | **Fixed**: order 71's note «سكر خفيف» and location «مكتبي» came back as written |
+| Login `Accept-Language` | Still Arabic for `en` (re-tested) |
+| Push | Still nothing on order 72. `Program.cs` swaps in a no-op sender when `Push__ServiceAccountJson` is empty, so the host setting is the likely cause |
 
 Order 70 was placed, started, served and handed over; order 69 (someone else's) was left alone.
 

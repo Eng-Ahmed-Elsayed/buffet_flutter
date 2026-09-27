@@ -15,7 +15,7 @@ changes:
 - The palette moves to the Figma blues, fixed for contrast.
 - English text uses Inter, with Cairo for Arabic.
 - Pickup vs delivery is a per-order choice, and the employee can confirm a pickup (guide §7.8).
-  The backend has built it but not deployed it, so every field is optional in the client.
+  Deployed and verified on the live server 2026-09-27; every field stays optional in the client.
 
 Until each phase lands, the rules below describe the app as it stands; the "Rules this redesign
 changes" table in that document says which are about to move. Figma MCP is capped on the current
@@ -30,14 +30,12 @@ the table at the top of [docs/backend-findings.md](docs/backend-findings.md). St
 declarations, `404` (not `403`) on another user's order, and idempotency were all exercised with
 the test accounts.
 
-Two open backend issues, neither fixable from the client:
-
-1. **Client-written Arabic is stored as `?`** — `notes`, `locationText`, `lineNote` and the cancel
-   reason. Specified in
-   [docs/backend-request-arabic-encoding.md](docs/backend-request-arabic-encoding.md). This is the
-   one that matters: an Arabic-first app where users cannot write Arabic.
-2. **`/auth/login` ignores `Accept-Language`** and returns Arabic either way. The client is already
-   correct per §4 — it sends the header and surfaces `ApiError.message` verbatim.
+**Client-written Arabic is stored correctly since 2026-09-27** (an order's Arabic note and location
+came back as written). One open backend issue, not fixable from the client: **`/auth/login`
+ignores `Accept-Language`** and returns Arabic either way (re-tested 2026-09-27). The client is
+already correct per §4 — it sends the header and surfaces `ApiError.message` verbatim. **Push is
+switched off on the host**: `Push__ServiceAccountJson` is unset, which makes the server drop every
+push silently (`Program.cs`), so no Android push arrives until it is set.
 
 `MyMaterialDto.imageUrl` **has shipped** and works; the materials screen shows real uploaded
 photographs, falling back to a category glyph when the field is null or the file 404s.
