@@ -68,8 +68,16 @@ have is a local notification with sound when a poll sees an order turn Ready or 
 screen**: `OrderStatusTracker` on Home (which stays mounted beneath every tab and pushed screen)
 compares each settled load of the order list, so the chime no longer depends on the tracking
 screen being open. It stays silent on the first load after a return, where the change is on screen.
-Polling stops when the app is backgrounded, so a backgrounded app gets no local alert. Whether to
-poll briefly after backgrounding is an open decision. A tap on the alert opens the order through
+**After the app leaves the screen it keeps looking for up to three minutes**
+(`BackgroundOrderWatch`, decided 2026-09-27), but only while an order is still being made and only
+where no push will announce it: iOS, or an Android device whose registration failed. A registered
+device stays quiet, or Ready would ring twice. It calls the repository directly, because a provider
+refreshes on the next frame and a backgrounded app draws none. **The OS decides how long it really
+runs**: iOS grants the background time `AppDelegate.swift` asks for, about half a minute, so a
+drink that takes three minutes will usually not chime on an iPhone; an Android process is frozen
+soon after it is cached. Beyond that only push helps. Staff are not covered: it lives on Home, as
+the foreground tracker does.
+`background_order_watch_test.dart`. A tap on the alert opens the order through
 the same held-link path as a push. Nothing on the device can cover the process being killed.
 
 Still unverified: **push on a physical Android handset with the app force-stopped.** That is the

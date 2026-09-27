@@ -124,6 +124,13 @@ abstract final class ApiConfig {
   /// member sees another's actions.
   static const queuePollInterval = Duration(seconds: 10);
 
+  /// How often Home looks at the orders after the app leaves the screen, and
+  /// for how long at most (§7.3, `BackgroundOrderWatch`). Shorter than the
+  /// foreground poll because iOS grants only about half a minute: two or three
+  /// looks, not one.
+  static const backgroundPollInterval = Duration(seconds: 10);
+  static const backgroundWatchWindow = Duration(minutes: 3);
+
   /// How long the undo window stays open after a one-tap staff action (§8.1).
   static const undoWindow = Duration(seconds: 5);
 

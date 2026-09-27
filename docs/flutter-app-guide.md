@@ -649,6 +649,12 @@ Poll `GET /orders/{id}` while an order is live; there are no push notifications 
 today. Poll on a **timer of ~15s while the screen is foregrounded**, stop on background, and
 refresh once on resume. Do not poll a completed or cancelled order.
 
+The one exception to stopping on background (decided 2026-09-27): where no push will announce
+Ready (iOS, or an Android device whose registration failed), Home keeps looking at the order list
+every 10s for up to three minutes while an order is still being made, and chimes locally when one
+turns Ready or Cancelled. The OS cuts this short: iOS grants about half a minute of background
+time, which the app requests as it leaves the screen.
+
 Cancellation is **pending-only** and ownership-checked. Hide the cancel action once the status
 leaves `Pending` rather than showing a button that will 400.
 

@@ -5,12 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/landing_prompts.dart';
+import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
 import '../../data/local/order_alerts.dart';
 import '../../data/models/catalogue_models.dart';
 import '../../data/models/favourite_models.dart';
 import '../../data/models/order_models.dart';
+import '../../data/push/push_controller.dart';
+import '../../data/repositories/order_repository.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
@@ -22,6 +25,7 @@ import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../auth/auth_controller.dart';
 import '../notifications/notifications_screen.dart';
+import '../order/background_order_watch.dart';
 import '../order/composer_screen.dart';
 import '../order/favourites_controller.dart';
 import '../order/favourites_screen.dart';
@@ -61,6 +65,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   /// that sees every order while the app is in the foreground.
   final _tracker = OrderStatusTracker();
 
+  /// Keeps looking for a while after the app leaves the screen, feeding the
+  /// same tracker, where no push will announce Ready instead.
+  late final _backgroundWatch = BackgroundOrderWatch(
+    look: () => ref
+        .read(orderRepositoryProvider)
+        .fetchMyOrders(
+          languageCode: ref.read(localeControllerProvider).languageCode,
+          networkErrorFallback: '',
+        ),
+    onOrders: _announceChanges,
+  );
+
   Timer? _pollTimer;
   final _search = TextEditingController();
   String _query = '';
@@ -82,6 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pollTimer?.cancel();
+    _backgroundWatch.stop();
     _search.dispose();
     super.dispose();
   }
@@ -93,6 +110,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // on resume is what makes the card honest for the user who closed the
       // app to wait — the case this whole card is for.
       case AppLifecycleState.resumed:
+        _backgroundWatch.stop();
         // Forgotten again here, not only on leaving: a load still in flight
         // when the phone was locked lands in the background and would become
         // the baseline, and the reload below would then announce a change
@@ -106,11 +124,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       case AppLifecycleState.inactive:
         _pollTimer?.cancel();
       case AppLifecycleState.paused:
-      case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
         _pollTimer?.cancel();
-        // A change found on return is on screen; a push has announced it.
+        _watchInBackground();
+      case AppLifecycleState.detached:
+        _pollTimer?.cancel();
+        _backgroundWatch.stop();
         _tracker.forget();
+    }
+  }
+
+  /// Keeps the tracker's last look as the baseline and goes on looking, when
+  /// an order is still being made and no push will say it is ready.
+  /// Otherwise forgets: a change found on return is on screen, and a push has
+  /// announced it.
+  void _watchInBackground() {
+    if (_backgroundWatch.isWatching) return;
+    if (!ref.read(pushControllerProvider).isRegistered) {
+      _backgroundWatch.start(ref.read(myOrdersProvider).valueOrNull ?? const []);
+    }
+    if (!_backgroundWatch.isWatching) _tracker.forget();
+  }
+
+  /// Chimes for every order that turned Ready or Cancelled since the last
+  /// look, whichever look it was: this screen's, a pull, the tracking
+  /// screen's, or one taken in the background.
+  void _announceChanges(List<OrderSummaryDto> orders) {
+    if (!mounted) return;
+    final alerts = ref.read(orderAlertsProvider);
+    final l10n = AppLocalizations.of(context);
+    for (final order in _tracker.changed(orders)) {
+      announceOrderChange(alerts, l10n, order);
     }
   }
 
@@ -193,12 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // is already looking at.
       // (Riverpod marks a refresh as data with isLoading set, so both.)
       if (next is! AsyncData<List<OrderSummaryDto>> || next.isLoading) return;
-      final orders = next.value;
-      final alerts = ref.read(orderAlertsProvider);
-      final l10n = AppLocalizations.of(context);
-      for (final order in _tracker.changed(orders)) {
-        announceOrderChange(alerts, l10n, order);
-      }
+      _announceChanges(next.value);
     });
     final l10n = AppLocalizations.of(context);
     final text = Theme.of(context).textTheme;

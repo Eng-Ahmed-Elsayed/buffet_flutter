@@ -32,6 +32,11 @@ class PushController {
   /// Guards every entry point rather than each caller remembering to.
   static bool get isSupported => !kIsWeb && Platform.isAndroid;
 
+  /// Whether the server holds this device's token, so a Ready order will be
+  /// pushed here. When it does not, Home keeps looking for a while after the
+  /// app leaves the screen instead.
+  bool get isRegistered => _registeredToken != null;
+
   /// Asks permission, gets a token, and tells the server about it.
   ///
   /// Idempotent — `prepareLandingPrompts` calls it on every landing, after the
