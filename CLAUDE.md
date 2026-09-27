@@ -113,7 +113,9 @@ Two rules from that work that a future edit must not undo:
 - **`prepareLandingPrompts` is called from BOTH landing screens** (`lib/app/landing_prompts.dart`).
   It is also what registers for push, so a new landing screen that skips it never gets push. It
   asks one thing at a time: the biometric offer, then the notification permission, then push
-  registration. A notification tap does not wait on any of it. It used to live on the composer,
+  registration. **The permission waits for the offer's sheet to finish closing**
+  (`Motion.sheetExit`), not just for the answer: opened over a closing sheet, it paused the app with
+  the sheet frozen on screen (seen on the emulator). A notification tap does not wait on any of it. It used to live on the composer,
   which is the *employee* landing screen — so staff, who only reach the composer by pushing it from
   the queue, had no notification channels and were never asked for permission at all. A new landing
   screen must call it.
