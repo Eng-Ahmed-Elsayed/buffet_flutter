@@ -188,7 +188,8 @@ card does not repeat them. Rules a future edit must not undo:
   names only, and a row saying «قهوة» that opens onto "Coffee" names one drink two ways.
   `order_tracking_test.dart` pins it in English.
 - **Times say the day only when it is not today** (`Formatters.moment`), in the list and on the
-  timeline alike. A finished order's last step is announced as done, never as the current step.
+  timeline alike. "Being prepared" carries `startedAtUtc`, and a drink served straight from
+  Pending passes that step without a time; it is never backfilled. A finished order's last step is announced as done, never as the current step.
 
 **The Account tab is the design's Settings frame**: the name and department, then stacked card
 rows. The rows are My materials (employees only), Change password, the biometric switch (its own

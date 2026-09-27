@@ -496,7 +496,13 @@ class _Timeline extends StatelessWidget {
               Icons.receipt_long_outlined,
               at(order.createdAtUtc),
             ),
-            _Step(l10n.statusInProgress, Icons.coffee_maker_outlined, null),
+            // When staff started it (§7.3). Null when they served straight
+            // from Pending: the step still reads as passed, without a time.
+            _Step(
+              l10n.statusInProgress,
+              Icons.coffee_maker_outlined,
+              at(order.startedAtUtc),
+            ),
             _Step(
               l10n.statusReady,
               Icons.local_cafe_outlined,

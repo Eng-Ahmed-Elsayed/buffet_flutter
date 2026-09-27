@@ -36,6 +36,7 @@ OrderSummaryDto _order(
   List<OrderLineDto>? lines,
   DateTime? readyAtUtc,
   DateTime? handledAtUtc,
+  DateTime? startedAtUtc,
 }) => OrderSummaryDto(
   orderId: id,
   status: status,
@@ -46,6 +47,7 @@ OrderSummaryDto _order(
   onBehalfOfName: null,
   notes: '',
   lines: lines ?? [_line('قهوة')],
+  startedAtUtc: startedAtUtc,
 );
 
 const _menu = CatalogueResponse(
@@ -237,6 +239,26 @@ void main() {
       // Another day, so the date comes with the time.
       expect(find.text(Formatters.dateTime(ready, 'ar')), findsOneWidget);
       expect(find.text(Formatters.dateTime(handled, 'ar')), findsOneWidget);
+    });
+
+    testWidgets('being prepared carries the time staff started it', (
+      tester,
+    ) async {
+      final started = DateTime.utc(2026, 8, 20, 7, 2);
+      await _pumpStatus(
+        tester,
+        _order(41, 'InProgress', startedAtUtc: started),
+      );
+      expect(find.text(Formatters.dateTime(started, 'ar')), findsOneWidget);
+    });
+
+    testWidgets('served straight from Pending, the step is passed without a '
+        'time', (tester) async {
+      // startedAtUtc is never backfilled (§7.3).
+      final ready = DateTime.utc(2026, 8, 20, 7, 5);
+      await _pumpStatus(tester, _order(41, 'Ready', readyAtUtc: ready));
+      expect(find.text(_l10n.statusInProgress), findsOneWidget);
+      expect(find.text(Formatters.dateTime(ready, 'ar')), findsOneWidget);
     });
 
     testWidgets('a cancelled order stops after Sent', (tester) async {

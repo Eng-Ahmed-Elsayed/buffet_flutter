@@ -348,8 +348,8 @@ order. Once the fulfilment mode ships, the wording follows the order's mode
 
 The tracking screen shows a four-step timeline: Sent → Being prepared → Ready → Received, each
 with its time where the API has one. The design's "Kitchen takes order" and "Preparing" are both
-`InProgress`, so they are one step. That step has no time until `StartedAtUtc` ships
-([request](backend-request-order-started-at.md)). A cancelled order stops at Sent → Cancelled.
+`InProgress`, so they are one step. Its time is `startedAtUtc` (§7.3), and a drink served straight
+from `Pending` passes it without one. A cancelled order stops at Sent → Cancelled.
 
 `OrderSummaryDto.isReady` is computed server-side; mirror it as a getter rather than a field.
 
