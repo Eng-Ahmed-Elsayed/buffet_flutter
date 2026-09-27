@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../theme/brand_colors.dart';
 import '../../../theme/dimens.dart';
+import 'drink_photo.dart';
 
 /// The standing reminder that a drink is still owed to the user.
 ///
@@ -71,7 +72,15 @@ class OutstandingOrderCard extends StatelessWidget {
       padding: const EdgeInsetsDirectional.all(Dimens.space3),
       child: Row(
         children: [
-          Icon(icon, color: foreground),
+          // The drink it is about, pictured. The title says the state in
+          // words; the glyph is left for an order with no lines.
+          if (order.lines.isNotEmpty)
+            DrinkPhoto(
+              drinkItemId: order.lines.first.drinkItemId,
+              size: Dimens.imageThumb,
+            )
+          else
+            Icon(icon, color: foreground),
           const SizedBox(width: Dimens.space3),
           Expanded(
             child: Column(

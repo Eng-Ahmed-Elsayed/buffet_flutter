@@ -96,12 +96,8 @@ class FavouritesScreen extends ConsumerWidget {
     // Null while loading: a favourite renders as available until the catalogue
     // says otherwise, rather than the list flashing "unavailable" over a
     // request that has simply not come back yet.
-    final available = ref
-        .watch(catalogueProvider)
-        .valueOrNull
-        ?.drinks
-        .map((d) => d.itemId)
-        .toSet();
+    final drinks = ref.watch(catalogueProvider).valueOrNull?.drinks;
+    final available = drinks?.map((d) => d.itemId).toSet();
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.favouritesTitle)),
@@ -166,6 +162,7 @@ class FavouritesScreen extends ConsumerWidget {
                   FavouriteCard(
                     favourite: favourite,
                     fullWidth: true,
+                    drink: FavouriteCard.drinkOf(favourite, drinks),
                     available:
                         available == null || favourite.isAvailable(available),
                     // Same as the strip: seeds the composer, never places.

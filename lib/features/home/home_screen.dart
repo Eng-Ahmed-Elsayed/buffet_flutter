@@ -141,7 +141,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void _watchInBackground() {
     if (_backgroundWatch.isWatching) return;
     if (!ref.read(pushControllerProvider).isRegistered) {
-      _backgroundWatch.start(ref.read(myOrdersProvider).valueOrNull ?? const []);
+      _backgroundWatch.start(
+        ref.read(myOrdersProvider).valueOrNull ?? const [],
+      );
     }
     if (!_backgroundWatch.isWatching) _tracker.forget();
   }
@@ -352,6 +354,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 FavouritesStrip(
                   favourites: favourites,
                   availableItemIds: availableItemIds,
+                  drinks: catalogue.valueOrNull?.drinks,
                   onReplay: (favourite) =>
                       _openComposer(mode: OrderMode.self, favourite: favourite),
                   onDelete: (favourite) => unawaited(

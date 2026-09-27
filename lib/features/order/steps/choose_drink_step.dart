@@ -159,6 +159,7 @@ class ChooseDrinkStep extends StatelessWidget {
               onReplay: onReplayFavourite,
               onDelete: onDeleteFavourite,
               availableItemIds: {for (final d in catalogue.drinks) d.itemId},
+              drinks: catalogue.drinks,
               // No tab bar here, so the full list is a pushed screen — one
               // that returns its pick rather than opening a second composer.
               onShowAll: onShowAllFavourites,

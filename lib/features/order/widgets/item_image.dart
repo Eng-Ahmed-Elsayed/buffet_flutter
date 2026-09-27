@@ -57,8 +57,13 @@ class ItemImage extends StatelessWidget {
   /// Occupies the frame while the picture loads. Deliberately says nothing
   /// about the item — unlike [_fallback], which is a statement that there is
   /// no picture to show.
-  Widget _placeholder() =>
-      Container(width: size, height: size, color: BrandColors.brandLight);
+  Widget _placeholder() => placeholder(size);
+
+  /// The same neutral frame, for a caller still waiting on the URL itself.
+  static Widget placeholder(double size) => ClipRRect(
+    borderRadius: BorderRadius.circular(Dimens.radiusSm),
+    child: Container(width: size, height: size, color: BrandColors.brandLight),
+  );
 
   Widget _fallback() => SizedBox(
     width: size,

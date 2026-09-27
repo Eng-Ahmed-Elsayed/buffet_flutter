@@ -23,6 +23,7 @@ import '../../theme/dimens.dart';
 import 'composer_screen.dart';
 import 'my_orders_screen.dart';
 import 'order_mode.dart';
+import 'widgets/drink_photo.dart';
 
 /// Live status for one order.
 ///
@@ -149,9 +150,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
       if (mounted) {
         ScaffoldMessenger.of(context)
           ..clearSnackBars()
-          ..showSnackBar(
-            SnackBar(content: Text(l10n.pickedItUpConfirmation)),
-          );
+          ..showSnackBar(SnackBar(content: Text(l10n.pickedItUpConfirmation)));
       }
     } on ApiException catch (error) {
       // The server's own reason: staff got there first reads as success
@@ -375,11 +374,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
 /// `Ready` gets the loudest treatment in the app — it is the "come and collect
 /// it" moment. `Completed` is deliberately quieter (§4.3).
 class _StatusHeader extends StatelessWidget {
-  const _StatusHeader({
-    required this.status,
-    this.guestName,
-    this.fulfilment,
-  });
+  const _StatusHeader({required this.status, this.guestName, this.fulfilment});
 
   /// How it reaches the person (§7.8); null keeps the neutral Ready line.
   final Fulfilment? fulfilment;
@@ -811,70 +806,82 @@ class _OrderLineCard extends ConsumerWidget {
     final variantName = _variantName(catalogue, languageCode);
 
     return AppCard(
-      child: Column(
+      // The drink's photograph leads the line, as it does on Review and in
+      // the design's tracking frame.
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            // The order stores the Arabic name; prefer the catalogue's
-            // localised one so an English user is not shown Arabic here alone.
-            [
-              Formatters.isolate(
-                _drinkName(catalogue, languageCode) ?? line.drinkNameAr,
-              ),
-              if (count > 1) '×$count',
-            ].join(' '),
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-          const SizedBox(height: Dimens.space2),
-          Wrap(
-            spacing: Dimens.space2,
-            runSpacing: Dimens.space2,
-            children: [
-              // The preparation the user actually chose. Without this they
-              // could pick "فاتح" and never see it confirmed anywhere.
-              if (variantName != null) DetailChip(label: variantName),
-              DetailChip(label: l10n.spoons(line.sugarSpoons)),
-              // The user's own jar, said plainly. The staff chip's "X's jar"
-              // form read "From my own materials's jar" here.
-              if (line.drinkFromOwn)
-                _OwnJarChip(label: l10n.fromMyMaterialsChip),
-              // The extras asked for, each by name; one drawn from the user's
-              // own jar says so in words and in violet (rule 3).
-              for (final id in line.extraItemIds)
-                if (_extraName(catalogue, languageCode, id) case final name?)
-                  line.ownExtraItemIds.contains(id)
-                      ? _OwnJarChip(
-                          label: l10n.extraFromMyMaterials(
-                            Formatters.isolate(name),
-                          ),
-                        )
-                      : DetailChip(label: Formatters.isolate(name)),
-            ],
-          ),
-          if ((line.lineNote ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: Dimens.space2),
-            Row(
+          DrinkPhoto(drinkItemId: line.drinkItemId, size: Dimens.imageReview),
+          const SizedBox(width: Dimens.space3),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.notes_outlined,
-                  size: Dimens.space4,
-                  color: BrandColors.muted,
+                Text(
+                  // The order stores the Arabic name; prefer the catalogue's
+                  // localised one so an English user is not shown Arabic here alone.
+                  [
+                    Formatters.isolate(
+                      _drinkName(catalogue, languageCode) ?? line.drinkNameAr,
+                    ),
+                    if (count > 1) '×$count',
+                  ].join(' '),
+                  style: Theme.of(context).textTheme.titleSmall,
                 ),
-                const SizedBox(width: Dimens.space2),
-                Expanded(
-                  child: Text(
-                    // User-entered, in whichever script it was typed.
-                    Formatters.isolate(line.lineNote!),
-                    style: Theme.of(context).textTheme.bodySmall,
+                const SizedBox(height: Dimens.space2),
+                Wrap(
+                  spacing: Dimens.space2,
+                  runSpacing: Dimens.space2,
+                  children: [
+                    // The preparation the user actually chose. Without this they
+                    // could pick "فاتح" and never see it confirmed anywhere.
+                    if (variantName != null) DetailChip(label: variantName),
+                    DetailChip(label: l10n.spoons(line.sugarSpoons)),
+                    // The user's own jar, said plainly. The staff chip's "X's jar"
+                    // form read "From my own materials's jar" here.
+                    if (line.drinkFromOwn)
+                      _OwnJarChip(label: l10n.fromMyMaterialsChip),
+                    // The extras asked for, each by name; one drawn from the user's
+                    // own jar says so in words and in violet (rule 3).
+                    for (final id in line.extraItemIds)
+                      if (_extraName(catalogue, languageCode, id)
+                          case final name?)
+                        line.ownExtraItemIds.contains(id)
+                            ? _OwnJarChip(
+                                label: l10n.extraFromMyMaterials(
+                                  Formatters.isolate(name),
+                                ),
+                              )
+                            : DetailChip(label: Formatters.isolate(name)),
+                  ],
+                ),
+                if ((line.lineNote ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: Dimens.space2),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.notes_outlined,
+                        size: Dimens.space4,
+                        color: BrandColors.muted,
+                      ),
+                      const SizedBox(width: Dimens.space2),
+                      Expanded(
+                        child: Text(
+                          // User-entered, in whichever script it was typed.
+                          Formatters.isolate(line.lineNote!),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
+                ],
+                // Location and times used to be repeated here, once per drink. They
+                // belong to the ORDER, not to a line, and are now stated once in
+                // _OrderSummary above.
               ],
             ),
-          ],
-          // Location and times used to be repeated here, once per drink. They
-          // belong to the ORDER, not to a line, and are now stated once in
-          // _OrderSummary above.
+          ),
         ],
       ),
     );

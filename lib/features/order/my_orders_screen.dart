@@ -18,6 +18,7 @@ import '../../theme/dimens.dart';
 import 'composer_screen.dart';
 import 'favourites_controller.dart';
 import 'order_drinks.dart';
+import 'widgets/drink_photo.dart';
 import 'widgets/favourite_name_dialog.dart';
 
 /// The caller's own orders, newest first.
@@ -386,6 +387,15 @@ class _OrderRow extends StatelessWidget {
               children: [
                 Row(
                   children: [
+                    // The first drink's photograph, as the design's rows
+                    // lead with one. An order with no lines has none.
+                    if (order.lines.isNotEmpty) ...[
+                      DrinkPhoto(
+                        drinkItemId: order.lines.first.drinkItemId,
+                        size: Dimens.imageThumb,
+                      ),
+                      const SizedBox(width: Dimens.space3),
+                    ],
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

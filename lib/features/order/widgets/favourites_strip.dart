@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../data/models/catalogue_models.dart';
 import '../../../data/models/favourite_models.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/formatters.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../theme/brand_colors.dart';
 import '../../../theme/dimens.dart';
+import 'item_image.dart';
 
 /// The one-tap repeat: the caller's saved orders, replayed by tapping one.
 ///
@@ -25,6 +27,7 @@ class FavouritesStrip extends StatelessWidget {
     required this.onReplay,
     required this.onDelete,
     this.availableItemIds,
+    this.drinks,
     this.maxVisible = 4,
     this.onShowAll,
     this.restReachableElsewhere = false,
@@ -42,6 +45,10 @@ class FavouritesStrip extends StatelessWidget {
   /// rather than the strip flashing "unavailable" over a list that is merely
   /// waiting on a request.
   final Set<int>? availableItemIds;
+
+  /// The menu's drinks, to picture each favourite by its first drink. Null
+  /// while the catalogue loads, which shows a neutral frame.
+  final List<CatalogueItemDto>? drinks;
 
   /// How many cards the strip shows before deferring the rest to [onShowAll].
   ///
@@ -128,6 +135,7 @@ class FavouritesStrip extends StatelessWidget {
                   FavouriteCard(
                     favourite: favourite,
                     width: tileWidth,
+                    drink: FavouriteCard.drinkOf(favourite, drinks),
                     // Null means "not known yet", which renders as available.
                     available:
                         availableItemIds == null ||
@@ -166,6 +174,7 @@ class FavouriteCard extends StatelessWidget {
     required this.onTap,
     required this.onLongPress,
     this.available = true,
+    this.drink,
     this.fullWidth = false,
     this.width,
     super.key,
@@ -184,6 +193,23 @@ class FavouriteCard extends StatelessWidget {
   /// the composer, where the missing drink is a line they can look at.
   final bool available;
 
+  /// The favourite's first drink, from the catalogue, for its photograph.
+  /// Null while the catalogue loads.
+  final CatalogueItemDto? drink;
+
+  /// The catalogue entry for [favourite]'s first drink, or null.
+  static CatalogueItemDto? drinkOf(
+    FavouriteDto favourite,
+    List<CatalogueItemDto>? drinks,
+  ) {
+    if (favourite.lines.isEmpty) return null;
+    final id = favourite.lines.first.drinkItemId;
+    for (final drink in drinks ?? const <CatalogueItemDto>[]) {
+      if (drink.itemId == id) return drink;
+    }
+    return null;
+  }
+
   /// Lets the full-screen list use the same card at row width.
   final bool fullWidth;
 
@@ -196,6 +222,19 @@ class FavouriteCard extends StatelessWidget {
     // Server-composed from mixed script — an item name plus an Arabic
     // parenthetical — so it is isolated whichever way the page runs (§2.4).
     final name = Formatters.isolate(favourite.name);
+
+    // The saved drink, pictured. None for one naming a retired item, which
+    // keeps its warning mark beside its words. Available with no drink yet
+    // means the menu is still loading: a neutral frame, never the glyph.
+    final Widget? photo = !available || favourite.lines.isEmpty
+        ? null
+        : drink == null
+        ? ItemImage.placeholder(Dimens.imageThumb)
+        : ItemImage(
+            imageUrl: drink!.imageUrl,
+            category: drink!.category,
+            size: Dimens.imageThumb,
+          );
 
     final card = Semantics(
       button: true,
@@ -225,17 +264,29 @@ class FavouriteCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Above the name in the strip, as the design's cards draw it:
+                // beside it, a half-width tile left the name a few letters at
+                // a large text scale. The full list has room to lead the row.
+                if (photo != null && !fullWidth) ...[
+                  photo,
+                  const SizedBox(height: Dimens.space2),
+                ],
                 Row(
                   mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
                   children: [
-                    Icon(
-                      available ? Icons.replay : Icons.error_outline,
-                      size: Dimens.iconInline,
-                      color: available
-                          ? BrandColors.brand
-                          : BrandColors.warning,
-                    ),
-                    const SizedBox(width: Dimens.space2),
+                    if (photo == null) ...[
+                      Icon(
+                        available ? Icons.replay : Icons.error_outline,
+                        size: Dimens.iconInline,
+                        color: available
+                            ? BrandColors.brand
+                            : BrandColors.warning,
+                      ),
+                      const SizedBox(width: Dimens.space2),
+                    ] else if (fullWidth) ...[
+                      photo,
+                      const SizedBox(width: Dimens.space3),
+                    ],
                     // Expanded on the full list, so the delete sits at the row's
                     // end rather than wherever the name happens to stop.
                     Flexible(

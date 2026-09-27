@@ -203,6 +203,12 @@ card does not repeat them. Rules a future edit must not undo:
   status screen does, falling back to the stored `drinkNameAr`. `OrderSummaryDto` carries Arabic
   names only, and a row saying «قهوة» that opens onto "Coffee" names one drink two ways.
   `order_tracking_test.dart` pins it in English.
+- **A drink is pictured wherever it is named** (as in the design): menu rows, Drink Details and
+  Review from the catalogue item, and the order rows, the tracking lines and Home's outstanding
+  card through `DrinkPhoto`, which looks the id up in the catalogue (a neutral frame while it
+  loads, the glyph for a retired drink). Favourite cards take the drink from their caller and read
+  no provider; in the strip the photo sits above the name. `drink_photo_test.dart`. The photos are
+  admin uploads, so how good they look is content, not code.
 - **Times say the day only when it is not today** (`Formatters.moment`), in the list and on the
   timeline alike. "Being prepared" carries `startedAtUtc`, and a drink served straight from
   Pending passes that step without a time; it is never backfilled. A finished order's last step is announced as done, never as the current step.
