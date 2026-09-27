@@ -1,7 +1,7 @@
 name: buffet_app
 description: "The Digital Buffet mobile client — employee and staff views."
 publish_to: 'none'
-version: 0.1.0
+version: 1.0.0+1
 
 environment:
   sdk: ^3.13.0
