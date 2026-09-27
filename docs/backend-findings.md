@@ -130,19 +130,12 @@ starts honouring it.
 
 ---
 
-## 6. The API is served over plain HTTP
+## 6. The API is served over HTTPS — RESOLVED ✅
 
-Unchanged and still the one genuine security item on this page. The bearer token is readable in
-transit and lasts **30 days with no refresh endpoint**, so a captured token stays useful for a
-month.
-
-Cleartext exceptions are in place, each scoped to this single host, and both carry a comment saying
-to delete them when the API moves:
-
-- `android/app/src/main/res/xml/network_security_config.xml`
-- the `NSAppTransportSecurity` block in `ios/Runner/Info.plist`
-
-§11: "**Production must be HTTPS**; do not ship the exception."
+Re-tested 2026-09-27: `https://digitalbuffet.runasp.net/api/v1` answers (`401` without a token),
+and plain `http://` redirects (`307`). The client's default base URL is the `https://` one, the
+emulator run below signed in and ordered over it, and the cleartext exceptions are gone from both
+platforms.
 
 ---
 
@@ -177,6 +170,21 @@ Full write-up: [backend-request-own-source-on-overdrawn.md](backend-request-own-
 already treat an empty name as buffet stock.
 
 ---
+
+## Live run, 2026-09-27 (emulator, `sara@` and `staff@company.com`)
+
+Exercised with the user's approval, against the deployment:
+
+| Behaviour | Observed |
+|---|---|
+| `POST /staff/orders/{id}/start` | `204`, and the employee's timeline lit "Being prepared" on its next poll. A second start: `400` «تم تحديث حالة الطلب من قبل مستخدم آخر.» |
+| Employee cancel after a start | `400` «لا يمكن إلغاء الطلب بعد بدء تجهيزه.» The app had already hidden Cancel. |
+| Stock at `Ready` | Sara's own Nescafé jar went `160` → `150` g on `/ready` (order 70), as rule 1 says |
+| An overdrawn own jar in `/catalogue` | Item 7 at `-6` g comes back with `hasOwnStock: false`, so the app never offers it as "mine" |
+| **Push on Ready** | **Nothing arrived** on a registered emulator within 25 s, though the notification row was written (id 61). Most likely `Push__ServiceAccountJson` is unset on the host, which the backend treats as push off (`PushSender.cs`). Not confirmed: the host's settings cannot be read from here. |
+| Contracts synced 2026-09-27 | `fulfilment`, `startedAtUtc`, `descriptionAr/En`, `drinkGroupId`, `drinkGroups` and `POST /orders/{id}/collected` are **not deployed yet**: the fields are absent and the route `404`s with an empty body |
+
+Order 70 was placed, started, served and handed over; order 69 (someone else's) was left alone.
 
 ## Test data left behind
 

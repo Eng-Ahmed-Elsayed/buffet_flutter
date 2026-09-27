@@ -82,7 +82,7 @@ unprivileged caller.
 
 | Item | Status |
 |---|---|
-| **HTTPS** | ❌ Still absent. Re-tested this round: `https://digitalbuffet.runasp.net` does not respond. A 30-day bearer token travels in cleartext. **The one production blocker no client change can fix.** |
+| **HTTPS** | ✅ Served since at least 2026-09-27: `https://` answers and `http://` redirects ([backend-findings.md](backend-findings.md) §6). |
 | Client-written Arabic stored as `?` | ❌ [backend-request-arabic-encoding.md](backend-request-arabic-encoding.md) |
 | `drinkSourceOwnerName` empty when overdrawn | ❌ [backend-request-own-source-on-overdrawn.md](backend-request-own-source-on-overdrawn.md) |
 | `/auth/login` ignores `Accept-Language` | ❌ Returns Arabic either way. |

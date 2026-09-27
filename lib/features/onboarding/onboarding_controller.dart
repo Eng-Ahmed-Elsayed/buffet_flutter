@@ -57,5 +57,11 @@ final onboardingControllerProvider =
           unawaited(controller.markSeen());
         }
       }, fireImmediately: true);
+      // Signed out but not new: seen on a device where the session expired
+      // before this flag existed, which sent a returning user through three
+      // slides with the "session expired" notice behind them.
+      ref.listen<bool>(hasUsedAppProvider, (_, used) {
+        if (used) unawaited(controller.markSeen());
+      }, fireImmediately: true);
       return controller;
     });

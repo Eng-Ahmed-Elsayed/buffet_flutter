@@ -299,8 +299,9 @@ sensor, since the prompt may be a face, a fingerprint or the device PIN.
 
 **The first-launch explainer (`/welcome`) shows once per install, before the first sign-in, and
 never to someone who already uses the app.** Its flag lives in `PreferencesStore` and survives
-sign-out. **Any session stage (signed in, locked, forced password change) marks it seen**; see
-`onboardingControllerProvider`. Without that, everyone who signed in before it existed would be sent
+sign-out. **Any session stage (signed in, locked, forced password change) marks it seen**, and so does a
+signed-out device with a remembered email or a just-ended session (`hasUsedAppProvider`, seen on
+the emulator); see `onboardingControllerProvider`. Without that, everyone who signed in before it existed would be sent
 through three slides the moment their session ended, burying the "session expired" notice below.
 `signedOutRedirect` holds on the splash while the flag loads. The entry screens (splash, explainer,
 sign-in, lock) share `BrandBackdrop` and `BrandLockup`. **No text sits over the glow's peak**: the

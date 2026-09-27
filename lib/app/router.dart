@@ -63,15 +63,23 @@ String? signedInRedirect({required UserRole role, required String location}) {
 /// install, then sign-in. Held on the splash while the flag is still being
 /// read (`onboardingSeen == null`), so someone who has seen the explainer
 /// never glimpses it again.
+///
+/// [hasUsedApp] (a remembered email, or a session that just ended) goes to
+/// sign-in whatever the flag says, read from the same auth state the redirect
+/// runs on, so no frame routes a returning user to the explainer while the
+/// flag catches up.
 String? signedOutRedirect({
   required bool? onboardingSeen,
   required String location,
+  bool hasUsedApp = false,
 }) {
-  final target = switch (onboardingSeen) {
-    null => Routes.splash,
-    false => Routes.onboarding,
-    true => Routes.login,
-  };
+  final target = hasUsedApp
+      ? Routes.login
+      : switch (onboardingSeen) {
+          null => Routes.splash,
+          false => Routes.onboarding,
+          true => Routes.login,
+        };
   return location == target ? null : target;
 }
 
@@ -116,6 +124,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return signedOutRedirect(
             onboardingSeen: ref.read(onboardingControllerProvider),
             location: location,
+            hasUsedApp: auth.rememberedEmail != null || auth.sessionExpired,
           );
 
         // A stored token exists but nothing is revealed until the prompt

@@ -108,6 +108,21 @@ void main() {
       }
     });
 
+    test('someone who has used the app goes to sign-in, flag or not', () {
+      // Seen on the emulator: a session that expired before the flag existed
+      // put three slides in front of the "session expired" sign-in.
+      for (final seen in [null, false, true]) {
+        expect(
+          signedOutRedirect(
+            onboardingSeen: seen,
+            location: Routes.splash,
+            hasUsedApp: true,
+          ),
+          Routes.login,
+        );
+      }
+    });
+
     test('once seen, it is sign-in, and the explainer cannot be reached', () {
       expect(
         signedOutRedirect(onboardingSeen: true, location: Routes.onboarding),

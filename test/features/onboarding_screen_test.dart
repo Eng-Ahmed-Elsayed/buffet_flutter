@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/app_harness.dart';
+import '../helpers/fake_auth_controller.dart';
 
 /// Records `markSeen` instead of writing to storage, which has no plugin
 /// behind it under test.
@@ -110,6 +111,31 @@ void main() {
     expect(find.text(ar.onboardingOrderTitle), findsOneWidget);
   });
 
+  testWidgets('the page dots advance right to left in Arabic', (tester) async {
+    await _pump(tester, locale: const Locale('ar'));
+    final ar = await AppLocalizations.delegate.load(const Locale('ar'));
+
+    // The current page is the wide pill; where it sits says which page.
+    double pillX() {
+      final dots = find.descendant(
+        of: find.byType(Row),
+        matching: find.byType(AnimatedContainer),
+      );
+      final count = dots.evaluate().length;
+      // Each box includes its margin, so a plain dot is wider than tall too.
+      for (var i = 0; i < count; i++) {
+        final size = tester.getSize(dots.at(i));
+        if (size.width > size.height * 2) return tester.getCenter(dots.at(i)).dx;
+      }
+      throw StateError('no pill');
+    }
+
+    final first = pillX();
+    await tester.tap(find.text(ar.onboardingNext));
+    await tester.pumpAndSettle();
+    expect(pillX(), lessThan(first));
+  });
+
   group('someone who already uses the app never sees it', () {
     // Everyone who signed in before the explainer existed has no flag. If only
     // the explainer's own buttons wrote it, their next 401 or sign-out would
@@ -165,6 +191,47 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(container.read(onboardingControllerProvider), isFalse);
       expect(writes, isEmpty);
+    });
+
+    test('a remembered email or an ended session is prior use; a fresh '
+        'device is not', () {
+      AuthState signedOut({String? email, bool expired = false}) => AuthState(
+        stage: AuthStage.signedOut,
+        rememberedEmail: email,
+        sessionExpired: expired,
+      );
+      for (final (state, used) in [
+        (signedOut(), false),
+        (signedOut(email: 'sara@company.com'), true),
+        (signedOut(expired: true), true),
+      ]) {
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith(
+              (r) => FakeAuthController(state, pinned: true),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        expect(container.read(hasUsedAppProvider), used, reason: '$state');
+      }
+    });
+
+    test('signed out with a remembered email or an ended session, it is '
+        'not shown', () async {
+      // Seen on a device: a session that expired before the flag existed
+      // put three slides in front of the "session expired" sign-in.
+      final container = ProviderContainer(
+        overrides: [
+          authStageProvider.overrideWithValue(AuthStage.signedOut),
+          hasUsedAppProvider.overrideWithValue(true),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(onboardingControllerProvider), isTrue);
+      await Future<void>.delayed(Duration.zero);
+      expect(writes, contains('pref_onboarding_seen'));
     });
   });
 }

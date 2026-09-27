@@ -203,6 +203,19 @@ void main() {
       expect(bell.label, _en.unreadCount(12));
       handle.dispose();
     });
+
+    testWidgets('an Arabic badge still reads "9+", not "+9"', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [unreadNotificationCountProvider.overrideWithValue(12)],
+          child: testApp(
+            home: const Scaffold(body: Center(child: NotificationBell())),
+          ),
+        ),
+      );
+      final badge = tester.widget<Text>(find.text('9+'));
+      expect(badge.textDirection, TextDirection.ltr);
+    });
   });
 
   group('My materials', () {

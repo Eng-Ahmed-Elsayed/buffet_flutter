@@ -50,6 +50,9 @@ class NotificationBell extends ConsumerWidget {
                       // Capped: past a certain point the exact number stops
                       // being information and starts being a wide badge.
                       unread > 9 ? '9+' : '$unread',
+                      // No letters to set its direction, so an Arabic line
+                      // drew "9+" as "+9". Seen on the emulator.
+                      textDirection: TextDirection.ltr,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: BrandColors.surface,

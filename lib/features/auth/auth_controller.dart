@@ -573,6 +573,15 @@ final authStageProvider = Provider<AuthStage>(
   (ref) => ref.watch(authControllerProvider).stage,
 );
 
+/// Whether this device shows signs of someone who already uses the app,
+/// though signed out: an email remembered from an earlier sign-in, or a
+/// session that has just ended. Either means they need the sign-in screen and
+/// its notice, not the first-launch explainer.
+final hasUsedAppProvider = Provider<bool>((ref) {
+  final state = ref.watch(authControllerProvider);
+  return state.rememberedEmail != null || state.sessionExpired;
+});
+
 /// Whether the signed-in user may attach a guest's name to an order.
 ///
 /// A narrow view of [authControllerProvider] so a screen needing this one
