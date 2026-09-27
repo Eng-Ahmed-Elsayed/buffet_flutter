@@ -1,4 +1,4 @@
-namespace BuffetApp.Web.Api;
+﻿namespace BuffetApp.Web.Api;
 
 // The staff half of the mobile client's wire format. Separate from the domain models for the same
 // reason the employee contracts are: an entity reshaped for an internal reason must not silently
@@ -7,6 +7,10 @@ namespace BuffetApp.Web.Api;
 /// <summary>A queue entry, seen from behind the counter.</summary>
 /// <param name="RequesterDisplayName">Who ordered it — staff need the name, not just the username.</param>
 /// <param name="WaitingSeconds">Seconds since the order was placed, for the ageing indicator.</param>
+/// <param name="Fulfilment">
+/// <c>"Pickup"</c> — leave it on the counter — or <c>"Delivery"</c> — carry it to
+/// <paramref name="LocationText"/>. Null for an order placed before the choice was recorded.
+/// </param>
 public sealed record StaffOrderDto(
     int OrderId,
     string Status,
@@ -18,7 +22,8 @@ public sealed record StaffOrderDto(
     string? OnBehalfOfName,
     string Notes,
     int WaitingSeconds,
-    IReadOnlyList<StaffOrderLineDto> Lines);
+    IReadOnlyList<StaffOrderLineDto> Lines,
+    string? Fulfilment);
 
 /// <summary>
 /// One drink to make. Unlike the employee's <see cref="OrderLineDto"/>, sources are named rather

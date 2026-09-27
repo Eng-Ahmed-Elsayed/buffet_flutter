@@ -57,6 +57,29 @@ enum OrderStatus {
       this == OrderStatus.completed || this == OrderStatus.cancelled;
 }
 
+/// Pickup or delivery (§7.8), sent and read **by name**, like every enum on
+/// this API.
+enum Fulfilment {
+  /// The requester collects it from the kitchen.
+  pickup('Pickup'),
+
+  /// Staff carry it to the location.
+  delivery('Delivery');
+
+  const Fulfilment(this.wire);
+
+  final String wire;
+
+  /// Null for null, and for anything unrecognised: an order placed before the
+  /// choice existed is **neutral**, neither "come and get it" nor "on its way".
+  static Fulfilment? fromWire(String? value) {
+    for (final mode in values) {
+      if (mode.wire == value) return mode;
+    }
+    return null;
+  }
+}
+
 /// Mirrors `PlaceOrderApiRequest` in ApiContracts.cs.
 @JsonSerializable(createFactory: false, includeIfNull: false)
 class PlaceOrderApiRequest {
@@ -70,6 +93,7 @@ class PlaceOrderApiRequest {
     this.saveAsFavourite = false,
     this.favouriteName,
     this.fromFavouriteId,
+    this.fulfilment,
   });
 
   final List<OrderLineDto> lines;
@@ -107,6 +131,11 @@ class PlaceOrderApiRequest {
   /// Only stamps that favourite as recently used — it does not affect what is
   /// ordered, which comes from [lines] as on any other order.
   final int? fromFavouriteId;
+
+  /// `"Pickup"` or `"Delivery"` (§7.8). Omitted, the server infers it from
+  /// whether a location resolves, as older builds relied on. `Delivery` with
+  /// no location is a `400`.
+  final String? fulfilment;
 
   Map<String, dynamic> toJson() => _$PlaceOrderApiRequestToJson(this);
 }
@@ -171,6 +200,8 @@ class OrderSummaryDto {
     required this.onBehalfOfName,
     required this.notes,
     required this.lines,
+    this.startedAtUtc,
+    this.fulfilment,
   });
 
   factory OrderSummaryDto.fromJson(Map<String, dynamic> json) =>
@@ -190,6 +221,18 @@ class OrderSummaryDto {
   final String? onBehalfOfName;
   final String notes;
   final List<OrderLineDto> lines;
+
+  /// When staff began making it (§7.3). **Null both before they start and when
+  /// they never did**: staff can serve straight from Pending, so a Ready or
+  /// Completed order can have none. Never backfilled.
+  final DateTime? startedAtUtc;
+
+  /// `"Pickup"`, `"Delivery"`, or null for an order placed before the choice
+  /// existed. Read [fulfilmentMode].
+  final String? fulfilment;
+
+  /// Null means neutral wording.
+  Fulfilment? get fulfilmentMode => Fulfilment.fromWire(fulfilment);
 
   /// Parsed by name, never by ordinal.
   OrderStatus get orderStatus => OrderStatus.fromWire(status);

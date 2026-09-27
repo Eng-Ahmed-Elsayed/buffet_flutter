@@ -64,6 +64,28 @@ class OrderRepository {
       throw ApiException.fromDio(error, networkErrorFallback);
     }
   }
+
+  /// "I picked it up": the requester closes their own Ready pickup order
+  /// (§7.8).
+  ///
+  /// `204` also when it is already Completed, so a retry, or staff getting
+  /// there first, is harmless. A delivery, a legacy order with no mode, one
+  /// not ready yet or cancelled is a `400` with the server's reason. Touches
+  /// no stock: that was deducted at Ready.
+  Future<void> confirmCollected({
+    required int orderId,
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async {
+    try {
+      await _dio.post<void>(
+        ApiConfig.collectedOrder(orderId),
+        options: Options(extra: {ApiConfig.languageFlag: languageCode}),
+      );
+    } on DioException catch (error) {
+      throw ApiException.fromDio(error, networkErrorFallback);
+    }
+  }
 }
 
 final orderRepositoryProvider = Provider<OrderRepository>(

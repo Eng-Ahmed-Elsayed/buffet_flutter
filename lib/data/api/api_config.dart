@@ -66,6 +66,7 @@ abstract final class ApiConfig {
   static const myOrders = '/orders/mine';
   static String order(int id) => '/orders/$id';
   static String cancelOrder(int id) => '/orders/$id/cancel';
+  static String collectedOrder(int id) => '/orders/$id/collected';
 
   /// The caller's saved orders. **Deliberately not bundled into
   /// [catalogue]**, which is cached and refreshed on resume: this list changes

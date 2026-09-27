@@ -17,6 +17,9 @@ class CatalogueItemDto {
     required this.ownServingsLeft,
     required this.variants,
     required this.allowedExtraItemIds,
+    this.descriptionAr,
+    this.descriptionEn,
+    this.drinkGroupId,
   });
 
   factory CatalogueItemDto.fromJson(Map<String, dynamic> json) =>
@@ -59,6 +62,28 @@ class CatalogueItemDto {
   /// produces a drink that arrives wrong rather than an error the user can act
   /// on.
   final List<int>? allowedExtraItemIds;
+
+  /// One or two lines about the drink, at most 200 characters, or **null when
+  /// the admin has not written one** (§7.9). Null on a server that predates
+  /// the field, too. Render the name alone then; nothing should look missing.
+  final String? descriptionAr;
+
+  /// The English description, or null. Falls back to the Arabic one.
+  final String? descriptionEn;
+
+  /// The menu group this drink is filed under, or null: ungrouped, retired
+  /// group, or a server that predates groups. When set, it names an entry in
+  /// [CatalogueResponse.drinkGroups]. Always null on sugars and extras.
+  final int? drinkGroupId;
+
+  /// The description in [languageCode], falling back to Arabic, or null when
+  /// there is none worth showing.
+  String? localisedDescription(String languageCode) {
+    String? clean(String? text) =>
+        text == null || text.trim().isEmpty ? null : text.trim();
+    final arabic = clean(descriptionAr);
+    return languageCode == 'ar' ? arabic : clean(descriptionEn) ?? arabic;
+  }
 
   /// Whether this drink permits [extraItemId].
   ///
@@ -151,6 +176,7 @@ class CatalogueResponse {
     required this.locations,
     this.maxLines = 25,
     this.maxBuffetDrinks = 1,
+    this.drinkGroups = const [],
   });
 
   factory CatalogueResponse.fromJson(Map<String, dynamic> json) =>
@@ -176,6 +202,36 @@ class CatalogueResponse {
   /// asking for a jar the caller does not actually own falls back to buffet
   /// stock and counts here. Defaulted for the same reason as [maxLines].
   final int maxBuffetDrinks;
+
+  /// The menu's chips, in display order (§7.9): only active groups holding at
+  /// least one listed drink, so no chip filters down to nothing. **Empty until
+  /// an admin creates groups**, and on a server that predates them; the menu
+  /// falls back to the source chips then.
+  @JsonKey(defaultValue: <DrinkGroupDto>[])
+  final List<DrinkGroupDto> drinkGroups;
+}
+
+/// Mirrors `DrinkGroupDto` in ApiContracts.cs: a chip on the menu.
+@JsonSerializable(createToJson: false)
+class DrinkGroupDto {
+  const DrinkGroupDto({
+    required this.drinkGroupId,
+    required this.nameAr,
+    required this.nameEn,
+    required this.sortOrder,
+  });
+
+  factory DrinkGroupDto.fromJson(Map<String, dynamic> json) =>
+      _$DrinkGroupDtoFromJson(json);
+
+  final int drinkGroupId;
+  final String nameAr;
+  final String nameEn;
+  final int sortOrder;
+
+  /// Admin-entered, so English falls back to Arabic when left blank.
+  String localisedName(String languageCode) =>
+      languageCode == 'ar' || nameEn.trim().isEmpty ? nameAr : nameEn;
 }
 
 /// Mirrors `LocationDto` in ApiContracts.cs.

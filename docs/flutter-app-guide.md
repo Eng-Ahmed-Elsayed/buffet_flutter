@@ -292,6 +292,7 @@ against a dev instance if you like, but the contracts in `ApiContracts.cs` are t
 | `GET` | `/orders/mine?take=` | Newest first. `take` capped at 100, defaults to 20 |
 | `GET` | `/orders/{id}` | Caller's own only; **404** for anyone else's |
 | `POST` | `/orders/{id}/cancel` | `204`. Pending only, ownership-checked |
+| `POST` | `/orders/{id}/collected` | `204`. "I picked it up" on the caller's own **Ready pickup** — §7.8 |
 | `GET` | `/notifications` | |
 | `POST` | `/notifications/read` | |
 | `GET` | `/materials/mine` | The caller's own balances, with a **relative** `imageUrl` |
@@ -645,6 +646,11 @@ same confirmation.
 
 ### 7.3 Tracking
 
+The timeline has a time for every step: `createdAtUtc` (sent), **`startedAtUtc`** (being prepared),
+`readyAtUtc` and `handledAtUtc`. `startedAtUtc` stays **null** when staff served straight from
+`Pending`, so an order can be `Ready` or `Completed` with it unset — show that step as passed
+without a time. It is never backfilled.
+
 Poll `GET /orders/{id}` while an order is live; there are no push notifications or websockets
 today. Poll on a **timer of ~15s while the screen is foregrounded**, stop on background, and
 refresh once on resume. Do not poll a completed or cancelled order.
@@ -802,6 +808,57 @@ their past orders was actually a habit, instead of the server guessing that the 
 
 ---
 
+### 7.8 Pickup or delivery, and "I picked it up"
+
+Synced from the backend's guide (commit `9337d8d`, 2026-09-27). **Built but not yet deployed**:
+the live server lacks the fields and the route ([backend-findings.md](backend-findings.md)), so
+the client treats every one as optional.
+
+`PlaceOrderApiRequest.fulfilment` is `"Pickup"` or `"Delivery"`, by name.
+
+| Sent | Result |
+|---|---|
+| omitted | Inferred: `Delivery` when a location resolves, otherwise `Pickup` — older builds keep working |
+| `"Delivery"` with no location | `400`, localised. So is an unknown `locationId` with blank text: it resolves to nowhere |
+| `"Pickup"` with a location | Accepted, location kept — it tells staff where the person sits |
+| anything else (including `"1"`) | `400` |
+
+Show the delivery error on the location field, not as a disabled button. `OrderSummaryDto.fulfilment`
+and `StaffOrderDto.fulfilment` read it back, and are **null on orders placed before the choice
+existed**: treat null as neutral wording, neither "come and get it" nor "on its way".
+
+The Ready notification follows the mode: pickup says to collect it from the kitchen, delivery says
+it will reach you shortly (Ready means *made*, not *on its way*), and a legacy order keeps the old
+wording.
+
+**`POST /orders/{id}/collected`** lets the requester close their own Ready pickup:
+
+| Order | Response |
+|---|---|
+| `Ready` pickup, the caller's | `204`, now `Completed` |
+| already `Completed` | `204` — a retry, or staff got there first. Harmless |
+| not a pickup (delivery, or legacy null) | `400` |
+| `Pending` / `InProgress` | `400` "not ready yet" |
+| `Cancelled` | `400` "no longer open" |
+| not found, or not the caller's | `400`, as cancel does |
+
+Show the button only on the caller's own `Ready` order whose `fulfilment == "Pickup"`. It touches
+no stock (that was deducted at Ready) and sends no notification.
+
+### 7.9 Menu groups and descriptions
+
+`CatalogueItemDto` carries `descriptionAr` / `descriptionEn` (one or two lines, at most 200
+characters, **null when not written**) and `drinkGroupId`. `CatalogueResponse.drinkGroups` lists
+the chips in display order: only **active groups that hold at least one listed drink**, so no chip
+filters down to nothing.
+
+- `drinkGroupId` is null for an ungrouped drink **and for a drink whose group was retired**. Either
+  way, show it under an «أخرى» / "Other" chip; when set, it always names an entry in `drinkGroups`.
+- `drinkGroups` is `[]` until an admin creates groups. Fall back to the source chips
+  («من موادي» / «من البوفيه») then.
+- No description: show the name alone, and go straight from the title to the controls on Drink
+  Details.
+
 ## 8. The staff view
 
 These endpoints are **live**, in `src/BuffetApp.Web/Api/StaffApi.cs`. Model the DTOs from
@@ -816,7 +873,7 @@ the callout in §0.
 | `GET` | `/staff/orders/{id}` | Full detail, **any** order — no ownership filter |
 | `POST` | `/staff/orders/{id}/start` | → `InProgress` |
 | `POST` | `/staff/orders/{id}/ready` | → `Ready`; `?deliverNow=` also completes |
-| `POST` | `/staff/orders/{id}/complete` | → `Completed` |
+| `POST` | `/staff/orders/{id}/complete` | → `Completed`. `204` also when already `Completed` (the requester collected it first) |
 | `POST` | `/staff/orders/{id}/cancel` | With a reason; reverses and re-books as waste |
 | `GET` | `/staff/declarations` | Pending personal-material declarations. **Admin only** |
 | `POST` | `/staff/declarations/{id}/confirm` | Confirm receipt — **this is what creates stock**. Admin only |
@@ -843,7 +900,7 @@ Constraints the backend holds, and the app must not work around:
   feed. Group by status, `Pending` at the top.
 - **Poll every ~10s foregrounded**, pause on background. Staff keep the screen open; a stale queue
   is worse than a slightly chatty one.
-- **Each card shows** requester and department, delivery location, drinks with the spoon count and
+- **Each card shows** requester and department, **`fulfilment`** (a Pickup badge, or "Deliver to {locationText}"), delivery location, drinks with the spoon count and
   extras, the per-line note, `waitingSeconds` as an ageing indicator, and — prominently — **which
   jar each component comes from**, in violet when it is someone's personal stock. There is no sugar
   *name* to show: `sugarNameAr` is always null.

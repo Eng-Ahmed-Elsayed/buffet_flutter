@@ -68,6 +68,17 @@ public sealed record SetInitialPasswordRequest(string NewPassword);
 /// wrong rather than an error the user can act on.
 /// </para>
 /// </param>
+/// <param name="DescriptionAr">
+/// One or two lines about the drink, at most 200 characters, or null when the admin has not
+/// written one. Render the name alone when null; nothing should look missing.
+/// </param>
+/// <param name="DescriptionEn">The English description, or null. Fall back to the Arabic one.</param>
+/// <param name="DrinkGroupId">
+/// The menu group this drink is filed under, or null for an ungrouped drink — show those under an
+/// "Other" chip rather than hiding them. When set, it always names an entry in
+/// <see cref="CatalogueResponse.DrinkGroups"/>: a drink whose group was retired comes back null.
+/// Always null on sugars and extras.
+/// </param>
 public sealed record CatalogueItemDto(
     int ItemId,
     string NameAr,
@@ -79,7 +90,13 @@ public sealed record CatalogueItemDto(
     bool HasOwnStock,
     int OwnServingsLeft,
     IReadOnlyList<VariantDto> Variants,
-    IReadOnlyList<int>? AllowedExtraItemIds);
+    IReadOnlyList<int>? AllowedExtraItemIds,
+    string? DescriptionAr,
+    string? DescriptionEn,
+    int? DrinkGroupId);
+
+/// <summary>A chip on the menu. Ordered by <paramref name="SortOrder"/> in the response already.</summary>
+public sealed record DrinkGroupDto(int DrinkGroupId, string NameAr, string NameEn, int SortOrder);
 
 /// <summary>
 /// A way of preparing a drink. Empty for drinks made only one way, so the client can show the
@@ -135,13 +152,19 @@ public sealed record VariantDto(
 /// asking for a jar the caller does not actually own falls back to buffet stock and counts here.
 /// </para>
 /// </param>
+/// <param name="DrinkGroups">
+/// The menu's groups, in display order: only active groups that hold at least one drink in
+/// <paramref name="Drinks"/>, so no chip ever filters down to nothing. Empty until an admin
+/// creates groups — fall back to grouping by source then.
+/// </param>
 public sealed record CatalogueResponse(
     IReadOnlyList<CatalogueItemDto> Drinks,
     IReadOnlyList<CatalogueItemDto> Sugars,
     IReadOnlyList<CatalogueItemDto> Extras,
     IReadOnlyList<LocationDto> Locations,
     int MaxLines,
-    int MaxBuffetDrinks);
+    int MaxBuffetDrinks,
+    IReadOnlyList<DrinkGroupDto> DrinkGroups);
 
 public sealed record LocationDto(int LocationId, string NameAr, string Kind);
 
@@ -179,6 +202,17 @@ public sealed record OrderLineDto(
 /// used, so a client can offer the ones actually in use; it does not affect what is ordered, and
 /// the lines still come from <paramref name="Lines"/>.
 /// </param>
+/// <param name="Fulfilment">
+/// <c>"Pickup"</c> — the requester collects it from the kitchen — or <c>"Delivery"</c> — staff
+/// carry it to the location. By name, like every enum on this API.
+/// <para>
+/// Omitted, it is inferred: <c>Delivery</c> when a location resolves, otherwise <c>Pickup</c>, so
+/// builds that predate the choice behave as they always did. <c>Delivery</c> with no location is
+/// a <c>400</c>, and so is an unknown <paramref name="LocationId"/> with blank text, because
+/// neither resolves to anywhere to deliver to. <c>Pickup</c> with a location is fine and keeps it:
+/// it tells staff where the person sits.
+/// </para>
+/// </param>
 public sealed record PlaceOrderApiRequest(
     IReadOnlyList<OrderLineDto> Lines,
     string? Notes,
@@ -188,7 +222,8 @@ public sealed record PlaceOrderApiRequest(
     string? IdempotencyKey,
     bool SaveAsFavourite = false,
     string? FavouriteName = null,
-    int? FromFavouriteId = null);
+    int? FromFavouriteId = null,
+    string? Fulfilment = null);
 
 /// <param name="Duplicate">True when an existing order matched the idempotency key.</param>
 /// <param name="AutoServed">
@@ -219,6 +254,15 @@ public sealed record PlaceOrderResponse(
     string? ShortageNames = null,
     int? FavouriteId = null);
 
+/// <param name="StartedAtUtc">
+/// When staff began preparing it, or null — both before they start and when they never did: staff
+/// can serve an order straight from Pending, so an order can be Ready or Completed with this still
+/// null. Show that step as passed without a time; it is deliberately never backfilled.
+/// </param>
+/// <param name="Fulfilment">
+/// <c>"Pickup"</c> or <c>"Delivery"</c>, or null for an order placed before the choice was
+/// recorded. Treat null as neutral — neither "come and get it" nor "on its way".
+/// </param>
 public sealed record OrderSummaryDto(
     int OrderId,
     string Status,
@@ -228,7 +272,9 @@ public sealed record OrderSummaryDto(
     string LocationText,
     string? OnBehalfOfName,
     string Notes,
-    IReadOnlyList<OrderLineDto> Lines)
+    IReadOnlyList<OrderLineDto> Lines,
+    DateTime? StartedAtUtc,
+    string? Fulfilment)
 {
     /// <summary>True once the drink has been made, so the client can show a "collect it" prompt.</summary>
     public bool IsReady => Status == nameof(OrderStatus.Ready);

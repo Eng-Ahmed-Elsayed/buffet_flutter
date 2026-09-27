@@ -1,6 +1,7 @@
 # Backend request: `StartedAtUtc` on `OrderSummaryDto`
 
 **Repo:** `../buffet_app` (ASP.NET Core 10)
+**Status: SHIPPED in the backend repo 2026-09-27** (commits `4c91a7e`, `19e80f0`, `9337d8d`; contracts synced into `docs/contracts/`). **Not yet deployed** to digitalbuffet.runasp.net as of that date. The client builds against it with every field optional.
 **Severity:** low. This is cosmetic: it adds one timestamp to the tracking timeline.
 **Raised:** 2026-09-24, from the Figma redesign (see [figma-redesign.md](figma-redesign.md)).
 

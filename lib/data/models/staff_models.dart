@@ -1,5 +1,7 @@
 import 'package:json_annotation/json_annotation.dart';
 
+import 'order_models.dart';
+
 part 'staff_models.g.dart';
 
 /// Mirrors `StaffOrderDto` in StaffContracts.cs — a queue entry seen from
@@ -18,6 +20,7 @@ class StaffOrderDto {
     required this.notes,
     required this.waitingSeconds,
     required this.lines,
+    this.fulfilment,
   });
 
   factory StaffOrderDto.fromJson(Map<String, dynamic> json) =>
@@ -43,6 +46,13 @@ class StaffOrderDto {
   final int waitingSeconds;
 
   final List<StaffOrderLineDto> lines;
+
+  /// `"Pickup"` (leave it on the counter), `"Delivery"` (carry it to
+  /// [locationText]), or null for an order placed before the choice existed.
+  final String? fulfilment;
+
+  /// Null means neither badge: nothing was recorded.
+  Fulfilment? get fulfilmentMode => Fulfilment.fromWire(fulfilment);
 }
 
 /// Mirrors `StaffOrderLineDto` in StaffContracts.cs — one drink to make.
