@@ -118,6 +118,10 @@
   "pendingBody": "We have your order — it has not been started yet",
   "inProgressBody": "Your drink is being made now",
   "readyBody": "The buffet has made it — it's ready for you",
+  "readyBodyPickup": "It's ready — collect it from the kitchen",
+  "readyBodyDelivery": "It's made, and will reach you shortly",
+  "pickedItUp": "I picked it up",
+  "pickedItUpConfirmation": "Done — enjoy!",
   "cancelOrder": "Cancel order",
 
   "outstandingReadyTitle": "Your drink is ready",
@@ -180,6 +184,8 @@
     "description": "Local notification body when an order turns Ready.",
     "placeholders": { "orderId": { "type": "int" } }
   },
+  "alertReadyBodyPickup": "Order {orderId} is ready — collect it from the kitchen.",
+  "alertReadyBodyDelivery": "Order {orderId} is made, and will reach you shortly.",
   "alertCancelledTitle": "Your order was cancelled",
   "@alertCancelledTitle": {
     "description": "Local notification title when an order is cancelled."

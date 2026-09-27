@@ -8,6 +8,8 @@ import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/features/order/order_status_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/shared/formatters.dart';
+import 'package:buffet_app/data/local/order_alerts.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +39,7 @@ OrderSummaryDto _order(
   DateTime? readyAtUtc,
   DateTime? handledAtUtc,
   DateTime? startedAtUtc,
+  String? fulfilment,
 }) => OrderSummaryDto(
   orderId: id,
   status: status,
@@ -48,6 +51,7 @@ OrderSummaryDto _order(
   notes: '',
   lines: lines ?? [_line('قهوة')],
   startedAtUtc: startedAtUtc,
+  fulfilment: fulfilment,
 );
 
 const _menu = CatalogueResponse(
@@ -97,7 +101,8 @@ Future<void> _pumpOrders(
 class _OneOrderRepo implements OrderRepository {
   _OneOrderRepo(this.order);
 
-  final OrderSummaryDto order;
+  OrderSummaryDto order;
+  int collected = 0;
 
   @override
   Future<OrderSummaryDto> fetchOrder({
@@ -105,6 +110,29 @@ class _OneOrderRepo implements OrderRepository {
     required String languageCode,
     required String networkErrorFallback,
   }) async => order;
+
+  /// "I picked it up": the server completes the order (§7.8).
+  @override
+  Future<void> confirmCollected({
+    required int orderId,
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async {
+    collected++;
+    order = _order(
+      order.orderId,
+      'Completed',
+      readyAtUtc: order.readyAtUtc,
+      handledAtUtc: DateTime.utc(2026, 8, 20, 7, 9),
+      fulfilment: order.fulfilment,
+    );
+  }
+
+  @override
+  Future<List<OrderSummaryDto>> fetchMyOrders({
+    required String languageCode,
+    required String networkErrorFallback,
+  }) async => [order];
 
   @override
   dynamic noSuchMethod(Invocation i) => super.noSuchMethod(i);
@@ -128,18 +156,19 @@ class _RoutedStatus extends StatelessWidget {
   );
 }
 
-Future<void> _pumpStatus(
+Future<_OneOrderRepo> _pumpStatus(
   WidgetTester tester,
   OrderSummaryDto order, {
   List<CatalogueItemDto> extras = const [],
 }) async {
+  final repository = _OneOrderRepo(order);
   tester.view.physicalSize = const Size(1080, 2400);
   tester.view.devicePixelRatio = 3.0;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        orderRepositoryProvider.overrideWithValue(_OneOrderRepo(order)),
+        orderRepositoryProvider.overrideWithValue(repository),
         catalogueProvider.overrideWith(
           (r) async => CatalogueResponse(
             drinks: const [],
@@ -154,6 +183,7 @@ Future<void> _pumpStatus(
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
+  return repository;
 }
 
 void main() {
@@ -284,6 +314,82 @@ void main() {
     });
   });
 
+  group('Ready follows how the order reaches the person (§7.8)', () {
+    final ready = DateTime.utc(2026, 8, 20, 7, 5);
+
+    testWidgets('a pickup says to collect it, and the employee can close it', (
+      tester,
+    ) async {
+      final repository = await _pumpStatus(
+        tester,
+        _order(41, 'Ready', readyAtUtc: ready, fulfilment: 'Pickup'),
+      );
+      expect(find.text(_l10n.readyBodyPickup), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.text(_l10n.pickedItUp),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text(_l10n.pickedItUp));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(repository.collected, 1);
+      expect(find.text(_l10n.statusCompleted), findsWidgets);
+      expect(find.text(_l10n.pickedItUp), findsNothing);
+    });
+
+    testWidgets('a delivery says it will reach them, with nothing to tap', (
+      tester,
+    ) async {
+      await _pumpStatus(
+        tester,
+        _order(41, 'Ready', readyAtUtc: ready, fulfilment: 'Delivery'),
+      );
+      expect(find.text(_l10n.readyBodyDelivery), findsOneWidget);
+      // At the foot of a list built lazily: scrolled there, so "nothing"
+      // means not drawn, rather than not built yet.
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -3000),
+      );
+      await tester.pump();
+      expect(find.text(_l10n.pickedItUp), findsNothing);
+    });
+
+    testWidgets('an order from before the choice stays neutral', (
+      tester,
+    ) async {
+      await _pumpStatus(tester, _order(41, 'Ready', readyAtUtc: ready));
+      expect(find.text(_l10n.readyBody), findsOneWidget);
+      // At the foot of a list built lazily: scrolled there, so "nothing"
+      // means not drawn, rather than not built yet.
+      await tester.drag(
+        find.byType(Scrollable).first,
+        const Offset(0, -3000),
+      );
+      await tester.pump();
+      expect(find.text(_l10n.pickedItUp), findsNothing);
+    });
+
+    test('the local alert is worded the same way', () {
+      final alerts = <String>[];
+      final recorder = _BodyAlerts(alerts);
+      for (final mode in ['Pickup', 'Delivery', null]) {
+        announceOrderChange(
+          recorder,
+          _l10n,
+          _order(41, 'Ready', readyAtUtc: ready, fulfilment: mode),
+        );
+      }
+      expect(alerts, [
+        _l10n.alertReadyBodyPickup(41),
+        _l10n.alertReadyBodyDelivery(41),
+        _l10n.alertReadyBody(41),
+      ]);
+    });
+  });
+
   group('the tracking screen says what it knows, and only that', () {
     testWidgets('no time on a step that has not happened', (tester) async {
       final ready = DateTime.utc(2026, 8, 20, 7, 5);
@@ -381,4 +487,18 @@ void main() {
       expect(find.textContaining('وفد الوزارة'), findsOneWidget);
     });
   });
+}
+
+/// Records each alert's body instead of showing it.
+class _BodyAlerts extends OrderAlerts {
+  _BodyAlerts(this.bodies) : super(FlutterLocalNotificationsPlugin());
+
+  final List<String> bodies;
+
+  @override
+  Future<void> orderReady({
+    required int orderId,
+    required String title,
+    required String body,
+  }) async => bodies.add(body);
 }

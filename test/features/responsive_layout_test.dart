@@ -299,6 +299,9 @@ class _StatusRepo implements OrderRepository {
         ownExtraItemIds: [],
       ),
     ],
+    // A pickup, so a Ready order draws its longest line and the green
+    // "I picked it up" (§7.8).
+    fulfilment: 'Pickup',
   );
 
   @override

@@ -259,7 +259,13 @@ void announceOrderChange(
         alerts.orderReady(
           orderId: order.orderId,
           title: l10n.alertReadyTitle,
-          body: l10n.alertReadyBody(order.orderId),
+          // Worded by how it reaches them (§7.8); an order from before the
+          // choice keeps the neutral line.
+          body: switch (order.fulfilmentMode) {
+            Fulfilment.pickup => l10n.alertReadyBodyPickup(order.orderId),
+            Fulfilment.delivery => l10n.alertReadyBodyDelivery(order.orderId),
+            null => l10n.alertReadyBody(order.orderId),
+          },
         ),
       );
     case OrderStatus.cancelled:

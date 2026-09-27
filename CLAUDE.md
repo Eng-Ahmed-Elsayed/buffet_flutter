@@ -190,9 +190,12 @@ InProgress) and Earlier (Completed and Cancelled). The tracking screen shows a v
 timeline (Sent → Being prepared → Ready → Received) and carries the order's times, so the summary
 card does not repeat them. Rules a future edit must not undo:
 
-- **Ready wording is neutral** («جاهز لك», "it's ready for you") until the fulfilment mode ships
-  (D5). Both pickup and delivery happen today, and "come and collect it" was wrong for the
-  delivered half.
+- **Ready wording follows the order's mode** (§7.8): collect it from the kitchen for a pickup,
+  "will reach you shortly" for a delivery (Ready means made, not on its way), on the status screen
+  and the local alert alike. **An order with no mode stays neutral** («جاهز لك»), which is every
+  order on a server that predates the field. **"I picked it up"** (green, `ok`) shows only on the
+  employee's own Ready *pickup*, posts `/orders/{id}/collected`, and needs no dialog: a repeat is a
+  harmless `204`. `order_tracking_test.dart`.
 - **An order row names its drinks from the catalogue in the reader's language**, exactly as the
   status screen does, falling back to the stored `drinkNameAr`. `OrderSummaryDto` carries Arabic
   names only, and a row saying «قهوة» that opens onto "Coffee" names one drink two ways.

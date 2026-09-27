@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/banners.dart';
+import '../../shared/widgets/button_spinner.dart';
 import '../../shared/widgets/source_chip.dart';
 import '../../theme/app_theme.dart';
 import '../../theme/brand_colors.dart';
@@ -122,6 +123,45 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
       if (order.orderStatus.isSettled) _pollTimer?.cancel();
     } on ApiException catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);
+    }
+  }
+
+  /// "I picked it up" in flight: the button names its working state and
+  /// cannot post twice.
+  bool _collecting = false;
+
+  /// One tap, no dialog: it closes the user's own drink, which they are
+  /// holding, and a repeat is a harmless `204` (§7.8). Stock is untouched.
+  Future<void> _confirmCollected() async {
+    final l10n = AppLocalizations.of(context);
+    final locale = ref.read(localeControllerProvider);
+    setState(() => _collecting = true);
+    try {
+      await ref
+          .read(orderRepositoryProvider)
+          .confirmCollected(
+            orderId: widget.orderId,
+            languageCode: locale.languageCode,
+            networkErrorFallback: l10n.networkError,
+          );
+      await _refresh();
+      ref.invalidate(myOrdersProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(content: Text(l10n.pickedItUpConfirmation)),
+          );
+      }
+    } on ApiException catch (error) {
+      // The server's own reason: staff got there first reads as success
+      // (204), so what is left is a real refusal.
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _collecting = false);
     }
   }
 
@@ -254,6 +294,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
                     _StatusHeader(
                       status: order.orderStatus,
                       guestName: order.onBehalfOfName,
+                      fulfilment: order.fulfilmentMode,
                     ),
                     const SizedBox(height: Dimens.space5),
                     _Timeline(order: order),
@@ -286,6 +327,25 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
                       ),
                     ],
 
+                    // The employee closes their own Ready pickup (§7.8): the
+                    // designer's green button, given a real job. Only for a
+                    // pickup; a delivery is handed over by staff.
+                    if (order.isReady &&
+                        order.fulfilmentMode == Fulfilment.pickup) ...[
+                      const SizedBox(height: Dimens.space3),
+                      FilledButton.icon(
+                        onPressed: _collecting ? null : _confirmCollected,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: BrandColors.ok,
+                          foregroundColor: BrandColors.surface,
+                        ),
+                        icon: _collecting
+                            ? ButtonSpinner(label: l10n.pleaseWait)
+                            : const Icon(Icons.check_rounded),
+                        label: Text(l10n.pickedItUp),
+                      ),
+                    ],
+
                     // Offered on a cancelled order too, not just a completed
                     // one: having an order fall through is exactly when
                     // somebody wants to place another.
@@ -315,7 +375,14 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
 /// `Ready` gets the loudest treatment in the app — it is the "come and collect
 /// it" moment. `Completed` is deliberately quieter (§4.3).
 class _StatusHeader extends StatelessWidget {
-  const _StatusHeader({required this.status, this.guestName});
+  const _StatusHeader({
+    required this.status,
+    this.guestName,
+    this.fulfilment,
+  });
+
+  /// How it reaches the person (§7.8); null keeps the neutral Ready line.
+  final Fulfilment? fulfilment;
 
   final OrderStatus status;
 
@@ -345,7 +412,11 @@ class _StatusHeader extends StatelessWidget {
       ),
       OrderStatus.ready => (
         l10n.statusReady,
-        l10n.readyBody,
+        switch (fulfilment) {
+          Fulfilment.pickup => l10n.readyBodyPickup,
+          Fulfilment.delivery => l10n.readyBodyDelivery,
+          null => l10n.readyBody,
+        },
         Icons.check_rounded,
         BrandColors.ok,
         BrandColors.surface,
@@ -383,7 +454,11 @@ class _StatusHeader extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, size: isReady ? 40 : 30, color: foreground),
+            Icon(
+              icon,
+              size: isReady ? Dimens.iconFeature : Dimens.iconStatus,
+              color: foreground,
+            ),
             const SizedBox(height: Dimens.space3),
             Text(
               label,

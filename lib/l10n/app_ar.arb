@@ -194,6 +194,14 @@
   "@inProgressBody": { "description": "Subtitle on the InProgress state." },
   "readyBody": "تم تحضير طلبك وهو جاهز لك",
   "@readyBody": { "description": "Subtitle on the Ready state — the loudest moment in the app." },
+  "readyBodyPickup": "جاهز — تفضّل باستلامه من المطبخ",
+  "@readyBodyPickup": {"description": "Ready subtitle for a pickup order (guide 7.8)."},
+  "readyBodyDelivery": "تم تحضيره وسيصلك قريبًا",
+  "@readyBodyDelivery": {"description": "Ready subtitle for a delivery order. Ready means made, not on its way (guide 7.8)."},
+  "pickedItUp": "استلمته",
+  "@pickedItUp": {"description": "The employee's green button on their own Ready pickup order: POST /orders/{id}/collected (guide 7.8)."},
+  "pickedItUpConfirmation": "تم — بالهناء!",
+  "@pickedItUpConfirmation": {"description": "Shown once the pickup is recorded and the order is Completed."},
   "cancelOrder": "إلغاء الطلب",
   "@cancelOrder": { "description": "Cancel action. Pending only; hidden afterwards, never shown disabled." },
 
@@ -284,6 +292,10 @@
     "description": "Local notification body when an order turns Ready.",
     "placeholders": { "orderId": { "type": "int" } }
   },
+  "alertReadyBodyPickup": "الطلب رقم {orderId} جاهز، تفضّل باستلامه من المطبخ.",
+  "@alertReadyBodyPickup": {"description": "Local Ready alert for a pickup order.", "placeholders": {"orderId": {"type": "int"}}},
+  "alertReadyBodyDelivery": "تم تحضير الطلب رقم {orderId} وسيصلك قريبًا.",
+  "@alertReadyBodyDelivery": {"description": "Local Ready alert for a delivery order: made, reaching the person shortly.", "placeholders": {"orderId": {"type": "int"}}},
   "alertCancelledTitle": "تم إلغاء طلبك",
   "@alertCancelledTitle": {
     "description": "Local notification title when an order is cancelled."

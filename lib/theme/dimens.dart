@@ -67,8 +67,12 @@ abstract final class Dimens {
   /// The smallest icon: a mark inside a line of small text.
   static const iconMicro = 14.0;
 
-  /// A feature glyph heading a sheet.
+  /// A feature glyph heading a sheet, and a Ready order's status glyph.
   static const iconFeature = 40.0;
+
+  /// Any other order status's glyph: smaller than Ready's, which is the
+  /// loudest moment in the app.
+  static const iconStatus = 30.0;
 
   /// Item pictures: a material's thumbnail, a Review line, a menu row, and
   /// the Drink Details hero.

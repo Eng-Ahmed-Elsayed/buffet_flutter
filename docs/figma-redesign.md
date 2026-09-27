@@ -164,7 +164,8 @@ Shown once per install. Skip and Sign in both go to login.
   English). It is vertical, as in the design, with each step's time where the API has one. The
   summary card no longer repeats the placed and ready times.
 - `Ready` is the loudest state, in `ok` green with its word, never colour alone. Its wording is
-  neutral until the fulfilment mode ships, then it follows the mode (D5).
+  ✅ per mode (built 2026-09-27): pickup says collect it from the kitchen, delivery says it will
+  reach you shortly, and an order with no mode stays neutral (D5).
 - 🔁 The green **"Pickup Order"** button becomes **"I picked it up"**. It is shown only on the
   caller's own Ready pickup order, once the backend ships `/collected` (D6).
 - 🔁 **"NEW ORDER"** becomes New order.
@@ -256,7 +257,7 @@ unchanged (`composer_quantity_test.dart` covers what is new):
 | Ordering is one screen (guide §7.1) | Ordering is (Choose a drink →) Drink Details → Review: three steps of one route (see *Ordering*) |
 | The favourites strip lives on the composer as well as the hub, because staff never see the hub | It lives on **Choose a drink** as well as Home, for the same reason |
 | Guest mode asks for the name first | Unchanged in substance: the name is the first field of Choose a drink |
-| Ready is the "come and collect it" moment (guide §4.3; `readyBody`, `outstandingReadyBody`, `alertReadyBody`, `channelReadyDescription`, `handoverTab`, `noHandoversBody` in the ARB files) | Ready is still the loudest state, but its wording is **neutral** until the fulfilment mode ships, then **per mode** (D5). Android should update an existing channel's *description* when the channel is re-created with the same id, which the `@channelReadyName` note ("frozen") does not cover; **verify on a device** |
+| Ready is the "come and collect it" moment (guide §4.3; `readyBody`, `outstandingReadyBody`, `alertReadyBody`, `channelReadyDescription`, `handoverTab`, `noHandoversBody` in the ARB files) | Ready is still the loudest state, but its wording is **per mode** (built 2026-09-27), neutral for an order with no mode (D5). Android should update an existing channel's *description* when the channel is re-created with the same id, which the `@channelReadyName` note ("frozen") does not cover; **verify on a device** |
 | Only staff close an order | Staff close any order; the employee may also close their own **Ready pickup** order (D6, once shipped) |
 | Theme tokens are ported verbatim from the web's `site.css` (CLAUDE.md, guide §2.2) | Tokens come from Figma, fixed for contrast. **The app and the web app now differ in palette** unless the web is restyled too |
 | Design before Dart: every screen is designed and approved before widgets are written | The identity is designed (Figma plus this file). Screens Figma lacks **follow it and are approved from screenshot captures before the phase's commit** (D8) |
