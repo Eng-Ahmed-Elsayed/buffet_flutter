@@ -11,6 +11,7 @@ import 'package:buffet_app/features/onboarding/onboarding_screen.dart';
 import 'package:buffet_app/features/settings/biometric_enrolment_sheet.dart';
 import 'package:buffet_app/features/staff_queue/queue_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
+import 'package:buffet_app/theme/motion.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -212,6 +213,11 @@ void main() {
     auth
       ..pinned = false
       ..declineBiometricEnrolment();
+    // Answered, but its sheet is still closing: a permission dialog opened
+    // now paused the app with the sheet frozen on screen (emulator).
+    await tester.pump();
+    expect(alerts.initialised, 0);
+    await tester.pump(Motion.sheetExit);
     await tester.pumpAndSettle();
     expect(alerts.initialised, 1);
   });

@@ -21,6 +21,11 @@ abstract final class Motion {
   /// Anything leaving. Deliberately equal to [fast] and never longer.
   static const exit = Duration(milliseconds: 140);
 
+  /// How long Material takes to close a bottom sheet (its own default, which
+  /// the app's sheets keep). Something that must not start over a closing
+  /// sheet waits this out.
+  static const sheetExit = Duration(milliseconds: 200);
+
   /// Exponential ease-out: arrives at speed and settles. Reads as physical
   /// without the dated overshoot of a bounce.
   static const easeOut = Cubic(0.16, 1, 0.3, 1);

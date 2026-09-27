@@ -7,6 +7,7 @@ import '../data/local/order_alerts.dart';
 import '../data/push/push_controller.dart';
 import '../features/auth/auth_controller.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/motion.dart';
 
 /// Creates the alert channels, asks for notification permission, and
 /// registers for push — **one question at a time**.
@@ -29,8 +30,18 @@ import '../l10n/app_localizations.dart';
 Future<void> prepareLandingPrompts(BuildContext context, WidgetRef ref) async {
   final l10n = AppLocalizations.of(context);
 
+  final offered = ref.read(authControllerProvider).offerBiometricEnrolment;
   await _biometricOfferSettled(ref);
   if (!context.mounted) return;
+  // The offer is answered the moment its button is pressed, before its sheet
+  // has closed. A permission dialog opened then paused the app with the sheet
+  // still on screen, and it stayed there after the dialog: seen on the
+  // emulator 2026-09-27. So the sheet is let go first.
+  if (offered) {
+    await Future<void>.delayed(Motion.of(context, Motion.sheetExit));
+    await WidgetsBinding.instance.endOfFrame;
+    if (!context.mounted) return;
+  }
 
   await ref
       .read(orderAlertsProvider)
