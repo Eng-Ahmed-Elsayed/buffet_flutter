@@ -984,6 +984,31 @@ void main() {
     });
   });
 
+  // The catalogue reads the account on every fetch; the sign-in value is a
+  // 30-day token claim. A revocation since sign-in must not leave a guest
+  // order the server now refuses.
+  testWidgets('a guest privilege revoked since sign-in opens a self order', (
+    tester,
+  ) async {
+    await _pumpTall(
+      tester,
+      _app(
+        CatalogueResponse(
+          drinks: [_item(1, 'قهوة', 'Drink')],
+          sugars: const [],
+          extras: const [],
+          locations: const [],
+          canOrderForGuests: false,
+        ),
+        canOrderForGuests: true,
+        mode: OrderMode.guest,
+      ),
+    );
+
+    expect(find.text('اسم الضيف'), findsNothing);
+    expect(find.text('طلب لضيف'), findsNothing);
+  });
+
   group('a guest order cannot move on without its guest', () {
     CatalogueResponse menu() => CatalogueResponse(
       drinks: [_item(1, 'قهوة', 'Drink')],

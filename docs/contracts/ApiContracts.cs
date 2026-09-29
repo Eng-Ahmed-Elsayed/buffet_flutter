@@ -22,9 +22,9 @@ public sealed record LoginRequest(string Username, string Password);
 /// Whether this user may attach a guest's name to an order. Published so the client can show or
 /// hide the guest field rather than letting the user fill one in and be rejected.
 /// <para>
-/// Authoritative only as of sign-in. The token lasts 30 days, and the server reads this privilege
-/// from the token's claims — so a privilege granted or revoked today does not take effect for an
-/// already-signed-in client until it gets a new token.
+/// True only as of sign-in. The server checks the stored account on every guest order, so a
+/// privilege revoked since then is refused even though this still says true. Prefer
+/// <see cref="CatalogueResponse.CanOrderForGuests"/>, which is read fresh on every fetch.
 /// </para>
 /// </param>
 public sealed record LoginResponse(
@@ -157,6 +157,12 @@ public sealed record VariantDto(
 /// <paramref name="Drinks"/>, so no chip ever filters down to nothing. Empty until an admin
 /// creates groups — fall back to grouping by source then.
 /// </param>
+/// <param name="CanOrderForGuests">
+/// Whether the caller may order for a guest right now, read from their stored account rather than
+/// the token. Prefer it over <see cref="LoginResponse.CanOrderForGuests"/>, which is only as fresh
+/// as the last sign-in: an admin can grant or revoke the privilege at any time, and
+/// <c>POST /orders</c> checks the stored value.
+/// </param>
 public sealed record CatalogueResponse(
     IReadOnlyList<CatalogueItemDto> Drinks,
     IReadOnlyList<CatalogueItemDto> Sugars,
@@ -164,7 +170,8 @@ public sealed record CatalogueResponse(
     IReadOnlyList<LocationDto> Locations,
     int MaxLines,
     int MaxBuffetDrinks,
-    IReadOnlyList<DrinkGroupDto> DrinkGroups);
+    IReadOnlyList<DrinkGroupDto> DrinkGroups,
+    bool CanOrderForGuests);
 
 public sealed record LocationDto(int LocationId, string NameAr, string Kind);
 

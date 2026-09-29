@@ -81,30 +81,42 @@ const _juice = CatalogueItemDto(
   allowedExtraItemIds: null,
 );
 
-CatalogueResponse _catalogue(List<CatalogueItemDto> drinks) =>
-    CatalogueResponse(
-      drinks: drinks,
-      sugars: const [],
-      extras: const [],
-      locations: const [],
-      maxLines: 3,
-      maxBuffetDrinks: 1,
-    );
+CatalogueResponse _catalogue(
+  List<CatalogueItemDto> drinks, {
+  bool? canOrderForGuests,
+}) => CatalogueResponse(
+  drinks: drinks,
+  sugars: const [],
+  extras: const [],
+  locations: const [],
+  maxLines: 3,
+  maxBuffetDrinks: 1,
+  canOrderForGuests: canOrderForGuests,
+);
 
 /// Seeds the composer was opened with, recorded by the routed harness.
 final List<ComposerSeed> _opened = [];
 
 Widget _app({
   bool canOrderForGuests = false,
+  bool? catalogueCanOrderForGuests,
   List<OrderSummaryDto> orders = const [],
   List<FavouriteDto> favourites = const [],
   List<CatalogueItemDto> drinks = const [_tea],
   Locale locale = const Locale('ar'),
   bool inShell = false,
   bool routed = false,
+  bool? Function()? liveCanOrderForGuests,
 }) => ProviderScope(
   overrides: [
-    catalogueProvider.overrideWith((ref) async => _catalogue(drinks)),
+    catalogueProvider.overrideWith(
+      (ref) async => _catalogue(
+        drinks,
+        canOrderForGuests: liveCanOrderForGuests != null
+            ? liveCanOrderForGuests()
+            : catalogueCanOrderForGuests,
+      ),
+    ),
     favouritesProvider.overrideWith(
       (ref) async => FavouritesResponse(favourites: favourites),
     ),
@@ -233,6 +245,53 @@ void main() {
       await _pumpTall(tester, _app(canOrderForGuests: true));
 
       expect(find.text('اطلب لضيف'), findsOneWidget);
+    });
+
+    // The sign-in value is a 30-day token claim; the catalogue reads the
+    // account on every fetch, so an admin's change shows without a new sign-in.
+    testWidgets('a privilege revoked since sign-in hides it', (tester) async {
+      await _pumpTall(
+        tester,
+        _app(canOrderForGuests: true, catalogueCanOrderForGuests: false),
+      );
+
+      expect(find.text('القائمة'), findsOneWidget);
+      expect(find.text('اطلب لضيف'), findsNothing);
+    });
+
+    testWidgets('a privilege granted since sign-in shows it', (tester) async {
+      await _pumpTall(tester, _app(catalogueCanOrderForGuests: true));
+
+      expect(find.text('اطلب لضيف'), findsOneWidget);
+    });
+
+    // Home stays mounted beneath every tab, so only a refetch on resume
+    // carries a change made while the app was in the background.
+    testWidgets('a privilege revoked while away is gone on return', (
+      tester,
+    ) async {
+      bool? held = true;
+      await _pumpTall(
+        tester,
+        _app(canOrderForGuests: true, liveCanOrderForGuests: () => held),
+      );
+      expect(find.text('اطلب لضيف'), findsOneWidget);
+
+      held = false;
+      for (final state in const [
+        AppLifecycleState.inactive,
+        AppLifecycleState.hidden,
+        AppLifecycleState.paused,
+        AppLifecycleState.hidden,
+        AppLifecycleState.inactive,
+        AppLifecycleState.resumed,
+      ]) {
+        tester.binding.handleAppLifecycleStateChanged(state);
+      }
+      await tester.pumpAndSettle();
+
+      expect(find.text('القائمة'), findsOneWidget);
+      expect(find.text('اطلب لضيف'), findsNothing);
     });
 
     testWidgets('it renders in English too', (tester) async {

@@ -88,6 +88,14 @@ high-priority `notification` payload: a declined permission, OEM battery or auto
 a different account signed in on that phone.
 `settings_screen_test.dart`.
 
+**The guest privilege is read from the catalogue** (`CatalogueResponse.canOrderForGuests`, fresh
+from the account on every fetch) through `guestPrivilegeProvider`, which falls back to the sign-in
+value only when the catalogue has none. Never read `canOrderForGuestsProvider` directly for a
+screen: it is the 30-day token claim, and the server checks the stored account instead. See
+[docs/backend-request-guest-flag-freshness.md](docs/backend-request-guest-flag-freshness.md)
+(done in the backend 2026-09-28, not yet deployed). Home refetches the catalogue on resume for
+this, since it stays mounted beneath every tab (`home_screen_test.dart`).
+
 Still unverified: **push on a physical Android handset with the app force-stopped.** That is the
 case the whole feature exists for and no emulator or test exercises it — see
 [docs/firebase-setup-checklist.md](docs/firebase-setup-checklist.md). The plan is

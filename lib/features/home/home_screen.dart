@@ -119,7 +119,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         ref
           ..invalidate(myOrdersProvider)
           // The bell's badge reads this list, and nothing else reloads it.
-          ..invalidate(notificationsProvider);
+          ..invalidate(notificationsProvider)
+          // Home stays mounted beneath every tab, so without this the menu
+          // and the guest privilege it publishes were only as fresh as the
+          // last pull-to-refresh: an admin's grant or revocation never
+          // reached the guest button. The old menu stays up while it loads.
+          ..invalidate(catalogueProvider);
         _startPolling();
       case AppLifecycleState.inactive:
         _pollTimer?.cancel();
@@ -256,7 +261,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final availableItemIds = catalogue.valueOrNull?.drinks
         .map((d) => d.itemId)
         .toSet();
-    final canOrderForGuests = ref.watch(canOrderForGuestsProvider);
+    final canOrderForGuests = ref.watch(guestPrivilegeProvider);
     final searching = _query.trim().isNotEmpty;
 
     return Scaffold(

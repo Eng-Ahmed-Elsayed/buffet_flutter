@@ -177,6 +177,7 @@ class CatalogueResponse {
     this.maxLines = 25,
     this.maxBuffetDrinks = 1,
     this.drinkGroups = const [],
+    this.canOrderForGuests,
   });
 
   factory CatalogueResponse.fromJson(Map<String, dynamic> json) =>
@@ -209,6 +210,15 @@ class CatalogueResponse {
   /// falls back to the source chips then.
   @JsonKey(defaultValue: <DrinkGroupDto>[])
   final List<DrinkGroupDto> drinkGroups;
+
+  /// Whether the caller may order for a guest **now**, read from their stored
+  /// account on every fetch. Preferred over `LoginResponse.canOrderForGuests`,
+  /// which is only as fresh as the last sign-in; `POST /orders` checks this
+  /// same stored value.
+  ///
+  /// **Null on a server that predates the field**, and only then: the client
+  /// falls back to the sign-in value rather than guessing.
+  final bool? canOrderForGuests;
 }
 
 /// Mirrors `DrinkGroupDto` in ApiContracts.cs: a chip on the menu.

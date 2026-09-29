@@ -44,6 +44,19 @@ final catalogueProvider = FutureProvider.autoDispose<CatalogueResponse>((
       );
 });
 
+/// Whether the user may order for a guest: the catalogue's value, read from
+/// their account on every fetch, else the one from sign-in.
+///
+/// The sign-in value is a token claim and lasts the token's 30 days, so an
+/// admin's grant or revocation reached the app only at the next sign-in. The
+/// fallback covers the catalogue still loading, failing, or coming from a
+/// server that predates the field.
+final guestPrivilegeProvider = Provider.autoDispose<bool>(
+  (ref) =>
+      ref.watch(catalogueProvider).valueOrNull?.canOrderForGuests ??
+      ref.watch(canOrderForGuestsProvider),
+);
+
 /// The three steps of ordering, as the design draws them.
 enum ComposerStep { chooseDrink, drinkDetails, review }
 
@@ -451,7 +464,9 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
       if (result.favouriteId != null) ref.invalidate(favouritesProvider);
       // Remembered for the next order, on this device, for this account.
       if (composer.fulfilment case final Fulfilment mode) {
-        unawaited(ref.read(preferencesStoreProvider).writeFulfilment(mode.wire));
+        unawaited(
+          ref.read(preferencesStoreProvider).writeFulfilment(mode.wire),
+        );
       }
       _fulfilmentChecked = false;
       ref.read(composerControllerProvider.notifier).resetAfterConfirmedOrder();
@@ -505,7 +520,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
     final l10n = AppLocalizations.of(context);
     final catalogue = ref.watch(catalogueProvider);
     final composer = ref.watch(composerControllerProvider);
-    final mode = _effectiveMode(ref.watch(canOrderForGuestsProvider));
+    final mode = _effectiveMode(ref.watch(guestPrivilegeProvider));
     // valueOrNull, never `when`: ordering must not wait on this list. A
     // failure leaves the strip absent, the same state as having saved none.
     final favourites = ref.watch(favouritesProvider).valueOrNull;
@@ -579,7 +594,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
                   maxBuffetDrinks: data.maxBuffetDrinks,
                 )
                 // The cap rule needs both the name and the privilege.
-                ..setCanOrderForGuests(ref.read(canOrderForGuestsProvider))
+                ..setCanOrderForGuests(ref.read(guestPrivilegeProvider))
                 // AFTER the privilege: setCanOrderForGuests(false) nulls any
                 // guest name, and the other order would leave guest mode with
                 // the name wiped.
