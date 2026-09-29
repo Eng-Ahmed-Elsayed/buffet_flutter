@@ -7,9 +7,11 @@ import 'package:go_router/go_router.dart';
 import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/local/app_version.dart';
+import '../../data/local/notification_settings.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
@@ -60,6 +62,11 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: Dimens.space5),
           ],
+
+          // Push and the local alerts both stop when notifications are off,
+          // and nothing else says so. Here rather than on Home: the rest of
+          // the app still works, so it is information, never a nag.
+          const _NotificationsOffBanner(),
 
           // My materials moved here from a home tile when the shell arrived:
           // it is part of what the account holds, and Home is for ordering.
@@ -161,6 +168,59 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Says that notifications are off, with the way to turn them on.
+///
+/// Draws nothing while they are on, or where it cannot be known. Re-reads the
+/// setting when the app resumes, since the user changes it in system settings
+/// and comes back.
+class _NotificationsOffBanner extends ConsumerStatefulWidget {
+  const _NotificationsOffBanner();
+
+  @override
+  ConsumerState<_NotificationsOffBanner> createState() =>
+      _NotificationsOffBannerState();
+}
+
+class _NotificationsOffBannerState
+    extends ConsumerState<_NotificationsOffBanner> {
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle = AppLifecycleListener(
+      onResume: () => ref.invalidate(notificationsEnabledProvider),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (ref.watch(notificationsEnabledProvider).valueOrNull != false) {
+      return const SizedBox.shrink();
+    }
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: Dimens.space5),
+      child: InlineBanner(
+        tone: BannerTone.warning,
+        title: l10n.notificationsOffTitle,
+        body: l10n.notificationsOffBody,
+        action: TextButton(
+          onPressed: () =>
+              unawaited(ref.read(notificationSettingsProvider).open()),
+          child: Text(l10n.notificationsOffAction),
+        ),
       ),
     );
   }

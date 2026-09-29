@@ -79,6 +79,15 @@ the foreground tracker does.
 `background_order_watch_test.dart`. A tap on the alert opens the order through
 the same held-link path as a push. Nothing on the device can cover the process being killed.
 
+**Account says when notifications are off** (Android, `lib/data/local/notification_settings.dart`),
+with a button that opens the app's system notification settings (a `MethodChannel` in
+`MainActivity.kt`). It checks again when the app resumes. It is on Account only, never Home: the
+app still works without notifications, so this is information, not a nag. Push reaching one phone
+and not another (reported 2026-09-28) is a device-side cause, since the server message is a visible
+high-priority `notification` payload: a declined permission, OEM battery or autostart limits, or
+a different account signed in on that phone.
+`settings_screen_test.dart`.
+
 Still unverified: **push on a physical Android handset with the app force-stopped.** That is the
 case the whole feature exists for and no emulator or test exercises it — see
 [docs/firebase-setup-checklist.md](docs/firebase-setup-checklist.md). The plan is
