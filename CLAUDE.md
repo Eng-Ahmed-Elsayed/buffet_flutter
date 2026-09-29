@@ -189,6 +189,11 @@ Rules a future edit must not undo:
   empty keeps its stepper; the cap is enforced when adding, with the reason stated.
 - **Place order is disabled only for an empty order, and Review then says so** with a way back.
   A missing guest name takes the user back to the field instead.
+- **Once the order has used its buffet drink, "Add another drink" offers only the user's own
+  materials** (`buffetAllowanceUsed`, `DrinkMenu.ownOnly`, counted by *requested* jar, never a
+  stock reading). Choose a drink then lists «من موادي» alone, with a banner saying why. A user who
+  owns nothing gets no button, and Review says why instead. A guest order, whose name lifts the
+  cap, and a first drink from the user's own jar keep the buffet on offer. `composer_screen_test.dart`.
 - **Home and Choose a drink render the same `DrinkMenu`**, so the two can never list drinks
   differently. It must sit in a non-lazy scroll view (see Home).
 - **A favourite is replayed whole**: every line, the earlier ones added and the last as the draft,

@@ -98,6 +98,11 @@ class ReviewOrderStep extends ConsumerWidget {
         composer.lines.length +
         (composer.drink == null ? 0 : composer.draftQuantity);
     final roomForAnother = linesAfterDraft < composer.maxLines;
+    // Once the buffet drink is taken, another can only come from the user's
+    // own jar, so there is nothing to add for someone who owns none.
+    final canAddFromSomewhere =
+        !composer.buffetAllowanceUsed ||
+        catalogue.drinks.any((d) => d.hasOwnStock);
 
     return Column(
       children: [
@@ -211,11 +216,19 @@ class ReviewOrderStep extends ConsumerWidget {
                     body: l10n.maxLinesReachedBody(composer.maxLines),
                   ),
                   const SizedBox(height: Dimens.space3),
-                ] else
+                ] else if (canAddFromSomewhere)
                   OutlinedButton.icon(
                     onPressed: onAddAnother,
                     icon: const Icon(Icons.add),
                     label: Text(l10n.addAnotherDrink),
+                  )
+                else if (groups.isNotEmpty)
+                  // Why there is no "add another": said, not just absent.
+                  Text(
+                    l10n.addAnotherNeedsOwn,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: BrandColors.muted),
                   ),
                 const SizedBox(height: Dimens.space5),
 

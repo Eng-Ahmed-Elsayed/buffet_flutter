@@ -336,6 +336,27 @@ class ComposerState {
         maxBuffetDrinks;
   }
 
+  /// Whether the order has already used every drink it may take from the
+  /// buffet, so any further drink must come from the user's own jar.
+  ///
+  /// Counted by **requested** jar, lines and the draft at its quantity, as
+  /// [maxDraftQuantity] counts: a structural limit, never a stock reading.
+  /// False for a guest order, whose name lifts the cap.
+  bool get buffetAllowanceUsed => _buffetAllowanceUsed(includeDraft: true);
+
+  /// [buffetAllowanceUsed] by the lines already added alone: what the next
+  /// drink chosen may draw on, since choosing one replaces the draft.
+  bool get buffetAllowanceUsedByLines =>
+      _buffetAllowanceUsed(includeDraft: false);
+
+  bool _buffetAllowanceUsed({required bool includeDraft}) {
+    if (capIsLifted) return false;
+    final requested =
+        lines.where((l) => !l.drinkFromOwn).length +
+        (includeDraft && drink != null && !drinkFromOwn ? draftQuantity : 0);
+    return requested >= maxBuffetDrinks;
+  }
+
   /// Whether committing the draft, at its quantity, stays within [maxLines].
   bool get draftFitsLineCap => lines.length + draftQuantity <= maxLines;
 

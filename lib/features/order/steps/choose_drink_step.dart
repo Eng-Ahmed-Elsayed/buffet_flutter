@@ -75,6 +75,10 @@ class ChooseDrinkStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
+    // Adding to an order whose buffet drink is already taken: only the user's
+    // own jar can supply another (the server refuses a second buffet drink).
+    final ownOnly =
+        composer.lines.isNotEmpty && composer.buffetAllowanceUsedByLines;
 
     // A Column, not a lazy list: the menu's jump chips scroll to a heading,
     // and a lazy list never builds one that is off screen.
@@ -167,6 +171,18 @@ class ChooseDrinkStep extends StatelessWidget {
             const SizedBox(height: Dimens.space5),
           ],
 
+          // The order's buffet drink is taken: the menu lists the user's own
+          // materials alone, and says why rather than leaving the buffet
+          // silently missing.
+          if (ownOnly) ...[
+            InlineBanner(
+              tone: BannerTone.info,
+              title: l10n.ownOnlyTitle,
+              body: l10n.ownOnlyBody,
+            ),
+            const SizedBox(height: Dimens.space5),
+          ],
+
           SearchField(
             controller: searchController,
             hint: l10n.searchDrinksHint,
@@ -180,6 +196,7 @@ class ChooseDrinkStep extends StatelessWidget {
             groups: catalogue.drinkGroups,
             query: query,
             onSelect: onSelectDrink,
+            ownOnly: ownOnly,
           ),
         ],
       ),

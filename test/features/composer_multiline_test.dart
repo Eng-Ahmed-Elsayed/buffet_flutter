@@ -206,6 +206,46 @@ void main() {
     });
   });
 
+  group('the buffet allowance, for "add another"', () {
+    test('a buffet drink in the draft uses it; the lines alone do not', () {
+      final controller = ComposerController()..selectDrink(drink());
+
+      expect(controller.state.buffetAllowanceUsed, isTrue);
+      expect(controller.state.buffetAllowanceUsedByLines, isFalse);
+
+      controller.addLine();
+      expect(controller.state.buffetAllowanceUsedByLines, isTrue);
+    });
+
+    test('an own-jar drink leaves it free', () {
+      final controller = ComposerController();
+      addOwned(controller, 2);
+
+      expect(controller.state.buffetAllowanceUsed, isFalse);
+      expect(controller.state.buffetAllowanceUsedByLines, isFalse);
+    });
+
+    test('counted by the jar asked for, never a stock reading', () {
+      // Owned but reading empty: still requested from my own jar.
+      final controller = ComposerController()
+        ..selectDrink(drink(id: 3, hasOwnStock: true))
+        ..setDrinkFromOwn(true)
+        ..addLine();
+
+      expect(controller.state.buffetAllowanceUsedByLines, isFalse);
+    });
+
+    test('a named guest lifts it', () {
+      final controller = ComposerController()
+        ..setCanOrderForGuests(true)
+        ..setOnBehalfOfName('ضيف الإدارة')
+        ..selectDrink(drink())
+        ..addLine();
+
+      expect(controller.state.buffetAllowanceUsedByLines, isFalse);
+    });
+  });
+
   group('the line cap', () {
     test('stops at the server-published maxLines', () {
       final controller = ComposerController()

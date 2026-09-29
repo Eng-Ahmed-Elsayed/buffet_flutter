@@ -626,7 +626,12 @@ void main() {
         tester,
         _app(
           CatalogueResponse(
-            drinks: [_item(1, 'قهوة', 'Drink'), _item(2, 'شاي', 'Drink')],
+            // Something of my own to add: after the buffet drink, "add
+            // another" offers only that.
+            drinks: [
+              _item(1, 'قهوة', 'Drink'),
+              _item(2, 'شاي', 'Drink', hasOwnStock: true, ownServingsLeft: 5),
+            ],
             sugars: const [],
             extras: const [],
             locations: const [],
@@ -650,7 +655,12 @@ void main() {
         tester,
         _app(
           CatalogueResponse(
-            drinks: [_item(1, 'قهوة', 'Drink'), _item(2, 'شاي', 'Drink')],
+            // My own tea, but the jar reads empty: the line falls back to
+            // buffet stock, which is a stock reading and so only warns.
+            drinks: [
+              _item(1, 'قهوة', 'Drink'),
+              _item(2, 'شاي', 'Drink', hasOwnStock: true),
+            ],
             sugars: const [],
             extras: const [],
             locations: const [],
@@ -970,6 +980,71 @@ void main() {
         expect(find.text('أرسل الطلب'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      '"add another" after the buffet drink lists own materials only',
+      (tester) async {
+        await _pumpTall(
+          tester,
+          _app(menu(), seed: const ComposerSeed(drinkItemId: 1)),
+        );
+        await tester.tap(find.text('متابعة'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('أضف مشروبًا آخر'));
+        await tester.pumpAndSettle();
+
+        // Said, not just missing: the buffet is gone for a reason.
+        expect(find.text('من موادك فقط'), findsOneWidget);
+        expect(find.text('نعناع'), findsOneWidget);
+        expect(find.text('قهوة'), findsNothing);
+      },
+    );
+
+    testWidgets('no own materials: no "add another", and Review says why', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          CatalogueResponse(
+            drinks: [_item(1, 'قهوة', 'Drink')],
+            sugars: const [],
+            extras: const [],
+            locations: const [],
+          ),
+          seed: const ComposerSeed(drinkItemId: 1),
+        ),
+      );
+      await tester.tap(find.text('متابعة'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('أضف مشروبًا آخر'), findsNothing);
+      expect(
+        find.text(
+          'مشروب واحد فقط من البوفيه في كل طلب، والمزيد يكون من موادك.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a first drink from my own jar leaves the buffet on offer', (
+      tester,
+    ) async {
+      await _pumpTall(
+        tester,
+        _app(
+          menu(),
+          seed: const ComposerSeed(drinkItemId: 2, drinkFromOwn: true),
+        ),
+      );
+      await tester.tap(find.text('متابعة'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('أضف مشروبًا آخر'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('من موادك فقط'), findsNothing);
+      expect(find.text('قهوة'), findsOneWidget);
+    });
 
     testWidgets('a favourite whose drink was retired opens on the drink list', (
       tester,

@@ -27,12 +27,17 @@ import 'menu_item_row.dart';
 /// the server's order, and Other for drinks with none. The two jar sections
 /// stay, so a group still lists «من موادي» first. Without groups, which is
 /// the server until an admin creates some, the chips jump to the two jars.
+///
+/// **[ownOnly]** lists «من موادي» alone: the composer sets it once the order
+/// has used its buffet allowance, so no row offers a drink the server would
+/// refuse.
 class DrinkMenu extends StatefulWidget {
   const DrinkMenu({
     required this.drinks,
     required this.query,
     required this.onSelect,
     this.groups = const [],
+    this.ownOnly = false,
     super.key,
   });
 
@@ -41,6 +46,9 @@ class DrinkMenu extends StatefulWidget {
 
   /// `CatalogueResponse.drinkGroups`, already in display order.
   final List<DrinkGroupDto> groups;
+
+  /// Leaves out the buffet section.
+  final bool ownOnly;
   final void Function(CatalogueItemDto drink, {required bool fromOwn}) onSelect;
 
   @override
@@ -78,10 +86,13 @@ class _DrinkMenuState extends State<DrinkMenu> {
     int? groupOf(CatalogueItemDto d) =>
         groupIds.contains(d.drinkGroupId) ? d.drinkGroupId : null;
     final grouped = widget.groups.isNotEmpty;
-    final hasOther = grouped && widget.drinks.any((d) => groupOf(d) == null);
+    // The drinks this menu can list at all.
+    final listable = widget.ownOnly
+        ? widget.drinks.where((d) => d.hasOwnStock).toList()
+        : widget.drinks;
+    final hasOther = grouped && listable.any((d) => groupOf(d) == null);
     // A choice that no longer exists (the catalogue reloaded) is All again.
-    final group =
-        _group == _otherGroup && hasOther || groupIds.contains(_group)
+    final group = _group == _otherGroup && hasOther || groupIds.contains(_group)
         ? _group
         : null;
     bool inGroup(CatalogueItemDto d) => switch (group) {
@@ -101,7 +112,9 @@ class _DrinkMenuState extends State<DrinkMenu> {
     final mine = widget.drinks
         .where((d) => d.hasOwnStock && matches(d))
         .toList();
-    final buffet = widget.drinks.where(matches).toList();
+    final buffet = widget.ownOnly
+        ? const <CatalogueItemDto>[]
+        : widget.drinks.where(matches).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -117,7 +130,10 @@ class _DrinkMenuState extends State<DrinkMenu> {
               for (final (id, label) in [
                 (null, l10n.menuGroupAll),
                 for (final g in widget.groups)
-                  (g.drinkGroupId, g.localisedName(language)),
+                  // Only groups with something this menu can list.
+                  if (!widget.ownOnly ||
+                      listable.any((d) => groupOf(d) == g.drinkGroupId))
+                    (g.drinkGroupId, g.localisedName(language)),
                 if (hasOther) (_otherGroup, l10n.menuGroupOther),
               ])
                 ChoiceChip(
@@ -167,7 +183,7 @@ class _DrinkMenuState extends State<DrinkMenu> {
             ),
             // The chosen group, not the menu, may be what has none: saying
             // "no drink by that name" then denied one a chip away.
-            child: group != null && widget.drinks.any(searched)
+            child: group != null && listable.any(searched)
                 ? Column(
                     children: [
                       Text(
