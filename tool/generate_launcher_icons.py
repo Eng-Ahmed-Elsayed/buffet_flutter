@@ -1,63 +1,48 @@
 """Builds the launcher icons from the Digital Egypt mark.
 
-The full mark is 5.11:1 — far too wide to read at 48px, and its navy end
-disappears against a navy ground. So the icon uses the *peak*: the mountain
-plus its circuit trace, the distinctive and near-square part of the logo,
-carrying the same navy-to-violet gradient the palette is sampled from.
+The source is the logo exported from Figma (design/figma/logo.png): the mark
+over the DIGITAL EGYPT FOR INVESTMENT wordmark, on a transparent ground. The
+whole mark is about 5:1 and the wordmark is unreadable at 48px, so the icon
+uses the *peaks*: the three mountains and their circuit trace, the distinctive
+and least-wide part of the logo, in its own navy-to-violet gradient.
 
-The logo is never recoloured (CLAUDE.md); only the ground behind it is chosen,
-and it is taken from the existing brand tokens.
+The logo is never recoloured (CLAUDE.md); only the ground behind it is chosen.
+It is white, the logo's own ground, which is where its navy end reads best.
 """
 
 from PIL import Image
 
-MARK = 'assets/images/logo-defi-mark.png'
+MARK = 'design/figma/logo.png'
 
-# The peak, located by where the top ink row rises above the horizontal rules.
-PEAK_BOX = (100, 0, 252, 63)
+# The peaks and the baseline bar they stand on, cut square at both sides.
+# The bar is taken whole: the diagonals end on it, and stopping above it
+# truncated them and left a sliver of the bar as a hairline.
+PEAK_BOX = (1330, 1460, 2900, 2070)
 
-# Sampled from lib/theme/brand_colors.dart — not new colours.
-BRAND_DARK = (11, 30, 75)    # 0xFF0B1E4B
-BRAND = (18, 58, 122)        # 0xFF123A7A
+# The page's `surface` in lib/theme/brand_colors.dart. Mirrored in
+# android/app/src/main/res/values/ic_launcher_background.xml.
+GROUND = (255, 255, 255, 255)
 
 
 def _peak():
-    """The peak, trimmed to its own ink.
+    """The peaks, trimmed to their own ink.
 
-    Trimming matters: the crop box keeps the mark's full height, so without
-    this the glyph sits low in the frame with dead space beneath it.
+    Trimming matters: the crop box is generous, so without this the glyph
+    sits off centre with dead space around it.
     """
     peak = Image.open(MARK).convert('RGBA').crop(PEAK_BOX)
     bbox = peak.split()[3].getbbox()
     return peak.crop(bbox) if bbox else peak
 
 
-def _ground(size):
-    """Diagonal brand gradient. Dark enough that the mark's navy end still
-    separates from it, which a flat brand fill did not."""
-    g = Image.new('RGBA', (size, size))
-    px = g.load()
-    last = max(1, size - 1)
-    for y in range(size):
-        for x in range(size):
-            t = (x + y) / (2 * last)
-            px[x, y] = (
-                round(BRAND_DARK[0] + (BRAND[0] - BRAND_DARK[0]) * t),
-                round(BRAND_DARK[1] + (BRAND[1] - BRAND_DARK[1]) * t),
-                round(BRAND_DARK[2] + (BRAND[2] - BRAND_DARK[2]) * t),
-                255,
-            )
-    return g
-
-
-def icon(size, fraction=0.62, transparent=False):
-    """The peak centred on the ground.
+def icon(size, fraction=0.70, transparent=False):
+    """The peaks centred on the ground.
 
     `fraction` keeps the glyph inside the safe zone — Android masks launcher
     icons to a circle or squircle, so anything nearer the edge is clipped.
     """
     base = (Image.new('RGBA', (size, size), (0, 0, 0, 0))
-            if transparent else _ground(size))
+            if transparent else Image.new('RGBA', (size, size), GROUND))
     peak = _peak()
     target_w = max(1, round(size * fraction))
     scale = target_w / peak.width
@@ -67,13 +52,16 @@ def icon(size, fraction=0.62, transparent=False):
     return base
 
 
-def foreground(size, fraction=0.42):
+def foreground(size, fraction=0.54):
     """Adaptive-icon foreground: transparent, and smaller again because
-    Android reserves the outer third of the layer for parallax and masking."""
+    Android reserves the outer third of the layer for parallax and masking.
+
+    0.54 puts the glyph's corners at 0.29 of the layer from its centre, just
+    inside the 0.305 radius (66dp of 108dp) that every mask shape keeps."""
     return icon(size, fraction=fraction, transparent=True)
 
 
-def monochrome(size, fraction=0.42):
+def monochrome(size, fraction=0.54):
     """Android 13 themed-icon layer.
 
     The system tints this layer with the user's wallpaper palette, so it must

@@ -42,8 +42,9 @@ photographs, falling back to a category glyph when the field is null or the file
 
 Since built: the settings screen with the language switch, **biometric unlock** (§6, with the
 `locked` stage in the auth machine and all four failure modes handled), and **launcher icons** from
-the brand mark (`tool/generate_launcher_icons.py` regenerates them — no `flutter_launcher_icons`
-dependency).
+the peaks of the Figma logo (`design/figma/logo.png`) on white (`tool/generate_launcher_icons.py`
+regenerates them, with Pillow — no `flutter_launcher_icons` dependency; the adaptive background
+`ic_launcher_background.xml` mirrors its `GROUND`).
 
 The **in-app notification centre is built** (§7.4) — list, unread badge on both home screens, and
 mark-all-read on open. It is the reliable half of notifications: the server writes the row before it
