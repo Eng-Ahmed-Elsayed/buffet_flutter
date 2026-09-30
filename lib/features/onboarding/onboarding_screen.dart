@@ -130,14 +130,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   // On the last slide the primary button already signs in;
                   // a second "Sign in" beneath it would be the same action
-                  // twice.
-                  if (!last) ...[
-                    const SizedBox(height: Dimens.space3),
-                    OutlinedButton(
+                  // twice. It is hidden but keeps its space, so the photograph
+                  // stays the same size on every slide rather than growing
+                  // into the gap. Hidden, it is neither tappable nor read out.
+                  const SizedBox(height: Dimens.space3),
+                  Visibility(
+                    visible: !last,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: OutlinedButton(
                       onPressed: _finish,
                       child: Text(l10n.signIn),
                     ),
-                  ],
+                  ),
                   // The app opens in Arabic whatever the device language, and
                   // this is the first screen anyone sees: without the switch
                   // here, someone who cannot read Arabic met three slides they

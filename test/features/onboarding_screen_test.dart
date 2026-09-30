@@ -90,14 +90,33 @@ void main() {
     }
     expect(find.text(l10n.onboardingOwnTitle), findsOneWidget);
 
-    // One "Sign in", not two: the outlined twin is gone once the primary
-    // button says the same thing.
-    expect(find.text(l10n.signIn), findsOneWidget);
+    // One "Sign in", not two: the outlined twin is hidden once the primary
+    // button says the same thing. It keeps its space, so it is still in the
+    // tree, but it can be neither tapped nor heard.
+    expect(find.text(l10n.signIn).hitTestable(), findsOneWidget);
+    final semantics = tester.ensureSemantics();
+    expect(find.semantics.byLabel(l10n.signIn), findsOne);
+    semantics.dispose();
     expect(find.text(l10n.onboardingNext), findsNothing);
 
     await tester.tap(find.widgetWithText(FilledButton, l10n.signIn));
     await tester.pumpAndSettle();
     expect(fake.marked, 1);
+  });
+
+  testWidgets('the photograph is the same size on every slide', (
+    tester,
+  ) async {
+    await _pump(tester);
+    Size card() => tester.getSize(find.byType(PageView));
+
+    final first = card();
+    for (var i = 0; i < 2; i++) {
+      await tester.tap(find.text(l10n.onboardingNext));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text(l10n.onboardingOwnTitle), findsOneWidget);
+    expect(card(), first);
   });
 
   testWidgets('it reads right to left in Arabic', (tester) async {
