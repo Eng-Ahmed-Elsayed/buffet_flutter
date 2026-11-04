@@ -61,7 +61,10 @@ final _menu = CatalogueResponse(
   drinks: [_item(1, 'قهوة'), _item(2, 'شاي')],
   sugars: const [],
   extras: const [],
-  locations: const [],
+  locations: const [
+    LocationDto(locationId: 40, nameAr: 'الدور الثالث', kind: 'Floor'),
+    LocationDto(locationId: 41, nameAr: 'Desk 3', kind: 'Desk'),
+  ],
   maxBuffetDrinks: 5,
 );
 
@@ -394,6 +397,32 @@ void main() {
       expect(repository.requests.single.fulfilment, 'Pickup');
     });
 
+    testWidgets('a chosen location can be cleared back to none for a pickup',
+        (tester) async {
+      final repository = await _open(
+        tester,
+        seed: ComposerSeed(favourite: _favourite([_line(1, 'قهوة')])),
+        fulfilmentChosen: false,
+      );
+      await tester.tap(find.text(_l10n.fulfilmentPickup));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Desk 3').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(_l10n.noLocationGiven).last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(_l10n.placeOrder));
+      await tester.pumpAndSettle();
+      final sent = repository.requests.single;
+      expect(sent.fulfilment, 'Pickup');
+      expect(sent.locationId, isNull);
+    });
+
     testWidgets('delivery with nowhere to deliver to asks on the location '
         'field', (tester) async {
       final repository = await _open(
@@ -409,20 +438,19 @@ void main() {
       // The server would refuse it with a 400; the field says why first.
       expect(repository.attempts, 0);
       expect(find.text(_l10n.deliveryNeedsLocation), findsOneWidget);
-      final field = tester.widget<TextField>(
-        find.widgetWithText(TextField, _l10n.locationHint),
-      );
-      expect(field.focusNode?.hasFocus, isTrue);
+      // A closed list: no free-text field to type into.
+      expect(find.byType(DropdownButtonFormField<int>), findsOneWidget);
 
-      await tester.enterText(
-        find.widgetWithText(TextField, _l10n.locationHint),
-        'Desk 3',
-      );
+      await tester.tap(find.byType(DropdownButtonFormField<int>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Desk 3').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.text(_l10n.placeOrder));
       await tester.pumpAndSettle();
       final sent = repository.requests.single;
       expect(sent.fulfilment, 'Delivery');
-      expect(sent.locationText, 'Desk 3');
+      expect(sent.locationId, 41);
+      expect(sent.locationText, isNull);
     });
   });
 

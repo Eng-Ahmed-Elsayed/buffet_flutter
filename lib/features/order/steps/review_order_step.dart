@@ -35,7 +35,6 @@ class ReviewOrderStep extends ConsumerWidget {
     required this.favourites,
     required this.favouritesFull,
     required this.maxFavourites,
-    required this.locationController,
     required this.notesController,
     required this.favouriteNameController,
     required this.onEditDraft,
@@ -75,7 +74,6 @@ class ReviewOrderStep extends ConsumerWidget {
   final List<FavouriteDto> favourites;
   final bool favouritesFull;
   final int maxFavourites;
-  final TextEditingController locationController;
   final TextEditingController notesController;
   final TextEditingController favouriteNameController;
   final VoidCallback onEditDraft;
@@ -244,16 +242,23 @@ class ReviewOrderStep extends ConsumerWidget {
                   const SizedBox(height: Dimens.space4),
                 ],
 
-                // Plain text, deliberately — no suggestion list. Free text
-                // always sends `locationText`, which the server accepts for
-                // any place at all, so an unlisted spot never blocks an order.
-                // Needed for delivery; for pickup it tells staff where the
-                // person sits, and is optional.
+                // A closed list: the server refuses a place it does not
+                // manage, so there is nothing to type. Needed for delivery;
+                // for pickup it tells staff where the person sits, and is
+                // optional. With no locations at all it stays disabled and
+                // delivery explains itself on submit, so pickup still works.
                 LabelledField(
                   label: l10n.deliveryLocation,
-                  child: TextField(
-                    controller: locationController,
+                  child: DropdownButtonFormField<int>(
+                    // Keyed on the choice so a reset composer shows it empty.
+                    key: ValueKey(composer.locationId),
+                    initialValue: catalogue.locations.any(
+                          (l) => l.locationId == composer.locationId,
+                        )
+                        ? composer.locationId
+                        : null,
                     focusNode: locationFocus,
+                    isExpanded: true,
                     decoration: InputDecoration(
                       hintText: composer.fulfilment == Fulfilment.pickup
                           ? l10n.pickupLocationHint
@@ -265,9 +270,24 @@ class ReviewOrderStep extends ConsumerWidget {
                           ? l10n.deliveryNeedsLocation
                           : null,
                     ),
-                    textInputAction: TextInputAction.next,
-                    onChanged: (text) =>
-                        controller.setLocation(locationText: text),
+                    items: [
+                      // Lets a pickup go back to "nowhere given" after a
+                      // choice; for delivery it fails the same check as none.
+                      DropdownMenuItem<int>(
+                        child: Text(l10n.noLocationGiven),
+                      ),
+                      for (final location in catalogue.locations)
+                        DropdownMenuItem(
+                          value: location.locationId,
+                          child: Text(
+                            location.nameAr,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: catalogue.locations.isEmpty
+                        ? null
+                        : controller.setLocation,
                   ),
                 ),
                 const SizedBox(height: Dimens.space4),

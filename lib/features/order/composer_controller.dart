@@ -82,7 +82,6 @@ class ComposerState {
     this.ownExtraItemIds = const {},
     this.draftQuantity = 1,
     this.locationId,
-    this.locationText,
     this.notes,
     this.onBehalfOfName,
     this.canOrderForGuests = false,
@@ -104,8 +103,7 @@ class ComposerState {
   /// error belongs on the location field, never on a disabled button.
   bool get deliveryLocationMissing =>
       fulfilment == Fulfilment.delivery &&
-      locationId == null &&
-      (locationText ?? '').trim().isEmpty;
+      locationId == null;
 
   /// How many identical cups the draft stands for — the design's quantity
   /// stepper. There is no per-line quantity on the wire, so the draft becomes
@@ -132,8 +130,8 @@ class ComposerState {
   final bool drinkFromOwn;
   final bool sugarFromOwn;
   final Set<int> ownExtraItemIds;
+  /// From the catalogue's managed list — the only way to name a place.
   final int? locationId;
-  final String? locationText;
   final String? notes;
 
   /// The guest this order is for, when the user holds the privilege.
@@ -373,7 +371,6 @@ class ComposerState {
     Set<int>? ownExtraItemIds,
     int? draftQuantity,
     int? Function()? locationId,
-    String? Function()? locationText,
     String? Function()? notes,
     String? Function()? onBehalfOfName,
     bool? canOrderForGuests,
@@ -397,7 +394,6 @@ class ComposerState {
     ownExtraItemIds: ownExtraItemIds ?? this.ownExtraItemIds,
     draftQuantity: draftQuantity ?? this.draftQuantity,
     locationId: locationId != null ? locationId() : this.locationId,
-    locationText: locationText != null ? locationText() : this.locationText,
     notes: notes != null ? notes() : this.notes,
     onBehalfOfName: onBehalfOfName != null
         ? onBehalfOfName()
@@ -420,7 +416,6 @@ class ComposerState {
     lines: [for (final line in allLines) line.toDto()],
     notes: notes,
     locationId: locationId,
-    locationText: locationText,
     onBehalfOfName: onBehalfOfName,
     idempotencyKey: idempotencyKey,
     saveAsFavourite: saveAsFavourite,
@@ -605,8 +600,8 @@ class ComposerController extends StateNotifier<ComposerState> {
   void setSugarFromOwn(bool value) =>
       state = state.copyWith(sugarFromOwn: value);
 
-  void setLocation({int? locationId, String? locationText}) => state = state
-      .copyWith(locationId: () => locationId, locationText: () => locationText);
+  void setLocation(int? locationId) =>
+      state = state.copyWith(locationId: () => locationId);
 
   void setNotes(String? notes) => state = state.copyWith(notes: () => notes);
 
@@ -650,7 +645,6 @@ class ComposerController extends StateNotifier<ComposerState> {
       // Everything scoped to the whole order survives; only the per-drink
       // controls reset.
       locationId: state.locationId,
-      locationText: state.locationText,
       notes: state.notes,
       onBehalfOfName: state.onBehalfOfName,
       canOrderForGuests: state.canOrderForGuests,

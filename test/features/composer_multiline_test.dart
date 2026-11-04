@@ -157,13 +157,13 @@ void main() {
     test('order-level fields survive adding a line', () {
       final controller = ComposerController()
         ..setNotes('بدون سكر')
-        ..setLocation(locationText: 'خلف المخزن')
+        ..setLocation(12)
         ..selectDrink(drink())
         ..addLine();
 
       final request = controller.state.toRequest();
       expect(request.notes, 'بدون سكر');
-      expect(request.locationText, 'خلف المخزن');
+      expect(request.locationId, 12);
     });
 
     test('adding with no drink selected is a no-op', () {

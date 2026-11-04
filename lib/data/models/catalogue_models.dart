@@ -246,8 +246,8 @@ class DrinkGroupDto {
 
 /// Mirrors `LocationDto` in ApiContracts.cs.
 ///
-/// The managed list is a **suggestion**: an unlisted place must never block an
-/// order, so the composer sends `locationText` when the user types their own.
+/// The managed list is **closed**: the composer offers these and sends the
+/// chosen `locationId`. The server refuses a place that is not on it.
 @JsonSerializable(createToJson: false)
 class LocationDto {
   const LocationDto({

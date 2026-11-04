@@ -89,7 +89,7 @@
   "fulfilmentRequired": "Choose pickup or delivery",
   "deliveryNeedsLocation": "Say where to bring it",
   "pickupLocationHint": "Where do you sit? (optional)",
-  "locationHint": "Type where to bring it",
+  "locationHint": "Choose where to bring it",
   "placeOrder": "Place order",
   "orderNotes": "Notes",
   "emptyCatalogueTitle": "No drinks available",

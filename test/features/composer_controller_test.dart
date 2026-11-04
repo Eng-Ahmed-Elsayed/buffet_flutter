@@ -1,5 +1,6 @@
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/favourite_models.dart';
+import 'package:buffet_app/data/models/order_models.dart';
 import 'package:buffet_app/features/order/composer_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -362,24 +363,32 @@ void main() {
   });
 
   group('location', () {
-    test('accepts free text so an unlisted place cannot block an order', () {
+    test('sends only locationId — the list is closed', () {
       final controller = ComposerController()
         ..selectDrink(item())
-        ..setLocation(locationText: 'خلف المخزن');
-
-      final request = controller.state.toRequest();
-      expect(request.locationText, 'خلف المخزن');
-      expect(request.locationId, isNull);
-    });
-
-    test('sends locationId when a managed suggestion is picked', () {
-      final controller = ComposerController()
-        ..selectDrink(item())
-        ..setLocation(locationId: 12);
+        ..setLocation(12);
 
       final request = controller.state.toRequest();
       expect(request.locationId, 12);
       expect(request.locationText, isNull);
+    });
+
+    test('delivery with no location picked is missing', () {
+      final controller = ComposerController()
+        ..selectDrink(item())
+        ..setFulfilment(Fulfilment.delivery);
+
+      expect(controller.state.deliveryLocationMissing, isTrue);
+      controller.setLocation(12);
+      expect(controller.state.deliveryLocationMissing, isFalse);
+    });
+
+    test('pickup with no location is fine', () {
+      final controller = ComposerController()
+        ..selectDrink(item())
+        ..setFulfilment(Fulfilment.pickup);
+
+      expect(controller.state.deliveryLocationMissing, isFalse);
     });
   });
 }

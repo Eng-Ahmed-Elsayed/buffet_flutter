@@ -99,11 +99,11 @@ class PlaceOrderApiRequest {
   final List<OrderLineDto> lines;
   final String? notes;
 
-  /// Sent when the user picked a managed suggestion.
+  /// The chosen managed location. The only way this app names a place.
   final int? locationId;
 
-  /// Sent when the user typed their own place. An unlisted location must never
-  /// block an order (§7.1).
+  /// Never set by this app. Kept for the wire shape: the server accepts text
+  /// only when it names an active location, and refuses anything else.
   final String? locationText;
 
   final String? onBehalfOfName;

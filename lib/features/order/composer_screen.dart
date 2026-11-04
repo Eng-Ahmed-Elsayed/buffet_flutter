@@ -110,10 +110,9 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
 
   final _favouriteNameController = TextEditingController();
 
-  // Review's fields keep their text while the user walks back to add another
-  // drink — a field rebuilt empty over a location still in the state would
-  // show nothing while the order carries something.
-  final _locationController = TextEditingController();
+  // Review's notes keep their text while the user walks back to add another
+  // drink — a field rebuilt empty over notes still in the state would show
+  // nothing while the order carries something.
   final _notesController = TextEditingController();
 
   final _searchController = TextEditingController();
@@ -184,7 +183,6 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
     _guestNameFocus.dispose();
     _guestNameController.dispose();
     _favouriteNameController.dispose();
-    _locationController.dispose();
     _notesController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -661,7 +659,6 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
                 // back would be a dead end with nothing to explain it.
                 favouritesFull: favourites?.canSaveAnother == false,
                 maxFavourites: favourites?.maxFavourites ?? 20,
-                locationController: _locationController,
                 notesController: _notesController,
                 favouriteNameController: _favouriteNameController,
                 onEditDraft: () => _go(ComposerStep.drinkDetails),

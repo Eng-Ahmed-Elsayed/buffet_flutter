@@ -979,8 +979,8 @@ class _OrderSummary extends StatelessWidget {
         children: [
           _SummaryRow(
             icon: Icons.place_outlined,
-            // locationText is optional — the managed list is a suggestion and
-            // an order stands without one. An empty string left a bare pin
+            // locationText is optional — a pickup stands without one, and
+            // orders placed before the list was closed may have none. An empty string left a bare pin
             // icon with nothing beside it, which reads as a failed load
             // rather than as "none given".
             value: order.locationText.trim().isEmpty
