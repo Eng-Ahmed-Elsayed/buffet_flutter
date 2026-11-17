@@ -20,6 +20,7 @@ class CatalogueItemDto {
     this.descriptionAr,
     this.descriptionEn,
     this.drinkGroupId,
+    this.sortOrder = 0,
   });
 
   factory CatalogueItemDto.fromJson(Map<String, dynamic> json) =>
@@ -75,6 +76,12 @@ class CatalogueItemDto {
   /// group, or a server that predates groups. When set, it names an entry in
   /// [CatalogueResponse.drinkGroups]. Always null on sugars and extras.
   final int? drinkGroupId;
+
+  /// Where the admin placed this drink within its group, lowest first.
+  /// `/catalogue` already arrives in menu order; zero on sugars, extras, or a
+  /// server predating the field.
+  @JsonKey(defaultValue: 0)
+  final int sortOrder;
 
   /// The description in [languageCode], falling back to Arabic, or null when
   /// there is none worth showing.
@@ -219,6 +226,15 @@ class CatalogueResponse {
   /// **Null on a server that predates the field**, and only then: the client
   /// falls back to the sign-in value rather than guessing.
   final bool? canOrderForGuests;
+
+  /// Every orderable item id currently in the catalogue — drinks, sugars
+  /// and extras — for checking whether a saved favourite's lines are all
+  /// still available.
+  Set<int> get availableItemIds => {
+    for (final d in drinks) d.itemId,
+    for (final s in sugars) s.itemId,
+    for (final e in extras) e.itemId,
+  };
 }
 
 /// Mirrors `DrinkGroupDto` in ApiContracts.cs: a chip on the menu.

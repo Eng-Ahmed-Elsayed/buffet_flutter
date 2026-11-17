@@ -96,8 +96,9 @@ class FavouritesScreen extends ConsumerWidget {
     // Null while loading: a favourite renders as available until the catalogue
     // says otherwise, rather than the list flashing "unavailable" over a
     // request that has simply not come back yet.
-    final drinks = ref.watch(catalogueProvider).valueOrNull?.drinks;
-    final available = drinks?.map((d) => d.itemId).toSet();
+    final catalogue = ref.watch(catalogueProvider).valueOrNull;
+    final drinks = catalogue?.drinks;
+    final available = catalogue?.availableItemIds;
 
     return Scaffold(
       appBar: AppBar(title: Text(l10n.favouritesTitle)),

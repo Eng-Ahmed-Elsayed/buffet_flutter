@@ -79,6 +79,12 @@ public sealed record SetInitialPasswordRequest(string NewPassword);
 /// <see cref="CatalogueResponse.DrinkGroups"/>: a drink whose group was retired comes back null.
 /// Always null on sugars and extras.
 /// </param>
+/// <param name="SortOrder">
+/// Where the admin placed this drink within its group, lowest first. <see cref="CatalogueResponse.Drinks"/>
+/// already arrives in menu order, so a client that keeps the list's order needs nothing else; this
+/// is for one that re-sorts. Compare it only between drinks shown under the same chip — values
+/// across groups carry no meaning. Zero on sugars and extras.
+/// </param>
 public sealed record CatalogueItemDto(
     int ItemId,
     string NameAr,
@@ -93,7 +99,8 @@ public sealed record CatalogueItemDto(
     IReadOnlyList<int>? AllowedExtraItemIds,
     string? DescriptionAr,
     string? DescriptionEn,
-    int? DrinkGroupId);
+    int? DrinkGroupId,
+    int SortOrder);
 
 /// <summary>A chip on the menu. Ordered by <paramref name="SortOrder"/> in the response already.</summary>
 public sealed record DrinkGroupDto(int DrinkGroupId, string NameAr, string NameEn, int SortOrder);
@@ -151,6 +158,11 @@ public sealed record VariantDto(
 /// magic constant. Counted on the source each line <b>resolves</b> to, not on the requested one:
 /// asking for a jar the caller does not actually own falls back to buffet stock and counts here.
 /// </para>
+/// </param>
+/// <param name="Drinks">
+/// In menu order: group by group in <paramref name="DrinkGroups"/> order, then the ungrouped
+/// («أخرى») drinks last, and within each group the order the admin set. Filtering by a chip keeps
+/// that order, and the unfiltered list reads as the whole menu top to bottom.
 /// </param>
 /// <param name="DrinkGroups">
 /// The menu's groups, in display order: only active groups that hold at least one drink in
@@ -215,10 +227,15 @@ public sealed record OrderLineDto(
 /// <para>
 /// Omitted, it is inferred: <c>Delivery</c> when a location resolves, otherwise <c>Pickup</c>, so
 /// builds that predate the choice behave as they always did. <c>Delivery</c> with no location is
-/// a <c>400</c>, and so is an unknown <paramref name="LocationId"/> with blank text, because
-/// neither resolves to anywhere to deliver to. <c>Pickup</c> with a location is fine and keeps it:
+/// a <c>400</c>. An unknown <paramref name="LocationId"/> is a <c>400</c> too
+/// (<c>OrderErrorLocationNotListed</c>), whatever the mode. <c>Pickup</c> with a location is fine and keeps it:
 /// it tells staff where the person sits.
 /// </para>
+/// </param>
+/// <param name="LocationText">
+/// Kept for older builds only; send <paramref name="LocationId"/>. The list is closed: text is
+/// accepted only when it names an active location, and anything else is a <c>400</c>
+/// (<c>OrderErrorLocationNotListed</c>), for a pickup too.
 /// </param>
 public sealed record PlaceOrderApiRequest(
     IReadOnlyList<OrderLineDto> Lines,

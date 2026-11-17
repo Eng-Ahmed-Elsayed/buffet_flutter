@@ -141,10 +141,19 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       // Going to the background is the last moment we are guaranteed to run: a
       // Timer is not promised to fire while backgrounded, and an app killed in
       // Doze loses the send outright. So the window is cut short and the action
-      // goes now.
+      // goes now. When still mounted (`paused`/`hidden`), go through `_commit`
+      // so `_serving` guards against duplicate serves on quick resume and any
+      // shortage warnings still surface.
       case AppLifecycleState.paused:
-      case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
+        _pollTimer?.cancel();
+        if (mounted) {
+          _commitPendingMounted();
+        } else {
+          unawaited(_flushPending());
+        }
+
+      case AppLifecycleState.detached:
         _pollTimer?.cancel();
         unawaited(_flushPending());
 
@@ -153,6 +162,36 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       // countdown the user can watch — sending there would contradict it.
       case AppLifecycleState.inactive:
         _pollTimer?.cancel();
+    }
+  }
+
+  /// Commits every pending action while still mounted (`paused`/`hidden`),
+  /// preserving `_serving`, queue removal, and shortage warnings.
+  void _commitPendingMounted() {
+    if (!mounted || _pendingActions.isEmpty) return;
+    for (final entry in _pendingActions.entries.toList()) {
+      _pendingTimers.remove(entry.key)?.cancel();
+      final action = entry.value;
+      switch (action.kind) {
+        case PendingActionKind.ready:
+          final order = _queue
+              .where((o) => o.orderId == entry.key)
+              .firstOrNull;
+          if (order != null) {
+            unawaited(_commit(order, deliverNow: action.deliverNow));
+          }
+        case PendingActionKind.complete:
+          setState(() => _pendingActions.remove(entry.key));
+          final order = _handovers
+              .where((o) => o.orderId == entry.key)
+              .firstOrNull;
+          if (order != null) {
+            unawaited(_complete(order));
+          }
+      }
+    }
+    if (_pendingActions.isNotEmpty) {
+      unawaited(_flushPending());
     }
   }
 
@@ -677,7 +716,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
                               : BannerTone.info,
                           title: outcome.hasShortages
                               ? l10n.preparedWithShortages(
-                                  outcome.shortageNames!,
+                                  Formatters.isolate(outcome.shortageNames!),
                                 )
                               : l10n.selfOrderCompleted(outcome.orderId),
                           trailing: IconButton(

@@ -527,7 +527,9 @@ class ComposerController extends StateNotifier<ComposerState> {
     // Replacing an existing draft is always fine — the count does not change.
     if (state.drink == null && !state.canAddAnotherLine) return;
 
-    final defaultVariant = drink.variants.where((v) => v.isDefault).firstOrNull;
+    final defaultVariant =
+        drink.variants.where((v) => v.isDefault).firstOrNull ??
+        drink.variants.firstOrNull;
 
     state = state.copyWith(
       drink: () => drink,
@@ -742,11 +744,18 @@ class ComposerController extends StateNotifier<ComposerState> {
     List<OrderLineDto> overCap,
     List<OrderLineDto> overBuffetCap,
   })
-  applyFavourite(FavouriteDto favourite, List<CatalogueItemDto> drinks) {
+  applyFavourite(
+    FavouriteDto favourite,
+    List<CatalogueItemDto> drinks, {
+    List<CatalogueItemDto>? extras,
+  }) {
     final retired = <OrderLineDto>[];
     final overCap = <OrderLineDto>[];
     final overBuffetCap = <OrderLineDto>[];
     final resolved = <(OrderLineDto, CatalogueItemDto)>[];
+    final knownExtras = extras == null
+        ? null
+        : {for (final e in extras) e.itemId: e};
     // The draft's slot plus whatever the cap leaves after the lines already
     // added. The draft is replaced, so it does not count against the room.
     final room = state.maxLines - state.lines.length;
@@ -759,15 +768,17 @@ class ComposerController extends StateNotifier<ComposerState> {
       final drink = drinks
           .where((d) => d.itemId == line.drinkItemId)
           .firstOrNull;
-      if (drink == null) {
+      final composed = drink == null
+          ? null
+          : _asLine(line, drink, knownExtras: knownExtras);
+      if (drink == null || composed == null) {
         retired.add(line);
       } else if (resolved.length >= room) {
         overCap.add(line);
-      } else if (_asLine(line, drink).resolvesToBuffet &&
-          buffetUsed >= buffetAllowance) {
+      } else if (composed.resolvesToBuffet && buffetUsed >= buffetAllowance) {
         overBuffetCap.add(line);
       } else {
-        if (_asLine(line, drink).resolvesToBuffet) buffetUsed++;
+        if (composed.resolvesToBuffet) buffetUsed++;
         resolved.add((line, drink));
       }
     }
@@ -780,17 +791,28 @@ class ComposerController extends StateNotifier<ComposerState> {
       lines: [
         ...state.lines,
         for (final (line, drink) in resolved.take(resolved.length - 1))
-          _asLine(line, drink),
+          _asLine(line, drink, knownExtras: knownExtras),
       ],
       drink: () => lastDrink,
       variantId: () => last.variantId,
       sugarItemId: () => last.sugarItemId,
       sugarSpoons: last.sugarSpoons,
-      extraItemIds: last.extraItemIds.where(lastDrink.permitsExtra).toSet(),
+      extraItemIds: last.extraItemIds
+          .where(
+            (id) =>
+                lastDrink.permitsExtra(id) &&
+                (knownExtras == null || knownExtras.containsKey(id)),
+          )
+          .toSet(),
       drinkFromOwn: last.drinkFromOwn && lastDrink.hasOwnStock,
       sugarFromOwn: last.sugarFromOwn,
       ownExtraItemIds: last.ownExtraItemIds
-          .where(lastDrink.permitsExtra)
+          .where(
+            (id) =>
+                lastDrink.permitsExtra(id) &&
+                (knownExtras == null ||
+                    (knownExtras[id]?.hasOwnStock ?? false)),
+          )
           .toSet(),
       draftQuantity: 1,
       fromFavouriteId: () => favourite.favouriteId,
@@ -802,17 +824,32 @@ class ComposerController extends StateNotifier<ComposerState> {
   /// order, but the drink's permitted extras may have been narrowed by an
   /// admin since it was saved, and a jar the user no longer holds is not
   /// claimed.
-  static ComposerLine _asLine(OrderLineDto line, CatalogueItemDto drink) =>
-      ComposerLine(
-        drink: drink,
-        variantId: line.variantId,
-        sugarItemId: line.sugarItemId,
-        sugarSpoons: line.sugarSpoons,
-        extraItemIds: line.extraItemIds.where(drink.permitsExtra).toSet(),
-        drinkFromOwn: line.drinkFromOwn && drink.hasOwnStock,
-        sugarFromOwn: line.sugarFromOwn,
-        ownExtraItemIds: line.ownExtraItemIds.where(drink.permitsExtra).toSet(),
-      );
+  static ComposerLine _asLine(
+    OrderLineDto line,
+    CatalogueItemDto drink, {
+    Map<int, CatalogueItemDto>? knownExtras,
+  }) => ComposerLine(
+    drink: drink,
+    variantId: line.variantId,
+    sugarItemId: line.sugarItemId,
+    sugarSpoons: line.sugarSpoons,
+    extraItemIds: line.extraItemIds
+        .where(
+          (id) =>
+              drink.permitsExtra(id) &&
+              (knownExtras == null || knownExtras.containsKey(id)),
+        )
+        .toSet(),
+    drinkFromOwn: line.drinkFromOwn && drink.hasOwnStock,
+    sugarFromOwn: line.sugarFromOwn,
+    ownExtraItemIds: line.ownExtraItemIds
+        .where(
+          (id) =>
+              drink.permitsExtra(id) &&
+              (knownExtras == null || (knownExtras[id]?.hasOwnStock ?? false)),
+        )
+        .toSet(),
+  );
 
   /// Called only once an order is **confirmed**, never on a failed attempt —
   /// a retry must reuse the same key.

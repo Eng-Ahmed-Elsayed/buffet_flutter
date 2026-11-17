@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -60,6 +62,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   /// list with every row read, so without this the rows the user came for
   /// lost their mark while being read.
   Set<int> _unreadOnOpen = const {};
+  bool _markedRead = false;
 
   @override
   void initState() {
@@ -77,7 +80,7 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
   /// swallowed: the badge being briefly wrong is not worth an error banner over
   /// a list the user is already reading.
   Future<void> _markRead() async {
-    if (!mounted) return;
+    if (!mounted || _markedRead) return;
     final locale = ref.read(localeControllerProvider);
 
     try {
@@ -85,12 +88,13 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       // list that never loaded is never marked read unseen.
       final items = await ref.read(notificationsProvider.future);
       if (!mounted) return;
-      setState(
-        () => _unreadOnOpen = {
-          for (final n in items)
-            if (!n.isRead) n.notificationId,
-        },
-      );
+      final unread = {
+        for (final n in items)
+          if (!n.isRead) n.notificationId,
+      };
+      _markedRead = true;
+      setState(() => _unreadOnOpen = unread);
+      if (unread.isEmpty) return;
       await ref
           .read(notificationsRepositoryProvider)
           .markAllRead(
@@ -125,7 +129,10 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
           // The server's reason when it gave one (§4), not always "network".
           body: describeError(error, l10n),
           action: OutlinedButton.icon(
-            onPressed: () => ref.invalidate(notificationsProvider),
+            onPressed: () {
+              ref.invalidate(notificationsProvider);
+              unawaited(_markRead());
+            },
             icon: const Icon(Icons.refresh),
             label: Text(l10n.retry),
           ),

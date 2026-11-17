@@ -244,5 +244,96 @@ void main() {
       expect(find.byType(FavouriteCard), findsOneWidget);
       expect(find.text('غير متاح حاليًا'), findsNothing);
     });
+
+    testWidgets(
+      'a favourite with sugar and extras is not marked unavailable when CatalogueResponse.availableItemIds includes them',
+      (tester) async {
+        final catalogue = CatalogueResponse.fromJson({
+          'drinks': [
+            {
+              'itemId': 4,
+              'nameAr': 'قهوة',
+              'nameEn': 'Coffee',
+              'category': 'Drink',
+              'unit': 'جرام',
+              'imageUrl': null,
+              'inStock': true,
+              'hasOwnStock': false,
+              'ownServingsLeft': 0,
+              'variants': <Object>[],
+              'allowedExtraItemIds': null,
+            },
+          ],
+          'sugars': [
+            {
+              'itemId': 3,
+              'nameAr': 'سكر',
+              'nameEn': 'Sugar',
+              'category': 'Sugar',
+              'unit': 'ملعقة',
+              'imageUrl': null,
+              'inStock': true,
+              'hasOwnStock': false,
+              'ownServingsLeft': 0,
+              'variants': <Object>[],
+              'allowedExtraItemIds': null,
+            },
+          ],
+          'extras': [
+            {
+              'itemId': 9,
+              'nameAr': 'حليب',
+              'nameEn': 'Milk',
+              'category': 'Extra',
+              'unit': 'جرام',
+              'imageUrl': null,
+              'inStock': true,
+              'hasOwnStock': false,
+              'ownServingsLeft': 0,
+              'variants': <Object>[],
+              'allowedExtraItemIds': null,
+            },
+          ],
+          'locations': <Object>[],
+          'maxLines': 25,
+          'maxBuffetDrinks': 1,
+        });
+
+        final fav = FavouriteDto(
+          favouriteId: 1,
+          name: 'قهوة بالحليب',
+          createdAtUtc: DateTime.utc(2026, 8, 1),
+          lastUsedAtUtc: null,
+          lines: const [
+            OrderLineDto(
+              drinkItemId: 4,
+              drinkNameAr: 'قهوة',
+              sugarSpoons: 2,
+              variantId: null,
+              sugarItemId: 3,
+              extraItemIds: [9],
+              lineNote: null,
+              drinkFromOwn: false,
+              sugarFromOwn: false,
+              ownExtraItemIds: [],
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          _wrap(
+            FavouritesStrip(
+              favourites: [fav],
+              availableItemIds: catalogue.availableItemIds,
+              onReplay: (_) {},
+              onDelete: (_) {},
+            ),
+          ),
+        );
+
+        expect(find.byType(FavouriteCard), findsOneWidget);
+        expect(find.text('غير متاح حاليًا'), findsNothing);
+      },
+    );
   });
 }

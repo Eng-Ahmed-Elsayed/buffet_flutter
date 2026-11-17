@@ -275,5 +275,61 @@ void main() {
     test('a line with no sugar is not made unavailable by its absence', () {
       expect(saved(sugar: null, extras: const []).isAvailable({4}), isTrue);
     });
+
+    test('CatalogueResponse.availableItemIds includes drinks, sugars, and extras', () {
+      final catalogue = CatalogueResponse.fromJson({
+        'drinks': [
+          {
+            'itemId': 4,
+            'nameAr': 'قهوة تركي',
+            'nameEn': 'Turkish coffee',
+            'category': 'Drink',
+            'unit': 'جرام',
+            'imageUrl': null,
+            'inStock': true,
+            'hasOwnStock': false,
+            'ownServingsLeft': 0,
+            'variants': <Object>[],
+            'allowedExtraItemIds': null,
+          },
+        ],
+        'sugars': [
+          {
+            'itemId': 3,
+            'nameAr': 'سكر أبيض',
+            'nameEn': 'Sugar',
+            'category': 'Sugar',
+            'unit': 'ملعقة',
+            'imageUrl': null,
+            'inStock': true,
+            'hasOwnStock': false,
+            'ownServingsLeft': 0,
+            'variants': <Object>[],
+            'allowedExtraItemIds': null,
+          },
+        ],
+        'extras': [
+          {
+            'itemId': 9,
+            'nameAr': 'حليب',
+            'nameEn': 'Milk',
+            'category': 'Extra',
+            'unit': 'جرام',
+            'imageUrl': null,
+            'inStock': true,
+            'hasOwnStock': false,
+            'ownServingsLeft': 0,
+            'variants': <Object>[],
+            'allowedExtraItemIds': null,
+          },
+        ],
+        'locations': <Object>[],
+        'maxLines': 25,
+        'maxBuffetDrinks': 1,
+      });
+
+      expect(catalogue.availableItemIds, equals({4, 3, 9}));
+      expect(saved(drink: 4, sugar: 3, extras: const [9]).isAvailable(catalogue.availableItemIds), isTrue);
+    });
   });
 }

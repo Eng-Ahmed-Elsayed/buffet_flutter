@@ -165,9 +165,11 @@ the same reason, so the shortage banner cannot name whose jar ran out either.
 
 Full write-up: [backend-request-own-source-on-overdrawn.md](backend-request-own-source-on-overdrawn.md).
 
-**No client change needed.** Verified on device: order 46 renders
-`Drink: سارة العتيبي's jar` in violet, and both the chip and the shortage banner
-already treat an empty name as buffet stock.
+**No client change needed — fixed in sibling `buffet_app` repo (pending redeploy).**
+Verified on device: order 46 renders `Drink: سارة العتيبي's jar` in violet, and both the chip
+and the shortage banner treat an empty name as buffet stock. On the backend (`buffet_app`
+`OrderService.Source`), `!item.IsCompanyItem` items now always resolve `SourceOwner` to the owning
+employee rather than falling back to `StockOwner.Company` when a personal balance is exhausted.
 
 ---
 
@@ -184,7 +186,7 @@ Exercised with the user's approval, against the deployment:
 | **Push on Ready** | **Nothing arrived** on a registered emulator within 25 s, though the notification row was written (id 61). Most likely `Push__ServiceAccountJson` is unset on the host, which the backend treats as push off (`PushSender.cs`). Not confirmed: the host's settings cannot be read from here. |
 | Contracts synced 2026-09-27 | Deployed later the same day and exercised from the app: order 73 was placed as a pickup, started, served, shown with its start time and the pickup wording, and closed by "I picked it up" (`/collected`, now `Completed`). No menu groups or descriptions exist yet on the server, so the menu keeps its jar chips |
 | Arabic text | **Fixed**: order 71's note «سكر خفيف» and location «مكتبي» came back as written |
-| Login `Accept-Language` | Still Arabic for `en` (re-tested) |
+| `Accept-Language: en` API errors | Observed Arabic on live deploy 2026-09-27; **fixed in `buffet_app` source** (`Program.cs` neutral `ar`/`en` cultures + `IStringLocalizer<SharedResource>` in `EmployeeApi.cs` and `StaffApi.cs`), pending redeploy |
 | Push | Still nothing on order 72. `Program.cs` swaps in a no-op sender when `Push__ServiceAccountJson` is empty, so the host setting is the likely cause |
 
 Order 70 was placed, started, served and handed over; order 69 (someone else's) was left alone.

@@ -78,5 +78,11 @@
 		<string>ar</string>
 		<string>en</string>
 	</array>
+	<!-- Uses standard HTTPS/TLS and OS Keychain only; no custom/non-exempt encryption. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<!-- iOS push notifications are deferred until an Apple Developer account is funded. -->
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<false/>
 </dict>
 </plist>

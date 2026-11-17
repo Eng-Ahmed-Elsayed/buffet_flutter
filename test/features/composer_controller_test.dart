@@ -391,4 +391,74 @@ void main() {
       expect(controller.state.deliveryLocationMissing, isFalse);
     });
   });
+
+  group('variant and favourite catalogue alignment', () {
+    test('selectDrink falls back to first variant when none is marked default', () {
+      const first = VariantDto(
+        variantId: 41,
+        nameAr: 'وسط',
+        nameEn: 'Medium',
+        isDefault: false,
+      );
+      const second = VariantDto(
+        variantId: 42,
+        nameAr: 'زيادة',
+        nameEn: 'Dark',
+        isDefault: false,
+      );
+      const drink = CatalogueItemDto(
+        itemId: 1,
+        nameAr: 'قهوة',
+        nameEn: 'Coffee',
+        category: 'Drink',
+        unit: 'جرام',
+        imageUrl: null,
+        inStock: true,
+        hasOwnStock: false,
+        ownServingsLeft: 0,
+        variants: [first, second],
+        allowedExtraItemIds: null,
+      );
+
+      final controller = ComposerController()..selectDrink(drink);
+      expect(controller.state.variantId, 41);
+    });
+
+    test('applyFavourite drops retired extras and un-owned extra sources', () {
+      final drink = item(id: 1);
+      final activeMilk = item(id: 9, hasOwnStock: false);
+      final ownCardamom = item(id: 10, hasOwnStock: true, ownServingsLeft: 3);
+
+      final fav = FavouriteDto(
+        favouriteId: 5,
+        name: 'قهوتي',
+        createdAtUtc: DateTime.utc(2026, 8, 24),
+        lastUsedAtUtc: null,
+        lines: const [
+          OrderLineDto(
+            drinkItemId: 1,
+            drinkNameAr: 'قهوة',
+            sugarSpoons: 1,
+            variantId: null,
+            sugarItemId: null,
+            extraItemIds: [9, 10, 999],
+            lineNote: null,
+            drinkFromOwn: false,
+            sugarFromOwn: false,
+            ownExtraItemIds: [9, 10, 999],
+          ),
+        ],
+      );
+
+      final controller = ComposerController()
+        ..applyFavourite(
+          fav,
+          [drink],
+          extras: [activeMilk, ownCardamom],
+        );
+
+      expect(controller.state.extraItemIds, equals({9, 10}));
+      expect(controller.state.ownExtraItemIds, equals({10}));
+    });
+  });
 }

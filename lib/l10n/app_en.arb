@@ -87,7 +87,7 @@
   "fulfilmentPickup": "Pick it up at the kitchen",
   "fulfilmentDelivery": "Deliver it to the place below",
   "fulfilmentRequired": "Choose pickup or delivery",
-  "deliveryNeedsLocation": "Say where to bring it",
+  "deliveryNeedsLocation": "Choose where to bring it",
   "pickupLocationHint": "Where do you sit? (optional)",
   "locationHint": "Choose where to bring it",
   "placeOrder": "Place order",

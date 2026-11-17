@@ -5,6 +5,7 @@ import '../../../data/models/catalogue_models.dart';
 import '../../../data/models/favourite_models.dart';
 import '../../../data/models/order_models.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../../shared/formatters.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/banners.dart';
 import '../../../shared/widgets/button_spinner.dart';
@@ -132,7 +133,9 @@ class ReviewOrderStep extends ConsumerWidget {
                       const SizedBox(width: Dimens.space2),
                       Expanded(
                         child: Text(
-                          l10n.orderingFor(composer.onBehalfOfName!),
+                          l10n.orderingFor(
+                            Formatters.isolate(composer.onBehalfOfName!),
+                          ),
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),

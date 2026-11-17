@@ -229,10 +229,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         .split(RegExp(r'\s+'))
         .first;
     if (name == null || name.isEmpty) return l10n.greetingNoName;
+    final isolated = Formatters.isolate(name);
     final hour = DateTime.now().hour;
-    if (hour < 12) return l10n.greetingMorning(name);
-    if (hour < 17) return l10n.greetingAfternoon(name);
-    return l10n.greetingEvening(name);
+    if (hour < 12) return l10n.greetingMorning(isolated);
+    if (hour < 17) return l10n.greetingAfternoon(isolated);
+    return l10n.greetingEvening(isolated);
   }
 
   @override
@@ -258,9 +259,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Null while the catalogue loads: a favourite renders as available until
     // the catalogue says otherwise, rather than the strip flashing
     // "unavailable" over a request that has not come back yet.
-    final availableItemIds = catalogue.valueOrNull?.drinks
-        .map((d) => d.itemId)
-        .toSet();
+    final availableItemIds = catalogue.valueOrNull?.availableItemIds;
     final canOrderForGuests = ref.watch(guestPrivilegeProvider);
     final searching = _query.trim().isNotEmpty;
 

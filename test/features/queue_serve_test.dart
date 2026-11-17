@@ -221,4 +221,30 @@ void main() {
       await tester.pumpAndSettle();
     });
   });
+
+  group('pausing during undo commits while keeping warnings', () {
+    testWidgets('AppLifecycleState.paused commits pending serve and surfaces shortage warning', (
+      tester,
+    ) async {
+      final repository = _Repository([_order(9, 'سارة العتيبي')])
+        ..serve = (id) async => ServeResultDto(
+          orderId: id,
+          status: 'Completed',
+          warnings: [_shortSugar],
+        );
+      await _pump(tester, repository);
+
+      await tester.tap(find.text(_l10n.readyAndDelivered).first);
+      await tester.pump();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('سكر أبيض'), findsOneWidget);
+      expect(find.textContaining('سارة العتيبي'), findsOneWidget);
+    });
+  });
 }

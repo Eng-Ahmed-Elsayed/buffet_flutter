@@ -180,8 +180,50 @@ class DrinkDetailsStep extends ConsumerWidget {
                       _Label(l10n.sugar),
                       SugarStepper(
                         spoons: composer.sugarSpoons,
-                        onChanged: controller.setSugarSpoons,
+                        onChanged: (spoons) {
+                          controller.setSugarSpoons(spoons);
+                          if (spoons > 0 &&
+                              composer.sugarItemId == null &&
+                              catalogue.sugars.isNotEmpty) {
+                            controller.selectSugar(
+                              catalogue.sugars.first.itemId,
+                            );
+                          } else if (spoons == 0 &&
+                              composer.sugarItemId != null) {
+                            controller.selectSugar(null);
+                          }
+                        },
                       ),
+                      if (catalogue.sugars.length > 1 &&
+                          composer.sugarSpoons > 0) ...[
+                        const SizedBox(height: Dimens.space3),
+                        Wrap(
+                          spacing: Dimens.space2,
+                          runSpacing: Dimens.space2,
+                          children: [
+                            for (final sugar in catalogue.sugars)
+                              ChoiceChip(
+                                label: Text(sugar.localisedName(language)),
+                                // Only the sugar that will actually be
+                                // sent. A replayed favourite can carry
+                                // spoons with no sugar (or a retired one);
+                                // showing the first chip as chosen then
+                                // would promise a sugar the order omits,
+                                // and the server drops the spoons when
+                                // more than one sugar is on offer.
+                                selected: composer.sugarItemId == sugar.itemId,
+                                onSelected: (_) =>
+                                    controller.selectSugar(sugar.itemId),
+                                selectedColor: BrandColors.brandLight,
+                                labelStyle: Theme.of(context)
+                                    .chipTheme
+                                    .labelStyle
+                                    ?.copyWith(color: BrandColors.ink),
+                                checkmarkColor: BrandColors.brand,
+                              ),
+                          ],
+                        ),
+                      ],
 
                       // Filtered by the drink: null permits every extra, an
                       // empty list hides the row. Not cosmetic — an extra the

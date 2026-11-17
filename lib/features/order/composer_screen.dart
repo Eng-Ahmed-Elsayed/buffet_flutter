@@ -248,7 +248,12 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
         !await _confirmDiscard()) {
       return;
     }
-    if (mounted && context.canPop()) context.pop();
+    if (!mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(Routes.home);
+    }
   }
 
   /// Lowers the keyboard and scrolls the failure notice into view.
@@ -367,7 +372,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   bool _takeFavourite(FavouriteDto favourite, CatalogueResponse data) {
     final result = ref
         .read(composerControllerProvider.notifier)
-        .applyFavourite(favourite, data.drinks);
+        .applyFavourite(favourite, data.drinks, extras: data.extras);
     final skipped =
         result.retired.length +
         result.overCap.length +
@@ -467,6 +472,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
         );
       }
       _fulfilmentChecked = false;
+      _notesController.clear();
       ref.read(composerControllerProvider.notifier).resetAfterConfirmedOrder();
       // The new order belongs in the outstanding list the moment it exists.
       ref.invalidate(myOrdersProvider);
@@ -695,9 +701,16 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
             if (_favouriteRetired.isNotEmpty)
               l10n.favouriteNotOnMenu(
                 _favouriteRetired
-                    // The only name the saved line carries; isolated, since
-                    // it may sit inside English text.
-                    .map((l) => Formatters.isolate(l.drinkNameAr))
+                    // Favourites may arrive with an empty drinkNameAr on the
+                    // wire; fall back to the favourite's label or item id so
+                    // the warning never trails off after a colon.
+                    .map((l) {
+                      final name = l.drinkNameAr.trim();
+                      final label = name.isNotEmpty
+                          ? name
+                          : (widget.seed.favourite?.name ?? '#${l.drinkItemId}');
+                      return Formatters.isolate(label);
+                    })
                     .toSet()
                     .join(l10n.listSeparator),
               ),

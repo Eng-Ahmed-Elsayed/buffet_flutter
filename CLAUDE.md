@@ -31,11 +31,12 @@ declarations, `404` (not `403`) on another user's order, and idempotency were al
 the test accounts.
 
 **Client-written Arabic is stored correctly since 2026-09-27** (an order's Arabic note and location
-came back as written). One open backend issue, not fixable from the client: **`/auth/login`
-ignores `Accept-Language`** and returns Arabic either way (re-tested 2026-09-27). The client is
-already correct per §4 — it sends the header and surfaces `ApiError.message` verbatim. **Push is
-switched off on the host**: `Push__ServiceAccountJson` is unset, which makes the server drop every
-push silently (`Program.cs`), so no Android push arrives until it is set.
+came back as written). Note on `Accept-Language`: earlier builds of `/auth/login` (and other API
+routes) ignored `Accept-Language: en` and returned Arabic unconditionally; this has now been fixed
+in the sibling `buffet_app` repo (`Program.cs` neutral `ar`/`en` cultures +
+`IStringLocalizer<SharedResource>` across `EmployeeApi.cs` and `StaffApi.cs`), pending server
+redeploy. **Push is switched off on the host**: `Push__ServiceAccountJson` is unset, which makes
+the server drop every push silently (`Program.cs`), so no Android push arrives until it is set.
 
 `MyMaterialDto.imageUrl` **has shipped** and works; the materials screen shows real uploaded
 photographs, falling back to a category glyph when the field is null or the file 404s.
@@ -256,8 +257,14 @@ no translation writes an Arabic-Indic one (`test/l10n/digits_test.dart`).
 owns, with servings left, puts it in `ownExtraItemIds`. A source row under the extras (the same
 `_SourceChip` as the drink's) switches it to the buffet. The chip used to be violet whenever the
 user owned some, while the order sent it as buffet stock. **There is no sugar jar toggle**,
-deliberately: the UI never picks a sugar item (the server auto-resolves it), and `sugarFromOwn`
-with no sugar item is unverified against the server. `composer_own_extras_test.dart`.
+deliberately, and `sugarFromOwn` is never set by Drink Details. **Which sugar is chosen, though:**
+the server resolves a sugar only when exactly one is active (`OrderService.ResolveSugar`); with two
+or more and no `sugarItemId` it silently zeroes the spoons. So the first spoon picks the first
+sugar, chips offer the others when there is more than one, and back to zero clears it. **A chip
+shows as chosen only when it is the `sugarItemId` being sent**, never a fallback: a replayed
+favourite with spoons and no sugar shows none chosen. Open: a *private* sugar in the list is drawn
+from the owner's jar server-side but is not painted violet. `composer_own_extras_test.dart`,
+`sugar_choice_test.dart`.
 
 **Route transitions and bottom sheets stop moving under reduced motion.**
 `ReducedMotionPageTransitionsBuilder` wraps Android's, Windows' and Linux's transitions, and every
