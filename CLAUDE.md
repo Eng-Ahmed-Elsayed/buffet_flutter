@@ -21,8 +21,6 @@ Until each phase lands, the rules below describe the app as it stands; the "Rule
 changes" table in that document says which are about to move. Figma MCP is capped on the current
 seat, so the design is read from the PNG exports in `design/figma/`.
 
-**Scaffolded and building.** The five screens from §1.2 exist, in both locales, on branch
-`feat/app-scaffold`. `flutter analyze` is clean and `flutter test` passes.
 
 **The domain rules are verified against the running server**, not just against the contracts — see
 the table at the top of [docs/backend-findings.md](docs/backend-findings.md). Stock deducting at
@@ -47,86 +45,18 @@ the peaks of the Figma logo (`design/figma/logo.png`) on white (`tool/generate_l
 regenerates them, with Pillow — no `flutter_launcher_icons` dependency; the adaptive background
 `ic_launcher_background.xml` mirrors its `GROUND`).
 
-The **in-app notification centre is built** (§7.4) — list, unread badge on both home screens, and
-mark-all-read on open. It is the reliable half of notifications: the server writes the row before it
-attempts a push, so a push that was throttled, deferred by Doze or never permitted is still
-recoverable there, and it is the only place `LowStock`, `DeclarationConfirmed` and
-`DeclarationRejected` ever surface. **The rows new on opening keep their mark** (a named dot and
-bold text, never the fill alone) after mark-all-read reloads them as read; the snapshot is taken
-before marking. A declaration outcome opens My materials, for employees only. **`LowStock` leads
-nowhere, deliberately**: the server sends it only to admins, and it concerns buffet stock, which
-nothing in the app shows. `account_notifications_test.dart`. Sign-out asks first.
+**Feature rules load with their folder.** The rules a future edit must not undo for each
+feature live beside its code, and load when you work there. **Read the matching file before
+editing that feature's tests**, since a test file alone does not load it:
+[order](lib/features/order/CLAUDE.md) (composer, Review, Orders tab, favourites, guest mode, sugar
+and extras) · [staff_queue](lib/features/staff_queue/CLAUDE.md) ·
+[home](lib/features/home/CLAUDE.md) · [notifications](lib/features/notifications/CLAUDE.md) (push,
+iOS gap, local alerts, background watch) · [auth](lib/features/auth/CLAUDE.md) (sign-in, forced
+password, expired session, login language) · [onboarding](lib/features/onboarding/CLAUDE.md) ·
+[settings](lib/features/settings/CLAUDE.md) (Account tab).
 
-**Push is built, Android only** (§7.4). Firebase project `digital-buffet-846f0`; the service
-account lives in .NET user secrets (`Push:ServiceAccountJson`) and never in either repository.
-`OrderReady` and `OrderCancelled` are the only two kinds that push — see §7.4 before adding a third.
+Rules for both landing screens and the app as a whole:
 
-**iOS has no push and will not until an Apple Developer account is funded.** That is a deliberate,
-recorded gap, not an oversight: do not write untested APNs code to fill it. What both platforms do
-have is a local notification with sound when a poll sees an order turn Ready or Cancelled
-(`lib/data/local/order_alerts.dart`). **What it covers is the app in the foreground, on any
-screen**: `OrderStatusTracker` on Home (which stays mounted beneath every tab and pushed screen)
-compares each settled load of the order list, so the chime no longer depends on the tracking
-screen being open. It stays silent on the first load after a return, where the change is on screen.
-**After the app leaves the screen it keeps looking for up to three minutes**
-(`BackgroundOrderWatch`, decided 2026-09-27), but only while an order is still being made and only
-where no push will announce it: iOS, or an Android device whose registration failed. A registered
-device stays quiet, or Ready would ring twice. It calls the repository directly, because a provider
-refreshes on the next frame and a backgrounded app draws none. **The OS decides how long it really
-runs**: iOS grants the background time `AppDelegate.swift` asks for, about half a minute, so a
-drink that takes three minutes will usually not chime on an iPhone; an Android process is frozen
-soon after it is cached. Beyond that only push helps. Staff are not covered: it lives on Home, as
-the foreground tracker does.
-`background_order_watch_test.dart`. A tap on the alert opens the order through
-the same held-link path as a push. Nothing on the device can cover the process being killed.
-
-**Account says when notifications are off** (Android, `lib/data/local/notification_settings.dart`),
-with a button that opens the app's system notification settings (a `MethodChannel` in
-`MainActivity.kt`). It checks again when the app resumes. It is on Account only, never Home: the
-app still works without notifications, so this is information, not a nag. Push reaching one phone
-and not another (reported 2026-09-28) is a device-side cause, since the server message is a visible
-high-priority `notification` payload: a declined permission, OEM battery or autostart limits, or
-a different account signed in on that phone.
-`settings_screen_test.dart`.
-
-**The guest privilege is read from the catalogue** (`CatalogueResponse.canOrderForGuests`, fresh
-from the account on every fetch) through `guestPrivilegeProvider`, which falls back to the sign-in
-value only when the catalogue has none. Never read `canOrderForGuestsProvider` directly for a
-screen: it is the 30-day token claim, and the server checks the stored account instead. See
-[docs/backend-request-guest-flag-freshness.md](docs/backend-request-guest-flag-freshness.md)
-(done in the backend 2026-09-28, not yet deployed). Home refetches the catalogue on resume for
-this, since it stays mounted beneath every tab (`home_screen_test.dart`).
-
-Still unverified: **push on a physical Android handset with the app force-stopped.** That is the
-case the whole feature exists for and no emulator or test exercises it — see
-[docs/firebase-setup-checklist.md](docs/firebase-setup-checklist.md). The plan is
-`~/.claude/plans/staff-view-expressive-lecun.md`.
-
-Two rules from that work that a future edit must not undo:
-
-- **The staff undo affordance lives on the card, not in a SnackBar.** `ScaffoldMessenger` *queues*
-  snackbars and their duration counts from display, not creation, so a rush showed undo buttons for
-  orders that had already been served. Do not "simplify" it back.
-- **A committed serve's card goes at once and stays gone until its answer lands.** It is removed
-  as the undo window commits (as a handover's is) and filtered out of every refresh while its
-  `/ready` is in flight (`_serving`): a poll answered first still lists it Pending, and live Ready
-  buttons coming back read as "undone" and got the drink made twice. Put back only if the serve fails.
-  **A shortage from "ready and handed over" is shown above the tabs**, named, until dismissed,
-  since that order leaves both lists and its card with it. `queue_serve_test.dart`.
-- **The pending bar is announced once, with the seconds left when it appeared.** Its live region
-  used to carry the ticking count and was re-read every second. There is no press-to-pause: it
-  stopped the bar but not the commit, so the bar lied. **A handover card can be cancelled**: the
-  server re-books a Ready order's consumption as waste, and the dialog says so. The dialog's buttons
-  are "Keep order" and "Cancel order", never "Cancel"/"Confirm". Identical cups show once with ×N,
-  where identical means every field the maker acts on. The two tabs carry their counts, scroll
-  and grow in height rather than fade a label (`measureTabLabels`). **"Start making" (`/start`)
-  is optional, never a gate**: a Pending card offers it above the ready pair, which still serve a
-  Pending order directly, and an InProgress card says "being made" in its place. **The card says
-  how the drink leaves the counter** (§8.1): "Deliver to {location}", or "Collecting from the
-  kitchen" with the location kept as where the person sits; an order with no mode shows the
-  location alone. It is a text
-  button, so Ready stays the largest target. It is immediate, with no undo, since it writes no
-  ledger rows, and it is announced. `queue_staff_view_test.dart`.
 - **Foreground polling stays alongside push.** Push closes the closed-app gap; polling closes the
   foreground-freshness gap. They are not duplicates.
 - **`prepareLandingPrompts` is called from BOTH landing screens** (`lib/app/landing_prompts.dart`).
@@ -142,21 +72,8 @@ Two rules from that work that a future edit must not undo:
 **The Flutter SDK lives at `C:\src\flutter` and is not on `PATH`** — invoke it by full path
 (`C:\src\flutter\bin\flutter.bat`).
 
-**Employees land in a bottom-nav shell** (`lib/app/employee_shell.dart`, a
-`StatefulShellRoute`): **Home · Favourites · Orders · Account** at `/home`, `/favourites`,
-`/orders`, `/account`. Home is the design's Home: greeting, drink search (`foldForSearch`, which
-treats «قهوه» and «قهوة» as the same), the outstanding-order card, the favourites strip and the menu
-of every drink grouped «من موادي» then «من البوفيه». **Menu groups filter both sections** (All, each
-group, and «أخرى» for a drink with none or a retired one); with no groups the chips jump to the two
-jars instead. A row shows two lines of description, Drink Details the whole
-(`menu_groups_test.dart`). **There is no "New order" button; a menu row
-is the way in.** It opens the composer seeded with `ComposerSeed.drinkItemId` and `drinkFromOwn`,
-the row's jar. Home builds its whole menu (a `Column`, not a lazy `ListView`), because the jump
-chips scroll to a section heading and a lazy list never builds an off-screen one. My materials is a
-row on Account. Staff still land on `/queue`, with no bar, and
-push what they need from there. Each role has exactly one landing, and `signedInRedirect` (in
-`router.dart`, tested directly by `landing_route_test.dart`) bounces staff off every tab and
-employees off the queue. Three rules a future edit must not undo:
+**Employees land in a bottom-nav shell** (`lib/app/employee_shell.dart`); staff land on `/queue`.
+Three navigation rules a future edit must not undo:
 
 - **Back is handled by the shell, never by a tab.** go_router asks a tab's own navigator only when
   it can pop; a tab root cannot, so the gesture goes straight to the shell page. From any tab but
@@ -169,157 +86,13 @@ employees off the queue. Three rules a future edit must not undo:
 - **Never build a `GoRouter` at test-file load time.** It initialises the wrong binding and fails
   the whole file. Build it in `initState` or inside `testWidgets`.
 
-**Review asks pickup or delivery** (§7.8, `fulfilment`), except of staff, whose own order is made
-and handed over at once. Nothing is preselected until a first choice, which is then remembered on
-the device (`pref_fulfilment`, cleared with the account) and carried through `addLine` and a
-confirmed order like `mode`. **Never a disabled button**: Place order with neither chosen says so
-under the choice, and delivery with no location puts the error on the location field, which the
-server would otherwise refuse with a `400`. `composer_journeys_test.dart`.
-
-**The composer is one route with three steps**, `ComposerStep` Choose a drink → Drink Details →
-Review ([docs/figma-redesign.md](docs/figma-redesign.md), *Ordering*). It is not three routes:
-the draft, the guest name and the idempotency key belong to one order and one screen owns them.
-Rules a future edit must not undo:
-
-- **Back unwinds the steps before it leaves** (`PopScope` plus `_steps`). "Add another drink"
-  stacks Choose **on top of** Review, because clearing the stack made back discard every line
-  already added. Continue returns to the existing Review rather than stacking a second one.
-  Removing the draft drops its Drink Details step, so back never lands on a blank step.
-- **Quantity is identical lines** (`draftQuantity`), capped by `maxDraftQuantity` from structural
-  limits only: lines count by their *requested* jar, never a stock reading. An own jar that reads
-  empty keeps its stepper; the cap is enforced when adding, with the reason stated.
-- **Place order is disabled only for an empty order, and Review then says so** with a way back.
-  A missing guest name takes the user back to the field instead.
-- **Once the order has used its buffet drink, "Add another drink" offers only the user's own
-  materials** (`buffetAllowanceUsed`, `DrinkMenu.ownOnly`, counted by *requested* jar, never a
-  stock reading). Choose a drink then lists «من موادي» alone, with a banner saying why. A user who
-  owns nothing gets no button, and Review says why instead. A guest order, whose name lifts the
-  cap, and a first drink from the user's own jar keep the buffet on offer. `composer_screen_test.dart`.
-- **Home and Choose a drink render the same `DrinkMenu`**, so the two can never list drinks
-  differently. It must sit in a non-lazy scroll view (see Home).
-- **A favourite is replayed whole**: every line, the earlier ones added and the last as the draft,
-  within the line cap **and the buffet cap**. What does not fit, or has been retired, is named in a
-  notice; it is never dropped silently. Replaying only the first line placed a different order from
-  the one saved.
-- **`/favourites-list` returns its pick to the composer that opened it** (`returnsPick`). It
-  used to push a second composer, and two composers share one provider: a guest name was wiped, the
-  idempotency key was shared, and a staff member's served confirmation was lost.
-- **Leaving asks before discarding an order** (Review with drinks, lines already added, or a failed
-  placement), and never mid-placement. A single drink opened from Home backs out freely.
-- **A failed placement stays on Review** until the next attempt, scrolled into view with the
-  keyboard lowered, never a SnackBar over the retry button. Only an uncertain failure (no
-  response, or a 5xx) says the order may have gone through; a 4xx is a refusal with the server's
-  reason. The notices live inside the step's scroll view, via its `header` slot, so they never
-  squeeze the step at 320dp. `composer_journeys_test.dart` pins all of this.
-
-**The Orders tab has the design's two tabs**: In progress (Ready first, then Pending and
-InProgress) and Earlier (Completed and Cancelled). The tracking screen shows a vertical four-step
-timeline (Sent → Being prepared → Ready → Received) and carries the order's times, so the summary
-card does not repeat them. Rules a future edit must not undo:
-
-- **Ready wording follows the order's mode** (§7.8): collect it from the kitchen for a pickup,
-  "will reach you shortly" for a delivery (Ready means made, not on its way), on the status screen
-  and the local alert alike. **An order with no mode stays neutral** («جاهز لك»), which is every
-  order on a server that predates the field. **"I picked it up"** (green, `ok`) shows only on the
-  employee's own Ready *pickup*, posts `/orders/{id}/collected`, and needs no dialog: a repeat is a
-  harmless `204`. `order_tracking_test.dart`.
-- **An order row names its drinks from the catalogue in the reader's language**, exactly as the
-  status screen does, falling back to the stored `drinkNameAr`. `OrderSummaryDto` carries Arabic
-  names only, and a row saying «قهوة» that opens onto "Coffee" names one drink two ways.
-  `order_tracking_test.dart` pins it in English.
-- **A drink is pictured wherever it is named** (as in the design): menu rows, Drink Details and
-  Review from the catalogue item, and the order rows, the tracking lines and Home's outstanding
-  card through `DrinkPhoto`, which looks the id up in the catalogue (a neutral frame while it
-  loads, the glyph for a retired drink). Favourite cards take the drink from their caller and read
-  no provider; in the strip the photo sits above the name. `drink_photo_test.dart`. The photos are
-  admin uploads, so how good they look is content, not code.
-- **Times say the day only when it is not today** (`Formatters.moment`), in the list and on the
-  timeline alike. "Being prepared" carries `startedAtUtc`, and a drink served straight from
-  Pending passes that step without a time; it is never backfilled. A finished order's last step is announced as done, never as the current step.
-
-**The Account tab is the design's Settings frame**: the name and department, then stacked card
-rows. The rows are My materials (employees only), Change password, the biometric switch (its own
-card, drawn only on a device that can use it), Language, and Sign out in `danger`. **Change password
-is `/password`, a separate route from the forced `/change-password`**, and the same screen serves
-both by reading the auth stage. Signed in, it asks for the current password and pops with a
-confirmation. Forced, it never asks for the current password and never lets the user back. The
-forced stage bounces every route, `/password` included, so rule 10 holds without a special case.
-The design's Version line is at the foot, from `package_info_plus` (`appVersionProvider`),
-with the build number after it.
-
-**Sign-in asks only for the name before `@defi.com.eg`** (`ApiConfig.emailDomain`, §5.1). The
-domain shows beside the name, on its right in both languages, since the field is LTR; a full
-address, typed or pasted, goes as it is, which is how the `company.com` test accounts still sign
-in. **Every digit is Latin**, dates included (`Formatters` sets `useNativeDigits = false`), and
+**Every digit is Latin**, dates included (`Formatters` sets `useNativeDigits = false`), and
 no translation writes an Arabic-Indic one (`test/l10n/digits_test.dart`).
-
-**An extra's violet follows the jar it is drawn from, not ownership.** Ticking an extra the user
-owns, with servings left, puts it in `ownExtraItemIds`. A source row under the extras (the same
-`_SourceChip` as the drink's) switches it to the buffet. The chip used to be violet whenever the
-user owned some, while the order sent it as buffet stock. **There is no sugar jar toggle**,
-deliberately, and `sugarFromOwn` is never set by Drink Details. **Which sugar is chosen, though:**
-the server resolves a sugar only when exactly one is active (`OrderService.ResolveSugar`); with two
-or more and no `sugarItemId` it silently zeroes the spoons. So the first spoon picks the first
-sugar, chips offer the others when there is more than one, and back to zero clears it. **A chip
-shows as chosen only when it is the `sugarItemId` being sent**, never a fallback: a replayed
-favourite with spoons and no sugar shows none chosen. Open: a *private* sugar in the list is drawn
-from the owner's jar server-side but is not painted violet. `composer_own_extras_test.dart`,
-`sugar_choice_test.dart`.
 
 **Route transitions and bottom sheets stop moving under reduced motion.**
 `ReducedMotionPageTransitionsBuilder` wraps Android's, Windows' and Linux's transitions, and every
 `showModalBottomSheet` passes `sheetAnimationStyle: Motion.sheet(context)`. iOS keeps Cupertino's,
 because bypassing it removes the edge swipe back. `test/theme/reduced_motion_test.dart`.
-
-**The catalogue's `usual` is gone and must not come back.** It was the caller's last
-non-cancelled order presented as a habit — no frequency, no weighting — and it moved under the user
-every time they ordered for a visitor. **Favourites** (`GET`/`POST`/`DELETE /favourites`, §7.6)
-replaced it: the same one-tap repeat, stated rather than guessed. The whole point of the removal was
-that two shortcuts side by side, one silently moving, is worse than either alone, so **never add a
-"last order" card next to the strip**. The rationale and the shipped inventory are in
-[docs/backend-change-usual-removed.md](docs/backend-change-usual-removed.md). Four rules from it:
-
-- **A tap seeds the composer; it never places the order.** The user confirms what they are
-  ordering, and a favourite holding a since-retired item shows as a visible line rather than an
-  opaque rejection. Favourites are deliberately **not** pre-filtered server-side — let the order be
-  the thing that fails.
-- **The strip lives on the composer's Choose-a-drink step as well as Home**, for the same reason
-  `prepareLandingPrompts` does: staff never see Home, they push the composer from the queue.
-- **`ComposerSeed` carries the whole `FavouriteDto`**, not an id — favourites are a separate
-  endpoint from the catalogue, so an id would mean a refetch between the tap and the drink. And
-  `saveAsFavourite` / `favouriteName` / `fromFavouriteId` must stay in **both** `ComposerState`
-  constructor calls, exactly like `mode`.
-- **`maxFavourites` is the one cap that may disable a control**, because it is structural — the
-  server refuses past it — and only ever with the banner beside it saying so. Never a stock reading.
-- **The strip shows four *most recently used*, then defers to the full list** — and truncates
-  **only when a "show all" destination exists**, since hiding a favourite behind a link that is not
-  there loses it as silently as filtering a retired one out. On Home that destination is the
-  **Favourites tab**, so the strip passes `restReachableElsewhere` and draws no link. On the
-  composer it links to `/favourites-list`. Sorted by `lastUsedAtUtc`, which is what that
-  field is published for.
-- **The strip's tiles are measured two-per-row, never a fixed `maxWidth`.** A 220dp cap put one card
-  per row on a 320dp phone, and four favourites pushed "New order" — then the primary action of the
-  whole app — out of the built viewport entirely. The responsive suite did **not** catch it, because
-  it checks for overflow and nothing overflowed. `home_screen_test.dart` now asserts that the
-  **search field and the owed order** (the first ways into ordering, placed above the strip) are
-  reachable without scrolling **above the tab bar**, with Home inside the real shell. With no
-  favourites, the first menu row must be in reach too.
-- **A favourite whose item an admin retired is shown and marked, never hidden or disabled.** The
-  server does not filter these (§7.6), and it is right not to: one that vanished silently would
-  leave the user nothing to act on and no way to delete what they cannot see. It still taps — the
-  composer is where the missing drink becomes a visible line. `favourites_strip_test.dart` pins it.
-- **A favourite is a heart everywhere**, as the design's tab bar draws it. A star beside a heart
-  read as two different things.
-- **An order already saved says so; it does not offer to save again.** `FavouriteDto.orders()`
-  compares only what is *ordered* — drink, preparation, sugar, extras — ignoring the name and the
-  jar, so two saves of the same coffee are one favourite. The action is **replaced by a statement**,
-  never greyed out.
-
-**One destination, one control per screen.** The bell lives in Home's top bar **only**; settings
-is the Account tab, and My orders is the Orders tab. None of them has a tile or an icon on Home as
-well, because the same destination twice on one screen (once in the chrome, once in the body) is
-noise. The unread badge lives on the bell alone for the same reason. Pinned by
-`test/features/home_screen_test.dart`.
 
 **Both landing screens carry the brand lockup in their top bar**, Home and the staff queue alike.
 Each is named for screen readers (`homeTitle`, `queueTitle`), since the lockup is decorative. The
@@ -349,57 +122,6 @@ The white one was 1.43:1 on the disabled fill. A danger `InlineBanner` is a live
 failure is announced as it appears. The lock's button says «فتح القفل» / "Unlock", never a
 sensor, since the prompt may be a face, a fingerprint or the device PIN.
 `entry_accessibility_test.dart`.
-
-**The first-launch explainer (`/welcome`) shows once per install, before the first sign-in, and
-never to someone who already uses the app.** Its flag lives in `PreferencesStore` and survives
-sign-out. **Any session stage (signed in, locked, forced password change) marks it seen**, and so does a
-signed-out device with a remembered email or a just-ended session (`hasUsedAppProvider`, seen on
-the emulator); see `onboardingControllerProvider`. Without that, everyone who signed in before it existed would be sent
-through three slides the moment their session ended, burying the "session expired" notice below.
-`signedOutRedirect` holds on the splash while the flag loads. The entry screens (splash, explainer,
-sign-in, lock) share `BrandBackdrop` and `BrandLockup`. The explainer's slides are licensed photographs
-([docs/asset-credits.md](docs/asset-credits.md)), never generated ones, with the text on
-`BrandColors.photoScrim`; a new photo is credited there. **No text sits over the glow's peak**: the
-link blue drops to about 4:1 there, so the explainer's Skip is in ink.
-
-**The forced password change survives a relaunch** (rule 10). `pref_must_change_password` is
-written by login *before* the token, restored on cold start **ahead of** the biometric lock, and
-released only by set-initial-password's `204`. Before this, killing the app and reopening it was a
-way past the block. The forced screen therefore has one exit, **Sign out**, which removes the token
-and the flag together. `session_restore_test.dart` pins all of it. Two rules from the same fix:
-
-- **A 401 ends only the session it belongs to.** The interceptor acts only when the failing
-  request's bearer is the token stored *now*. A slow request on an old token must not end the
-  session the user has just signed into. `unauthorized_interceptor_test.dart`.
-- **An ended session leaves nothing behind.** A real 401, and a token found expired at cold start,
-  clear what sign-out clears: the biometrics flag, the enrolment sentinel, the identity and the
-  forced-change flag. Otherwise the next person to sign in inherits the previous one's fingerprint
-  lock. The cleanup is best-effort: sign-in waits for it but never fails on it.
-
-**An expired session says so on the login screen.** A `401` clears the token and drops the user at
-login, and so does a token found expired at cold start (`hasExpiredToken`), which is how most
-30-day sessions actually end; `AuthState.sessionExpired` (surfaced by `sessionExpiredProvider`) is what makes that legible,
-since the token lasts 30 days with no refresh endpoint and this lands on somebody mid-task who did
-nothing wrong. It is never set by a failed sign-in — the login request carries
-`ApiConfig.skipAuthFlag`, so its `401` is a wrong password and belongs on the field.
-
-**The language switch is on the login screen as well as in settings.** Settings sits behind the
-sign-in that login gates, and the app opens in Arabic regardless of the device language — so
-without it an English-speaking user cannot read the screen they must sign in on, and has no way to
-fix that. It also sets `Accept-Language`, so it changes the language of sign-in errors. Covered by
-`test/features/login_language_test.dart`; login is now in the 320dp responsive suite too, because
-its two segments are labelled in different scripts and cannot be shortened.
-
-**Guest ordering is a composer *mode*, not a field.** `ComposerSeed` travels as `GoRouterState.extra`
-(never a query parameter — a URL must not be able to assert a privilege the token may not carry).
-Self mode shows no guest field at all; guest mode asks for the name first and requires it. Two rules
-a future edit must not undo:
-
-- **`setMode` never mints a new idempotency key**, and `addLine()` / `resetAfterConfirmedOrder()`
-  rebuild `ComposerState` field by field — so `mode` must stay in both constructor calls or a second
-  drink silently drops the user back into a self order. Covered by `test/features/composer_mode_test.dart`.
-- **The guest name gates the order button but never disables it.** The handler reveals the error on
-  the field instead; a disabled control with no stated reason is the dead end this codebase avoids.
 
 ## What this repo is
 
@@ -488,11 +210,11 @@ because the API has no antiforgery tokens. Never drive the MVC screens from the 
 - Staff endpoints are additive; employee endpoints are caller-scoped and cannot be reused for
   staff (`/orders/{id}` 404s on anyone else's order, deliberately).
 
+
 ## Stack decisions already made (§3, §10)
 
-`dio` · `flutter_secure_storage` (never `SharedPreferences` for the token) · `local_auth` ·
-`flutter_riverpod` · `go_router` · `json_serializable` + `build_runner` ·
-`flutter_localizations` + `intl` with `generate: true`.
+§10 settled the stack (see `pubspec.yaml`); the token lives in `flutter_secure_storage`, never
+`SharedPreferences`. Propose any new dependency first.
 
 Layered `lib/` structure with a repository seam — **widgets never call the API directly**. The
 directory layout is spelled out in §3.
@@ -621,20 +343,6 @@ At a **milestone**, also run a **definition-of-done check**: go through
 [§12](docs/flutter-app-guide.md) item by item against the code as it stands. Tick only what you
 verified, cite the file or test that shows it, and list what remains open under *Found*. A box
 ticked on memory is how a checklist stops meaning anything.
-
-## Commands
-
-Once the project is scaffolded:
-
-```bash
-flutter pub get
-flutter analyze
-dart format .
-dart run build_runner build --delete-conflicting-outputs   # after touching models
-flutter test
-flutter test test/path/to/file_test.dart --plain-name 'test name'   # single test
-flutter run
-```
 
 ## Tooling in this repo
 
