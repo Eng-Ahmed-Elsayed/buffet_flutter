@@ -26,8 +26,13 @@ class DrinkDetailsStep extends ConsumerWidget {
     required this.catalogue,
     required this.composer,
     required this.onContinue,
+    this.header,
     super.key,
   });
+
+  /// Notices for this step (a failed menu refresh), at the top of its scroll
+  /// view so they never squeeze the step at 320dp.
+  final Widget? header;
 
   final CatalogueResponse catalogue;
   final ComposerState composer;
@@ -59,6 +64,10 @@ class DrinkDetailsStep extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (header case final Widget notice) ...[
+                  notice,
+                  const SizedBox(height: Dimens.space4),
+                ],
                 Center(
                   child: ItemImage(
                     imageUrl: drink.imageUrl,

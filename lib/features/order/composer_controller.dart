@@ -607,6 +607,15 @@ class ComposerController extends StateNotifier<ComposerState> {
 
   void setNotes(String? notes) => state = state.copyWith(notes: () => notes);
 
+  /// Opens on the location of the last confirmed order, unless one was chosen
+  /// meanwhile, and only if it is still one of [locations]: the server
+  /// refuses a place it no longer manages, so a retired one is left unchosen.
+  void restoreLocation(int? locationId, List<LocationDto> locations) {
+    if (locationId == null || state.locationId != null) return;
+    if (!locations.any((l) => l.locationId == locationId)) return;
+    setLocation(locationId);
+  }
+
   /// Pickup or delivery. Null is only ever the starting state.
   void setFulfilment(Fulfilment mode) =>
       state = state.copyWith(fulfilment: () => mode);
@@ -863,6 +872,9 @@ class ComposerController extends StateNotifier<ComposerState> {
     maxBuffetDrinks: state.maxBuffetDrinks,
     // Carried: the next order is most likely collected the same way.
     fulfilment: state.fulfilment,
+    // Carried like the fulfilment: the next drink most likely goes to the
+    // same desk.
+    locationId: state.locationId,
     // Deliberately NOT carried, unlike `mode`. The favourite was saved with
     // the order that just went out; leaving the toggle on would save a second
     // copy of the next one, and `fromFavouriteId` would credit a favourite the

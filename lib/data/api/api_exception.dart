@@ -11,6 +11,7 @@ class ApiException implements Exception {
     required this.message,
     required this.statusCode,
     this.isNetworkFailure = false,
+    this.hasServerMessage = true,
   });
 
   /// Builds an exception from a Dio failure, preferring the server's message.
@@ -33,8 +34,15 @@ class ApiException implements Exception {
       message: fallback,
       statusCode: response?.statusCode,
       isNetworkFailure: response == null,
+      hasServerMessage: false,
     );
   }
+
+  /// False when [message] is the caller's fallback rather than the server's
+  /// words: no response at all, or a reply without a message (an HTML error
+  /// page from a crashed or restarting server). `describeError` then says
+  /// "something went wrong", not "check your connection", for the second.
+  final bool hasServerMessage;
 
   /// Ready to display. Never a status code, never an English default when the
   /// server had something to say.

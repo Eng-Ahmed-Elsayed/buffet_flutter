@@ -182,7 +182,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('سارة العتيبي'), findsOneWidget);
-      expect(find.text('تعذّر الاتصال'), findsOneWidget);
+      // Worded by describeError: no response is the app's network message.
+      expect(find.text(_l10n.networkError), findsOneWidget);
     });
   });
 

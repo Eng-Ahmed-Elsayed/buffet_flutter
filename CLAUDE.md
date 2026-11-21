@@ -22,6 +22,13 @@ changes" table in that document says which are about to move. Figma MCP is cappe
 seat, so the design is read from the PNG exports in `design/figma/`.
 
 
+**A two-repo quality pass landed on 2026-11-21**: plan and results in
+[docs/quality/buffet-multi-agent-improvement-report.md](docs/quality/buffet-multi-agent-improvement-report.md)
+(stocktake posting/variance fixes, signed consumption, atomic cancel reversal, staff new-order alert,
+stale-poll and stale-catalogue fixes). **The SDK is now Flutter 3.50.1**; `flutter analyze` reports
+163 `deprecated_member_use` infos from the `material.dart`/`cupertino.dart` deprecation until the
+approved `material_ui`/`cupertino_ui` migration phase lands. Any other analyzer line is a real issue.
+
 **The domain rules are verified against the running server**, not just against the contracts — see
 the table at the top of [docs/backend-findings.md](docs/backend-findings.md). Stock deducting at
 `Ready`, shortages returning `200`-with-warnings, the `202` that creates nothing, `403` on staff

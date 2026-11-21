@@ -1,5 +1,6 @@
 import 'package:buffet_app/app/employee_shell.dart';
 import 'package:buffet_app/app/routes.dart';
+import 'package:buffet_app/data/api/api_exception.dart';
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/data/models/order_models.dart';
@@ -81,6 +82,8 @@ const _juice = CatalogueItemDto(
   allowedExtraItemIds: null,
 );
 
+final _l10n = lookupAppLocalizations(const Locale('ar'));
+
 CatalogueResponse _catalogue(
   List<CatalogueItemDto> drinks, {
   bool? canOrderForGuests,
@@ -107,10 +110,11 @@ Widget _app({
   bool inShell = false,
   bool routed = false,
   bool? Function()? liveCanOrderForGuests,
+  Future<CatalogueResponse> Function()? loadCatalogue,
 }) => ProviderScope(
   overrides: [
     catalogueProvider.overrideWith(
-      (ref) async => _catalogue(
+      (ref) async => await loadCatalogue?.call() ?? _catalogue(
         drinks,
         canOrderForGuests: liveCanOrderForGuests != null
             ? liveCanOrderForGuests()
@@ -198,6 +202,43 @@ Future<void> _pumpTall(WidgetTester tester, Widget app) async {
 
 void main() {
   setUp(_opened.clear);
+
+  group('a failed menu refresh keeps the menu on screen', () {
+    testWidgets('the loaded menu stays, with a notice and Retry', (
+      tester,
+    ) async {
+      var calls = 0;
+      await _pumpTall(
+        tester,
+        _app(
+          loadCatalogue: () async {
+            calls++;
+            // The first load and the retry succeed; the resume refetch fails.
+            if (calls == 2) {
+              throw const ApiException(message: 'تعذّر', statusCode: 500);
+            }
+            return _catalogue(const [_tea]);
+          },
+        ),
+      );
+      expect(find.text('شاي'), findsOneWidget);
+
+      ProviderScope.containerOf(
+        tester.element(find.byType(HomeScreen)),
+      ).invalidate(catalogueProvider);
+      await tester.pumpAndSettle();
+
+      // Not an error page: the menu is still there, and the notice says why.
+      expect(find.text('شاي'), findsOneWidget);
+      expect(find.text(_l10n.couldNotRefreshTitle), findsOneWidget);
+      expect(find.text(_l10n.genericError), findsNothing);
+
+      await tester.tap(find.text(_l10n.retry));
+      await tester.pumpAndSettle();
+      expect(find.text(_l10n.couldNotRefreshTitle), findsNothing);
+      expect(find.text('شاي'), findsOneWidget);
+    });
+  });
 
   group('Home is for ordering, and for nothing a tab already holds', () {
     testWidgets('search and the menu are here; orders and materials are not', (

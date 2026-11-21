@@ -20,6 +20,7 @@ import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../../theme/motion.dart';
 import '../auth/auth_controller.dart';
+import '../staff_queue/new_order_alert.dart';
 import 'composer_controller.dart';
 import 'favourites_controller.dart';
 import 'favourites_screen.dart';
@@ -167,15 +168,23 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   /// failing is no loss: the user is simply asked.
   Future<void> _restoreFulfilment() async {
     try {
-      final wire = await ref.read(preferencesStoreProvider).readFulfilment();
+      final preferences = ref.read(preferencesStoreProvider);
+      final wire = await preferences.readFulfilment();
       if (!mounted) return;
       ref
           .read(composerControllerProvider.notifier)
           .restoreFulfilment(Fulfilment.fromWire(wire));
+      final location = await preferences.readLocationId();
+      if (!mounted) return;
+      setState(() => _rememberedLocation = location);
     } on Object catch (error) {
       debugPrint('Could not read the last fulfilment choice: $error');
     }
   }
+
+  /// The location of the last confirmed order on this device, applied once
+  /// the catalogue says it is still a place the buffet delivers to.
+  int? _rememberedLocation;
 
   @override
   void dispose() {
@@ -460,6 +469,8 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
           );
 
       if (!mounted) return;
+      // So the staff queue never alerts its own maker to this order.
+      ref.read(selfPlacedOrdersProvider).add(result.orderId);
 
       // 201 duplicate:false and 200 duplicate:true are both success — the
       // second means a retry matched an existing order. Same confirmation.
@@ -471,6 +482,10 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
           ref.read(preferencesStoreProvider).writeFulfilment(mode.wire),
         );
       }
+      // And where it went, so the next order opens on the same place.
+      unawaited(
+        ref.read(preferencesStoreProvider).writeLocationId(composer.locationId),
+      );
       _fulfilmentChecked = false;
       _notesController.clear();
       ref.read(composerControllerProvider.notifier).resetAfterConfirmedOrder();
@@ -509,7 +524,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
           error.statusCode == null ||
           error.statusCode! >= 500;
       setState(() {
-        _placeError = error.message;
+        _placeError = describeError(error, l10n);
         _placeUncertain = uncertain;
         if (uncertain) _placeFailed = true;
       });
@@ -562,6 +577,11 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
           leading: _steps.length > 1 ? BackButton(onPressed: _back) : null,
         ),
         body: catalogue.when(
+          // A refetch (Home's on every resume) that fails keeps the order on
+          // screen, with a notice: replacing Review mid-order with an error
+          // page hid the order and its Place order button. Only a first load
+          // with nothing to show falls to the error state.
+          skipError: true,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => EmptyState(
             icon: Icons.cloud_off_outlined,
@@ -602,7 +622,11 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
                 // AFTER the privilege: setCanOrderForGuests(false) nulls any
                 // guest name, and the other order would leave guest mode with
                 // the name wiped.
-                ..setMode(mode);
+                ..setMode(mode)
+                // Only while nothing is chosen, so it never undoes a choice.
+                ..restoreLocation(_rememberedLocation, data.locations);
+              // Once: a user who then picks "no location" keeps that.
+              _rememberedLocation = null;
               _applySeed(data);
             });
 
@@ -610,7 +634,7 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
             // must agree with the state it stands for.
             _syncGuestNameField(composer.onBehalfOfName);
 
-            final header = _notices(l10n, composer);
+            final header = _notices(l10n, composer, catalogue);
             final step = switch (_step) {
               ComposerStep.chooseDrink => ChooseDrinkStep(
                 catalogue: data,
@@ -631,7 +655,9 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
                 onReplayFavourite: (f) => _replayFavourite(f, data),
                 onDeleteFavourite: (f) =>
                     unawaited(confirmDeleteFavourite(context, ref, f)),
-                header: _step == _favouriteNoticeStep ? header : null,
+                header: _step == _favouriteNoticeStep || catalogue.hasError
+                    ? header
+                    : null,
                 onShowAllFavourites: () async {
                   final picked = await context.push<FavouriteDto>(
                     Routes.favouritesList,
@@ -653,6 +679,9 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
                 catalogue: data,
                 composer: composer,
                 onContinue: _goToReview,
+                // Only the refresh notice: the favourite notice belongs to
+                // the step it was raised on, never this one.
+                header: catalogue.hasError ? header : null,
               ),
               ComposerStep.review => ReviewOrderStep(
                 catalogue: data,
@@ -691,8 +720,24 @@ class _ComposerScreenState extends ConsumerState<ComposerScreen> {
   /// The composer's own notices for the current step: a favourite that could
   /// not be replayed in full (on the step it was raised on), and on Review a
   /// placement that failed. Null when there is nothing to say.
-  Widget? _notices(AppLocalizations l10n, ComposerState composer) {
+  Widget? _notices(
+    AppLocalizations l10n,
+    ComposerState composer,
+    AsyncValue<CatalogueResponse> catalogue,
+  ) {
     final notices = [
+      // The menu on screen is the last one that loaded; say so, with a way to
+      // try again, rather than swapping the order for an error page.
+      if (catalogue.hasError)
+        InlineBanner(
+          tone: BannerTone.warning,
+          title: l10n.couldNotRefreshTitle,
+          body: describeError(catalogue.error!, l10n),
+          action: TextButton(
+            onPressed: () => ref.invalidate(catalogueProvider),
+            child: Text(l10n.retry),
+          ),
+        ),
       if (_step == _favouriteNoticeStep)
         InlineBanner(
           tone: BannerTone.warning,

@@ -21,6 +21,9 @@ import '../models/order_models.dart';
 abstract final class AlertChannels {
   static const orderReady = 'order_ready';
   static const orderCancelled = 'order_cancelled';
+
+  /// Staff only: new orders reached the queue. Local only, never pushed.
+  static const newOrder = 'new_order';
 }
 
 /// Tells the user their drink is ready, on the device, without a server push.
@@ -72,6 +75,8 @@ class OrderAlerts {
     required String readyChannelDescription,
     required String cancelledChannelName,
     required String cancelledChannelDescription,
+    required String newOrderChannelName,
+    required String newOrderChannelDescription,
   }) async {
     if (_ready) return;
 
@@ -117,6 +122,8 @@ class OrderAlerts {
         readyChannelDescription: readyChannelDescription,
         cancelledChannelName: cancelledChannelName,
         cancelledChannelDescription: cancelledChannelDescription,
+        newOrderChannelName: newOrderChannelName,
+        newOrderChannelDescription: newOrderChannelDescription,
       );
     } on Object catch (error) {
       debugPrint('Could not prepare notification channels: $error');
@@ -128,6 +135,8 @@ class OrderAlerts {
     required String readyChannelDescription,
     required String cancelledChannelName,
     required String cancelledChannelDescription,
+    required String newOrderChannelName,
+    required String newOrderChannelDescription,
   }) async {
     final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
@@ -153,6 +162,15 @@ class OrderAlerts {
           // Unexpected and actionable, but not urgent — nobody is waiting on a
           // counter for it.
           importance: Importance.defaultImportance,
+        ),
+      );
+      await androidPlugin.createNotificationChannel(
+        AndroidNotificationChannel(
+          AlertChannels.newOrder,
+          newOrderChannelName,
+          description: newOrderChannelDescription,
+          // Staff at the counter, with the phone set down: it must be heard.
+          importance: Importance.high,
         ),
       );
 
@@ -205,6 +223,25 @@ class OrderAlerts {
     body: body,
   );
 
+  /// Staff: one or more new orders reached the queue.
+  ///
+  /// One notification for the whole batch, under a fixed id, so a second
+  /// batch replaces the first rather than stacking. No payload: the tap just
+  /// brings the app forward, onto the queue it was already showing.
+  Future<void> newOrders({required String title, required String body}) =>
+      _show(
+        orderId: newOrdersNotificationId,
+        channelId: AlertChannels.newOrder,
+        importance: Importance.high,
+        priority: Priority.high,
+        title: title,
+        body: body,
+        opensOrder: false,
+      );
+
+  /// Never an order id: those start at 1.
+  static const newOrdersNotificationId = 0;
+
   Future<void> _show({
     required int orderId,
     required String channelId,
@@ -212,6 +249,7 @@ class OrderAlerts {
     required Priority priority,
     required String title,
     required String body,
+    bool opensOrder = true,
   }) async {
     if (!_ready || !granted) return;
 
@@ -230,7 +268,7 @@ class OrderAlerts {
           iOS: const DarwinNotificationDetails(),
         ),
         // The order id, so a tap opens the right drink.
-        payload: '$orderId',
+        payload: opensOrder ? '$orderId' : null,
       );
     } on Object catch (error) {
       // Never allowed to break the caller. Failing to announce a drink is worth
@@ -279,6 +317,7 @@ void announceOrderChange(
     case OrderStatus.pending:
     case OrderStatus.inProgress:
     case OrderStatus.completed:
+    case OrderStatus.unknown:
       break;
   }
 }

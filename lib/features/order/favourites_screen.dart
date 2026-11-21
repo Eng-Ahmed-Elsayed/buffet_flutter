@@ -70,7 +70,7 @@ Future<void> confirmDeleteFavourite(
     messenger.showSnackBar(SnackBar(content: Text(l10n.favouriteDeleted)));
   } on ApiException catch (error) {
     // The server's message, already localised — never a code mapped here (§4).
-    messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    messenger.showSnackBar(SnackBar(content: Text(describeError(error, l10n))));
   }
 }
 

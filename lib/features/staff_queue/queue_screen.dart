@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -10,9 +11,11 @@ import '../../app/locale_controller.dart';
 import '../../app/routes.dart';
 import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
+import '../../data/local/order_alerts.dart';
 import '../../data/models/staff_models.dart';
 import '../../data/repositories/queue_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/tab_labels.dart';
 import '../../shared/widgets/banners.dart';
@@ -24,6 +27,7 @@ import '../../theme/dimens.dart';
 import '../auth/auth_controller.dart';
 import '../notifications/notifications_screen.dart';
 import '../order/self_order_outcome.dart';
+import 'new_order_alert.dart';
 import 'pending_action.dart';
 import 'widgets/queue_card.dart';
 
@@ -62,6 +66,15 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   /// Handovers already sent and awaiting their response, so a second tap during
   /// the round trip cannot post twice.
   final Set<int> _completing = {};
+
+  /// Bumped whenever this device changes an order's state on the server (an
+  /// answer to serve, hand over, start or cancel landing) and whenever a card
+  /// is taken off locally. A refresh that started before the latest bump may
+  /// describe the world before that change: a poll sent before `/ready`
+  /// answered still lists the order Pending, and applied after the answer it
+  /// put the card back with live Ready buttons. Such a response is dropped;
+  /// the refresh that follows every change brings the truth.
+  int _mutationEpoch = 0;
 
   /// Orders whose undo window has committed and whose `/ready` is on its way.
   /// Kept out of every refresh until the answer lands: a poll answered before
@@ -135,7 +148,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        unawaited(_refresh());
+        // Silent: the orders that arrived meanwhile are on the screen the
+        // person has just opened, so an alert would tell them nothing.
+        unawaited(_refresh(silent: true));
         _startPolling();
 
       // Going to the background is the last moment we are guaranteed to run: a
@@ -259,12 +274,13 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
   /// When the lists on screen were last loaded, for the stale notice.
   DateTime? _loadedAt;
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool silent = false}) async {
     final l10n = AppLocalizations.of(context);
     final locale = ref.read(localeControllerProvider);
     final repository = ref.read(queueRepositoryProvider);
     _repositoryForFlush = repository;
     _languageForFlush = locale.languageCode;
+    final startedAt = _mutationEpoch;
 
     try {
       final results = await Future.wait([
@@ -279,6 +295,9 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       ]);
 
       if (!mounted) return;
+      // Older than a change this device made: stale, and a later refresh is
+      // already on its way.
+      if (startedAt != _mutationEpoch) return;
       setState(() {
         _queue = [
           for (final o in results[0])
@@ -289,15 +308,44 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
         _errorMessage = null;
         _loadedAt = DateTime.now();
       });
+      _alertForNew(results[0], silent: silent);
       // The bell's badge reads this list, and nothing else reloads it.
       ref.invalidate(notificationsProvider);
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _errorMessage = error.message;
+        _errorMessage = describeError(error, l10n);
       });
     }
+  }
+
+  final _newOrders = NewOrderDetector();
+
+  /// One sound and vibration for every refresh that finds orders this device
+  /// has not seen, however many: never on the first load, never on the silent
+  /// catch-up after a resume, never for an order placed here, and not at all
+  /// when switched off in settings. Staff receive no push, so this is how a
+  /// new order is heard at the counter while the app is open.
+  void _alertForNew(List<StaffOrderDto> queue, {required bool silent}) {
+    final own = ref.read(selfPlacedOrdersProvider);
+    final fresh = _newOrders
+        .observe([for (final o in queue) o.orderId], silent: silent)
+        .where((id) => !own.contains(id))
+        .toList();
+    if (fresh.isEmpty) return;
+    if (ref.read(queueAlertsSettingProvider) == false) return;
+
+    final l10n = AppLocalizations.of(context);
+    unawaited(HapticFeedback.vibrate());
+    unawaited(
+      ref
+          .read(orderAlertsProvider)
+          .newOrders(
+            title: l10n.newOrdersAlertTitle(fresh.length),
+            body: l10n.newOrdersAlertBody,
+          ),
+    );
   }
 
   /// Marks an order ready — **the only path that deducts stock**.
@@ -349,6 +397,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     setState(() {
       _pendingActions.remove(order.orderId);
       _serving.add(order.orderId);
+      _mutationEpoch++;
       _queue = _queue.where((o) => o.orderId != order.orderId).toList();
     });
     return _markReady(order, deliverNow: deliverNow);
@@ -422,6 +471,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       // The answer has landed: from here the server's lists are right about
       // this order, so refreshes may list it again (as Ready, on handover).
       _serving.remove(order.orderId);
+      _mutationEpoch++;
       await _refresh();
 
       if (!mounted) return;
@@ -440,6 +490,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
     } on ApiException catch (error) {
       if (!mounted) return;
       _serving.remove(order.orderId);
+      _mutationEpoch++;
       // Put back: the order may well still be waiting to be served. Then
       // reconciled at once, since some failures mean it no longer is (served
       // on another device, cancelled during the window).
@@ -448,7 +499,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
           _queue = [order, ..._queue];
         }
       });
-      _showError(error.message);
+      _showError(describeError(error, l10n));
       unawaited(_refresh());
     } finally {
       _serving.remove(order.orderId);
@@ -497,10 +548,11 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
             languageCode: locale.languageCode,
             networkErrorFallback: l10n.networkError,
           );
+      _mutationEpoch++;
       await _refresh();
     } on ApiException catch (error) {
       if (!mounted) return;
-      _showError(error.message);
+      _showError(describeError(error, l10n));
     }
   }
 
@@ -528,6 +580,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
             languageCode: locale.languageCode,
             networkErrorFallback: l10n.networkError,
           );
+      _mutationEpoch++;
       if (mounted) _announce(l10n.orderStartedAnnouncement);
     } on ApiException catch (error) {
       // A slow start overtaken by this device's own serve is refused because
@@ -535,7 +588,7 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
       final servedHere =
           _serving.contains(order.orderId) ||
           _pendingActions.containsKey(order.orderId);
-      if (mounted && !servedHere) _showError(error.message);
+      if (mounted && !servedHere) _showError(describeError(error, l10n));
     } finally {
       // With its rebuild, so the spinner goes with the answer rather than
       // waiting on the refresh behind it.
@@ -566,7 +619,10 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
 
     // Removed before the await so the row cannot be tapped again, and put back
     // if the call fails — the order really is still awaiting handover.
-    setState(() => _handovers.removeWhere((o) => o.orderId == order.orderId));
+    setState(() {
+      _handovers.removeWhere((o) => o.orderId == order.orderId);
+      _mutationEpoch++;
+    });
 
     try {
       await ref
@@ -576,11 +632,16 @@ class _QueueScreenState extends ConsumerState<QueueScreen>
             languageCode: locale.languageCode,
             networkErrorFallback: l10n.networkError,
           );
+      _mutationEpoch++;
       await _refresh();
     } on ApiException catch (error) {
       if (!mounted) return;
+      _mutationEpoch++;
       setState(() => _handovers = [order, ..._handovers]);
-      _showError(error.message);
+      _showError(describeError(error, l10n));
+      // The bump drops any poll still out, so fetch the truth now rather
+      // than wait a whole interval.
+      unawaited(_refresh());
     } finally {
       _completing.remove(order.orderId);
     }

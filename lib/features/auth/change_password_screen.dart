@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/locale_controller.dart';
 import '../../data/api/api_exception.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/button_spinner.dart';
 import '../../shared/widgets/field_label.dart';
@@ -89,7 +90,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       }
     } on ApiException catch (error) {
       // The server's 400 message is already in the user's language.
-      if (mounted) setState(() => _errorMessage = error.message);
+      if (mounted) setState(() => _errorMessage = describeError(error, l10n));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

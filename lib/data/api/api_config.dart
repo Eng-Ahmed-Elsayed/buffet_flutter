@@ -146,4 +146,8 @@ abstract final class ApiConfig {
 
   /// `?take=` caps at 200 server-side.
   static const queuePageSize = 50;
+
+  /// `GET /orders/mine?take=`: the server's own maximum (`EmployeeApi.cs`
+  /// clamps to 100; it sends 20 when none is asked for).
+  static const myOrdersPageSize = 100;
 }

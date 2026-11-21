@@ -14,6 +14,23 @@ Rules a future edit must not undo:
   buttons coming back read as "undone" and got the drink made twice. Put back only if the serve fails.
   **A shortage from "ready and handed over" is shown above the tabs**, named, until dismissed,
   since that order leaves both lists and its card with it. `queue_serve_test.dart`.
+- **A refresh older than this device's last change is dropped** (`_mutationEpoch`, bumped when a
+  card is taken off and when a serve, handover, start or cancel answers). Clearing `_serving`
+  alone was not enough: a poll sent before `/ready` answered, landing after it, still listed the
+  order Pending and brought its Ready buttons back. The refresh that follows every change brings
+  the truth. `queue_stale_poll_test.dart`.
+- **New orders sound and vibrate, once per refresh** (`NewOrderDetector`, `_alertForNew`;
+  approved 2026-11-20). Staff get no push, so this is how a new order is heard at the counter
+  while the app is open. One local notification on the `new_order` channel (a fixed id, so a
+  second batch replaces the first, and no payload) plus `HapticFeedback.vibrate`, however many
+  orders arrived. **Never** on the first load (the queue as it was), **never** on the refresh
+  that catches up after a resume (the person has just opened the screen showing them; those ids
+  are marked seen, not announced later), **never** for an order this device placed
+  (`selfPlacedOrdersProvider`, written by the composer), and not at all when switched off in
+  staff settings (`pref_queue_alerts`, on by default, a device setting that survives sign-out).
+  Every id ever shown is remembered, so a stale poll dropped by `_mutationEpoch`, or an order
+  put back after a failed serve, never alerts twice. No wakelock: the screen may sleep.
+  `queue_new_order_alert_test.dart`.
 - **The pending bar is announced once, with the seconds left when it appeared.** Its live region
   used to carry the ticking count and was re-read every second. There is no press-to-pause: it
   stopped the bar but not the commit, so the bar lied. **A handover card can be cancelled**: the

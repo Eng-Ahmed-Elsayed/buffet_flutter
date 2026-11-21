@@ -13,5 +13,8 @@ String describeError(Object error, AppLocalizations l10n) {
   if (error is! ApiException || error.isNetworkFailure) {
     return l10n.networkError;
   }
+  // A reply came back without a message of its own: the server failed, so the
+  // connection advice the caller's fallback carries would be wrong.
+  if (!error.hasServerMessage) return l10n.genericError;
   return error.message.trim().isEmpty ? l10n.genericError : error.message;
 }

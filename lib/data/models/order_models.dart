@@ -22,7 +22,11 @@ enum OrderStatus {
   /// Handed over. Quieter than [ready] by design.
   completed('Completed'),
 
-  cancelled('Cancelled');
+  cancelled('Cancelled'),
+
+  /// A status this build does not know, from a newer server. Offers no
+  /// action: reading it as Pending showed a Cancel button the server refuses.
+  unknown('');
 
   const OrderStatus(this.wire);
 
@@ -33,7 +37,7 @@ enum OrderStatus {
   /// throwing: a new server-side state should not crash a shipped client.
   static OrderStatus fromWire(String value) => OrderStatus.values.firstWhere(
     (s) => s.wire == value,
-    orElse: () => OrderStatus.pending,
+    orElse: () => OrderStatus.unknown,
   );
 
   /// Cancellation is **pending-only** and ownership-checked. The action is

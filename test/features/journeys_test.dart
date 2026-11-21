@@ -73,6 +73,8 @@ class _CountingAlerts extends OrderAlerts {
     required String readyChannelDescription,
     required String cancelledChannelName,
     required String cancelledChannelDescription,
+    required String newOrderChannelName,
+    required String newOrderChannelDescription,
   }) async => initialised++;
 }
 

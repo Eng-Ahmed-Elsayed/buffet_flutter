@@ -29,6 +29,16 @@ class PreferencesStore {
   static const _onboardingKey = 'pref_onboarding_seen';
   static const _mustChangeKey = 'pref_must_change_password';
   static const _fulfilmentKey = 'pref_fulfilment';
+  static const _locationKey = 'pref_location_id';
+  static const _queueAlertsKey = 'pref_queue_alerts';
+
+  /// Staff: sound and vibration when new orders reach the queue. On unless
+  /// switched off. A setting of the counter's device, like the language, so
+  /// it survives sign-out rather than resetting for each shift.
+  Future<bool> readQueueAlertsEnabled() async =>
+      await _storage.read(key: _queueAlertsKey) != 'false';
+  Future<void> writeQueueAlertsEnabled(bool enabled) =>
+      _storage.write(key: _queueAlertsKey, value: '$enabled');
 
   /// The last successfully used email, so the second sign-in is password-only
   /// and biometric-only after that (§5.1). Not a secret, and never the password.
@@ -116,6 +126,15 @@ class PreferencesStore {
   Future<void> writeFulfilment(String wire) =>
       _storage.write(key: _fulfilmentKey, value: wire);
 
+  /// The delivery location of the last confirmed order, remembered beside
+  /// the fulfilment choice so the next order opens on it (as the design's
+  /// "Delivery To ... Change" does). Null when none was ever chosen.
+  Future<int?> readLocationId() async =>
+      int.tryParse(await _storage.read(key: _locationKey) ?? '');
+  Future<void> writeLocationId(int? locationId) => locationId == null
+      ? _storage.delete(key: _locationKey)
+      : _storage.write(key: _locationKey, value: '$locationId');
+
   /// Clears preferences tied to the signed-in account.
   ///
   /// The language stays — it is a device preference, not an account one, and
@@ -132,6 +151,7 @@ class PreferencesStore {
     await _storage.delete(key: _mustChangeKey);
     // One person's habit, not the next user's of this device.
     await _storage.delete(key: _fulfilmentKey);
+    await _storage.delete(key: _locationKey);
   }
 }
 

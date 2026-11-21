@@ -12,6 +12,7 @@ import '../../data/models/catalogue_models.dart';
 import '../../data/models/order_models.dart';
 import '../../data/repositories/order_repository.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/banners.dart';
@@ -123,7 +124,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
       // continue past Ready, or the employee never sees it collected.
       if (order.orderStatus.isSettled) _pollTimer?.cancel();
     } on ApiException catch (error) {
-      if (mounted) setState(() => _errorMessage = error.message);
+      if (mounted) setState(() => _errorMessage = describeError(error, l10n));
     }
   }
 
@@ -145,7 +146,11 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
             languageCode: locale.languageCode,
             networkErrorFallback: l10n.networkError,
           );
+      // Left during the request: `context` and `ref` went with the screen, and
+      // Home's own poll refreshes the list.
+      if (!mounted) return;
       await _refresh();
+      if (!mounted) return;
       ref.invalidate(myOrdersProvider);
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -157,7 +162,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
       // (204), so what is left is a real refusal.
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
+            .showSnackBar(SnackBar(content: Text(describeError(error, l10n))));
       }
     } finally {
       if (mounted) setState(() => _collecting = false);
@@ -204,6 +209,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
             languageCode: locale.languageCode,
             networkErrorFallback: l10n.networkError,
           );
+      if (!mounted) return;
       await _refresh();
 
       // Say that it worked. The status header changing is easy to miss, and a
@@ -218,7 +224,7 @@ class _OrderStatusScreenState extends ConsumerState<OrderStatusScreen>
     } on ApiException catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
+            .showSnackBar(SnackBar(content: Text(describeError(error, l10n))));
       }
     } finally {
       if (mounted) setState(() => _cancelling = false);
@@ -430,6 +436,13 @@ class _StatusHeader extends StatelessWidget {
         BrandColors.surface,
         BrandColors.danger,
       ),
+      OrderStatus.unknown => (
+        l10n.statusUnknown,
+        l10n.unknownStatusBody,
+        Icons.help_outline,
+        BrandColors.surface,
+        BrandColors.ink,
+      ),
     };
 
     return Semantics(
@@ -591,6 +604,8 @@ class _Timeline extends StatelessWidget {
       OrderStatus.ready => 2,
       OrderStatus.completed => 3,
       OrderStatus.cancelled => 1,
+      // Claims no step it cannot vouch for: only "sent" is certain.
+      OrderStatus.unknown => 0,
     };
 
     // Ready and Received are the good news, in green; a cancellation is red;

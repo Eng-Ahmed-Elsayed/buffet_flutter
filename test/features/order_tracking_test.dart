@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:buffet_app/data/local/order_alerts.dart';
 import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/favourite_models.dart';
@@ -104,6 +106,9 @@ class _OneOrderRepo implements OrderRepository {
   OrderSummaryDto order;
   int collected = 0;
 
+  /// When set, "I picked it up" waits on this before answering.
+  Completer<void>? holdCollected;
+
   @override
   Future<OrderSummaryDto> fetchOrder({
     required int orderId,
@@ -119,6 +124,7 @@ class _OneOrderRepo implements OrderRepository {
     required String networkErrorFallback,
   }) async {
     collected++;
+    await holdCollected?.future;
     order = _order(
       order.orderId,
       'Completed',
@@ -337,6 +343,30 @@ void main() {
       expect(repository.collected, 1);
       expect(find.text(_l10n.statusCompleted), findsWidgets);
       expect(find.text(_l10n.pickedItUp), findsNothing);
+    });
+
+    testWidgets('leaving while "I picked it up" is in flight is harmless', (
+      tester,
+    ) async {
+      final repository = await _pumpStatus(
+        tester,
+        _order(41, 'Ready', readyAtUtc: ready, fulfilment: 'Pickup'),
+      );
+      final answer = Completer<void>();
+      repository.holdCollected = answer;
+      await tester.scrollUntilVisible(
+        find.text(_l10n.pickedItUp),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text(_l10n.pickedItUp));
+      await tester.pump();
+
+      // The screen goes while the request is out; then the answer lands.
+      await tester.pumpWidget(const SizedBox.shrink());
+      answer.complete();
+      await tester.pump();
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('a delivery says it will reach them, with nothing to tap', (

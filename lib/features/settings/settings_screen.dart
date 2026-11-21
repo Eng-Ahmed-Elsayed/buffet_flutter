@@ -16,6 +16,7 @@ import '../../shared/widgets/section_header.dart';
 import '../../theme/brand_colors.dart';
 import '../../theme/dimens.dart';
 import '../auth/auth_controller.dart';
+import '../staff_queue/new_order_alert.dart';
 import 'biometric_tile.dart';
 
 /// The account: who is signed in, what they hold, and how the app behaves.
@@ -91,6 +92,9 @@ class SettingsScreen extends ConsumerWidget {
           // the first time can still find it (§6). Draws its own card, and
           // nothing at all on a device that cannot use it.
           const BiometricTile(),
+
+          // Staff only: the queue's sound and vibration for new orders.
+          if (isStaff) const _QueueAlertsTile(),
 
           const SizedBox(height: Dimens.space3),
           SectionHeader(label: l10n.language),
@@ -220,6 +224,50 @@ class _NotificationsOffBannerState
           onPressed: () =>
               unawaited(ref.read(notificationSettingsProvider).open()),
           child: Text(l10n.notificationsOffAction),
+        ),
+      ),
+    );
+  }
+}
+
+/// Whether the queue sounds and vibrates when new orders arrive. On by
+/// default; shown as on while the stored setting loads, since that is what
+/// the queue does meanwhile.
+class _QueueAlertsTile extends ConsumerWidget {
+  const _QueueAlertsTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
+    final enabled = ref.watch(queueAlertsSettingProvider) ?? true;
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(bottom: Dimens.space3),
+      child: AppCard(
+        padding: const EdgeInsetsDirectional.symmetric(
+          horizontal: Dimens.space4,
+          vertical: Dimens.space1,
+        ),
+        // Its own ink layer, as the biometric switch has.
+        child: Material(
+          type: MaterialType.transparency,
+          child: SwitchListTile(
+            value: enabled,
+            onChanged: (value) => unawaited(
+              ref.read(queueAlertsSettingProvider.notifier).set(value),
+            ),
+            title: Text(
+              l10n.queueAlertsSetting,
+              style: Theme.of(context).textTheme.titleMedium
+                  ?.copyWith(color: BrandColors.brandSecondary),
+            ),
+            subtitle: Text(l10n.queueAlertsSettingBody),
+            activeThumbColor: BrandColors.brand,
+            contentPadding: EdgeInsetsDirectional.zero,
+            secondary: const Icon(
+              Icons.notifications_active_outlined,
+              color: BrandColors.iconBlue,
+            ),
+          ),
         ),
       ),
     );

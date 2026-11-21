@@ -36,6 +36,9 @@ class OrderRepository {
     try {
       final response = await _dio.get<List<dynamic>>(
         ApiConfig.myOrders,
+        // Without it the server sends its default of 20, and the Earlier tab
+        // lost older orders without saying so.
+        queryParameters: {'take': ApiConfig.myOrdersPageSize},
         options: Options(extra: {ApiConfig.languageFlag: languageCode}),
       );
       return (response.data ?? [])

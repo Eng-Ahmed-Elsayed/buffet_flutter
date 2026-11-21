@@ -16,7 +16,15 @@ and handed over at once. Nothing is preselected until a first choice, which is t
 the device (`pref_fulfilment`, cleared with the account) and carried through `addLine` and a
 confirmed order like `mode`. **Never a disabled button**: Place order with neither chosen says so
 under the choice, and delivery with no location puts the error on the location field, which the
-server would otherwise refuse with a `400`. `composer_journeys_test.dart`.
+server would otherwise refuse with a `400`. `composer_journeys_test.dart`. **The location is
+remembered the same way** (`pref_location_id`, written on a confirmed order, cleared with the
+account) and restored once, only while nothing is chosen and only if it is still in
+`catalogue.locations`; a user who then picks "no location" keeps that.
+
+**A failed catalogue refresh never replaces the composer.** Home refetches the catalogue on every
+resume, and the composer watches the same provider; `skipError: true` keeps the step (Review and
+Place order included) on screen, with a "Couldn't refresh" notice and Retry in the step's header.
+Home does the same above its menu. `composer_journeys_test.dart`, `home_screen_test.dart`.
 
 **The composer is one route with three steps**, `ComposerStep` Choose a drink → Drink Details →
 Review ([docs/figma-redesign.md](docs/figma-redesign.md), *Ordering*). It is not three routes:

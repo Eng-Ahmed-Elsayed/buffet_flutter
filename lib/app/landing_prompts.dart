@@ -50,6 +50,8 @@ Future<void> prepareLandingPrompts(BuildContext context, WidgetRef ref) async {
         readyChannelDescription: l10n.channelReadyDescription,
         cancelledChannelName: l10n.channelCancelledName,
         cancelledChannelDescription: l10n.channelCancelledDescription,
+        newOrderChannelName: l10n.channelNewOrderName,
+        newOrderChannelDescription: l10n.channelNewOrderDescription,
       );
   if (!context.mounted) return;
 

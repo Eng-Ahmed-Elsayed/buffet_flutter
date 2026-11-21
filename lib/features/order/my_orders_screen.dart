@@ -123,7 +123,15 @@ class MyOrdersScreen extends ConsumerWidget {
                 : null;
             // Status is read by NAME through OrderStatus — never by ordinal,
             // since Ready = 4 sits out of workflow order (rule 5).
-            final live = all.where((o) => o.orderStatus.isLive).toList();
+            // An unrecognised status is not known to be finished, so it is
+            // listed here rather than dropped from both tabs.
+            final live = all
+                .where(
+                  (o) =>
+                      o.orderStatus.isLive ||
+                      o.orderStatus == OrderStatus.unknown,
+                )
+                .toList();
             final ready = all
                 .where((o) => o.orderStatus == OrderStatus.ready)
                 .toList();
@@ -323,7 +331,7 @@ Future<void> _saveAsFavourite(
   } on ApiException catch (error) {
     // Surfaced as-is: at the cap the server says so, and that message is the
     // only thing that tells the user what to do about it (§4).
-    messenger.showSnackBar(SnackBar(content: Text(error.message)));
+    messenger.showSnackBar(SnackBar(content: Text(describeError(error, l10n))));
   }
 }
 
@@ -365,6 +373,7 @@ class _OrderRow extends StatelessWidget {
       OrderStatus.ready => (l10n.statusReady, BrandColors.ok),
       OrderStatus.completed => (l10n.statusCompleted, BrandColors.ink),
       OrderStatus.cancelled => (l10n.statusCancelled, BrandColors.danger),
+      OrderStatus.unknown => (l10n.statusUnknown, BrandColors.ink),
     };
 
     return Padding(

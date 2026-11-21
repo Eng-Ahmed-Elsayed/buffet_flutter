@@ -166,6 +166,7 @@ Future<_FailingRepository> _open(
   int? failWith,
   Size size = const Size(1400, 4000),
   bool fulfilmentChosen = true,
+  Future<CatalogueResponse> Function()? loadCatalogue,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -174,7 +175,9 @@ Future<_FailingRepository> _open(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        catalogueProvider.overrideWith((ref) async => _menu),
+        catalogueProvider.overrideWith(
+          (ref) async => await loadCatalogue?.call() ?? _menu,
+        ),
         favouritesProvider.overrideWith(
           (ref) async => FavouritesResponse(favourites: favourites),
         ),
@@ -203,6 +206,114 @@ ComposerState _state(WidgetTester tester) =>
         .read(composerControllerProvider);
 
 void main() {
+  group('the last delivery location is remembered', () {
+    test('restored only when still on the list, and never over a choice', () {
+      final c = ComposerController()..restoreLocation(41, _menu.locations);
+      expect(c.state.locationId, 41);
+
+      // A place the buffet no longer delivers to is left unchosen.
+      final retired = ComposerController()..restoreLocation(99, _menu.locations);
+      expect(retired.state.locationId, isNull);
+
+      // A choice made on this order wins.
+      final chosen = ComposerController()
+        ..setLocation(40)
+        ..restoreLocation(41, _menu.locations);
+      expect(chosen.state.locationId, 40);
+    });
+
+    test('a confirmed order keeps the location for the next one', () {
+      final c = ComposerController()
+        ..setLocation(41)
+        ..resetAfterConfirmedOrder();
+      expect(c.state.locationId, 41);
+    });
+
+    testWidgets('a new composer opens on the stored location', (tester) async {
+      const channel = MethodChannel(
+        'plugins.it_nomads.com/flutter_secure_storage',
+      );
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        (call) async => call.method == 'read' &&
+                (call.arguments as Map)['key'] == 'pref_location_id'
+            ? '41'
+            : null,
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
+      await _open(
+        tester,
+        seed: ComposerSeed(favourite: _favourite([_line(1, 'قهوة')])),
+      );
+      expect(_state(tester).locationId, 41);
+      expect(find.text('Desk 3'), findsOneWidget);
+    });
+  });
+
+  group('a failed menu refresh keeps the order on screen', () {
+    testWidgets('Review and Place order stay, with a notice and Retry', (
+      tester,
+    ) async {
+      var calls = 0;
+      await _open(
+        tester,
+        seed: ComposerSeed(favourite: _favourite([_line(1, 'قهوة')])),
+        loadCatalogue: () async {
+          calls++;
+          // Home's refetch on resume fails; the retry succeeds.
+          if (calls == 2) {
+            throw const ApiException(message: 'تعذّر', statusCode: 500);
+          }
+          return _menu;
+        },
+      );
+      expect(find.text(_l10n.reviewOrderTitle), findsOneWidget);
+
+      ProviderScope.containerOf(
+        tester.element(find.byType(ComposerScreen)),
+      ).invalidate(catalogueProvider);
+      await tester.pumpAndSettle();
+
+      expect(find.text(_l10n.reviewOrderTitle), findsOneWidget);
+      expect(find.text(_l10n.placeOrder), findsOneWidget);
+      expect(find.text(_l10n.couldNotRefreshTitle), findsOneWidget);
+      expect(_state(tester).allLines, hasLength(1));
+
+      await tester.tap(find.text(_l10n.retry));
+      await tester.pumpAndSettle();
+      expect(find.text(_l10n.couldNotRefreshTitle), findsNothing);
+      expect(find.text(_l10n.placeOrder), findsOneWidget);
+    });
+
+    testWidgets('Drink Details says so too', (tester) async {
+      var calls = 0;
+      await _open(
+        tester,
+        seed: const ComposerSeed(drinkItemId: 1),
+        loadCatalogue: () async {
+          if (++calls == 2) {
+            throw const ApiException(message: 'تعذّر', statusCode: 500);
+          }
+          return _menu;
+        },
+      );
+      expect(_state(tester).drink?.itemId, 1);
+
+      ProviderScope.containerOf(
+        tester.element(find.byType(ComposerScreen)),
+      ).invalidate(catalogueProvider);
+      await tester.pumpAndSettle();
+
+      expect(find.text(_l10n.couldNotRefreshTitle), findsOneWidget);
+      expect(_state(tester).drink?.itemId, 1);
+    });
+  });
+
   group('a favourite is replayed whole', () {
     test('coffee and tea come back as coffee and tea', () {
       final c = ComposerController()

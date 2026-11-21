@@ -28,10 +28,12 @@ void main() {
       expect(OrderStatus.values.indexOf(OrderStatus.ready), isNot(4));
     });
 
-    test('an unknown status falls back to pending rather than throwing', () {
-      // A new server-side state must not crash a shipped client.
-      expect(OrderStatus.fromWire('SomethingNew'), OrderStatus.pending);
-      expect(OrderStatus.fromWire(''), OrderStatus.pending);
+    test('an unknown status is unknown, not thrown and not Pending', () {
+      // A new server-side state must not crash a shipped client, and must not
+      // be read as Pending either: that offered a Cancel the server refuses.
+      expect(OrderStatus.fromWire('SomethingNew'), OrderStatus.unknown);
+      expect(OrderStatus.fromWire(''), OrderStatus.unknown);
+      expect(OrderStatus.unknown.isCancellable, isFalse);
     });
 
     test('cancellation is offered on Pending only', () {

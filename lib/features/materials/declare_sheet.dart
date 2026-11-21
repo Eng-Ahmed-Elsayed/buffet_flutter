@@ -190,7 +190,7 @@ class _DeclareSheetState extends ConsumerState<DeclareSheet> {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(l10n.declarationSentBody)));
     } on ApiException catch (error) {
-      if (mounted) setState(() => _errorMessage = error.message);
+      if (mounted) setState(() => _errorMessage = describeError(error, l10n));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

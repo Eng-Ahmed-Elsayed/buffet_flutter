@@ -383,7 +383,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 const SizedBox(height: Dimens.space5),
               ],
 
+              // The resume refetch failing keeps the menu that was loaded,
+              // said so above it, rather than swapping it for an error page.
+              if (catalogue.hasError && catalogue.hasValue) ...[
+                InlineBanner(
+                  tone: BannerTone.warning,
+                  title: l10n.couldNotRefreshTitle,
+                  body: describeError(catalogue.error!, l10n),
+                  action: TextButton(
+                    onPressed: () => ref.invalidate(catalogueProvider),
+                    child: Text(l10n.retry),
+                  ),
+                ),
+                const SizedBox(height: Dimens.space4),
+              ],
               ...catalogue.when(
+                skipError: true,
                 loading: () => const [
                   Padding(
                     padding: EdgeInsetsDirectional.all(Dimens.space6),

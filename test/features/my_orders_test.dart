@@ -65,9 +65,9 @@ void main() {
     });
 
     test('an unrecognised status does not crash the list', () {
-      // fromWire falls back to pending rather than throwing, so a status the
-      // client has not seen still renders as a live order.
-      expect(order(46, 'SomethingNew').orderStatus, OrderStatus.pending);
+      // fromWire reads it as unknown rather than throwing; the Orders tab
+      // lists it under In progress with no action on it.
+      expect(order(46, 'SomethingNew').orderStatus, OrderStatus.unknown);
     });
 
     test('createdAtUtc parses as UTC so it can be converted for display', () {

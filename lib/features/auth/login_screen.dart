@@ -7,6 +7,7 @@ import '../../app/locale_controller.dart';
 import '../../data/api/api_config.dart';
 import '../../data/api/api_exception.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/error_text.dart';
 import '../../shared/formatters.dart';
 import '../../shared/widgets/banners.dart';
 import '../../shared/widgets/brand_backdrop.dart';
@@ -89,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       // The server's message is already localised — show it as-is. It is
       // deliberately identical for a wrong password and a disabled account so
       // the endpoint cannot enumerate users; do not try to be more specific.
-      if (mounted) setState(() => _errorMessage = error.message);
+      if (mounted) setState(() => _errorMessage = describeError(error, l10n));
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
