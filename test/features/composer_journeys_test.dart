@@ -11,12 +11,11 @@ import 'package:buffet_app/features/order/favourites_screen.dart';
 import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 final _l10n = lookupAppLocalizations(const Locale('ar'));
 
@@ -150,9 +149,7 @@ class _RoutedState extends State<_Routed> {
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: const [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     routerConfig: _router,
   );

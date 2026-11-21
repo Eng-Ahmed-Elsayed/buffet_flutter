@@ -1,18 +1,15 @@
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/shared/widgets/source_chip.dart';
 import 'package:buffet_app/theme/brand_colors.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget wrap(Widget child, {Locale locale = const Locale('ar')}) => MaterialApp(
   locale: locale,
   supportedLocales: const [Locale('ar'), Locale('en')],
   localizationsDelegates: const [
     AppLocalizations.delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
+    ...GlobalMaterialLocalizations.delegates,
   ],
   home: Scaffold(body: child),
 );

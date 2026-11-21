@@ -9,13 +9,12 @@ import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/settings/settings_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 Widget wrap({
@@ -46,9 +45,7 @@ Widget wrap({
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: const [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     home: const SettingsScreen(),
   ),

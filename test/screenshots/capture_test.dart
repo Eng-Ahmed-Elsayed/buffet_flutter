@@ -55,13 +55,12 @@ import 'package:buffet_app/features/staff_queue/queue_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/theme/app_theme.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../helpers/app_harness.dart';
 import '../helpers/fake_auth_controller.dart';
@@ -240,9 +239,7 @@ Widget _app(
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: const [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     home: home,
   ),

@@ -2,10 +2,9 @@ import 'package:buffet_app/app/locale_controller.dart';
 import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/auth/login_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Drives the real screen through the real [LocaleController], so a switch that
 /// updates the control but not the app-wide locale would fail here.
@@ -20,9 +19,7 @@ class _Harness extends ConsumerWidget {
       supportedLocales: LocaleController.supported,
       localizationsDelegates: const [
         AppLocalizations.delegate,
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+        ...GlobalMaterialLocalizations.delegates,
       ],
       home: const LoginScreen(),
     );
@@ -47,9 +44,7 @@ Widget _appWith({required bool expired}) => ProviderScope(
     supportedLocales: LocaleController.supported,
     localizationsDelegates: [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     home: LoginScreen(),
   ),

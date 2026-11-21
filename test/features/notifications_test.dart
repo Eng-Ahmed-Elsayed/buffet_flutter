@@ -3,10 +3,9 @@ import 'package:buffet_app/data/repositories/notifications_repository.dart';
 import 'package:buffet_app/features/notifications/notifications_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 NotificationDto _notification({
   required int id,
@@ -51,9 +50,7 @@ Widget _app(_FakeNotificationsRepository repository) => ProviderScope(
     locale: Locale('ar'),
     localizationsDelegates: [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     supportedLocales: [Locale('ar'), Locale('en')],
     home: NotificationsScreen(),
@@ -166,7 +163,13 @@ void main() {
           ],
           child: MaterialApp(
             locale: const Locale('ar'),
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            // Not AppLocalizations.localizationsDelegates: gen-l10n still
+            // writes package:flutter's delegates there, which material_ui's
+            // widgets do not read.
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
+            ],
             supportedLocales: AppLocalizations.supportedLocales,
             home: Consumer(
               builder: (context, ref, _) {

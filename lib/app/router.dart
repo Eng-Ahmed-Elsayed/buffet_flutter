@@ -1,6 +1,6 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../data/models/auth_models.dart';
 import '../features/auth/auth_controller.dart';
@@ -21,6 +21,7 @@ import '../features/order/order_status_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/staff_queue/queue_screen.dart';
 import 'employee_shell.dart';
+import 'not_found_screen.dart';
 import 'routes.dart';
 
 /// Where a signed-in user belongs, or null to let them through.
@@ -83,6 +84,28 @@ String? signedOutRedirect({
   return location == target ? null : target;
 }
 
+/// Every route's page, built explicitly as `material_ui`'s [MaterialPage].
+///
+/// **Never go back to `builder:`.** go_router 14 picks a page type by looking
+/// for `package:flutter`'s own `MaterialApp`, which the app no longer uses
+/// since the move to `material_ui` (Flutter 3.50). Not finding it, it falls
+/// back to `NoTransitionPage`: every route then appeared without a
+/// transition, Android lost its predictive-back animation, and iOS lost the
+/// edge swipe back that CLAUDE.md keeps Cupertino's transition for. This page
+/// reads the theme's `PageTransitionsTheme`, so `ReducedMotionPageTransitionsBuilder`
+/// and the Cupertino builder apply again. `router_pages_test.dart`.
+Page<void> materialPage(GoRouterState state, Widget child) =>
+    MaterialPage<void>(
+      key: state.pageKey,
+      name: state.name ?? state.path,
+      arguments: <String, String>{
+        ...state.pathParameters,
+        ...state.uri.queryParameters,
+      },
+      restorationId: state.pageKey.value,
+      child: child,
+    );
+
 /// Implements the §5 auth state machine as a redirect guard.
 ///
 /// All four decisions live here rather than in the screens, because a screen
@@ -109,6 +132,11 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: Routes.splash,
     refreshListenable: Listenable.merge([notifier, onboarding]),
+    // An address the app does not have. Without this, go_router's own error
+    // text appeared bare (English, no Material), for the reason [materialPage]
+    // exists.
+    errorPageBuilder: (context, state) =>
+        materialPage(state, const NotFoundScreen()),
 
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider);
@@ -149,35 +177,42 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: Routes.splash,
-        builder: (context, state) => const SplashScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const SplashScreen()),
       ),
       GoRoute(
         path: Routes.onboarding,
-        builder: (context, state) => const OnboardingScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const OnboardingScreen()),
       ),
       GoRoute(
         path: Routes.login,
-        builder: (context, state) => const LoginScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const LoginScreen()),
       ),
       GoRoute(
         path: Routes.lock,
-        builder: (context, state) => const LockScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const LockScreen()),
       ),
       GoRoute(
         path: Routes.changePassword,
-        builder: (context, state) => const ChangePasswordScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const ChangePasswordScreen()),
       ),
       // The employee's four tabs. Each branch keeps its own stack and scroll
       // position; everything that is a step in a task is a top-level route
       // below, pushed on the root navigator above the bar.
       StatefulShellRoute.indexedStack(
-        builder: (context, state, shell) => EmployeeShell(shell: shell),
+        pageBuilder: (context, state, shell) =>
+            materialPage(state, EmployeeShell(shell: shell)),
         branches: [
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: Routes.home,
-                builder: (context, state) => const HomeScreen(),
+                pageBuilder: (context, state) =>
+                    materialPage(state, const HomeScreen()),
               ),
             ],
           ),
@@ -185,7 +220,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.favourites,
-                builder: (context, state) => const FavouritesScreen(),
+                pageBuilder: (context, state) =>
+                    materialPage(state, const FavouritesScreen()),
               ),
             ],
           ),
@@ -193,7 +229,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.myOrders,
-                builder: (context, state) => const MyOrdersScreen(),
+                pageBuilder: (context, state) =>
+                    materialPage(state, const MyOrdersScreen()),
               ),
             ],
           ),
@@ -201,7 +238,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: Routes.account,
-                builder: (context, state) => const SettingsScreen(),
+                pageBuilder: (context, state) =>
+                    materialPage(state, const SettingsScreen()),
               ),
             ],
           ),
@@ -213,10 +251,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         // a guest. Absent for the staff "order for myself" push, which defaults
         // to self, and absent on any deep link, which is deliberate: mode is
         // not something a URL should be able to assert.
-        builder: (context, state) => ComposerScreen(
-          seed: state.extra is ComposerSeed
-              ? state.extra! as ComposerSeed
-              : const ComposerSeed(),
+        pageBuilder: (context, state) => materialPage(
+          state,
+          ComposerScreen(
+            seed: state.extra is ComposerSeed
+                ? state.extra! as ComposerSeed
+                : const ComposerSeed(),
+          ),
         ),
       ),
       GoRoute(
@@ -227,36 +268,45 @@ final routerProvider = Provider<GoRouter>((ref) {
             int.tryParse(state.pathParameters['orderId'] ?? '') == null
             ? Routes.home
             : null,
-        builder: (context, state) => OrderStatusScreen(
-          orderId: int.parse(state.pathParameters['orderId']!),
+        pageBuilder: (context, state) => materialPage(
+          state,
+          OrderStatusScreen(
+            orderId: int.parse(state.pathParameters['orderId']!),
+          ),
         ),
       ),
       GoRoute(
         path: Routes.favouritesList,
         // Only ever pushed from the composer, which receives the pick.
-        builder: (context, state) => const FavouritesScreen(returnsPick: true),
+        pageBuilder: (context, state) =>
+            materialPage(state, const FavouritesScreen(returnsPick: true)),
       ),
       GoRoute(
         path: Routes.materials,
-        builder: (context, state) => const MyMaterialsScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const MyMaterialsScreen()),
       ),
       GoRoute(
         path: Routes.queue,
-        builder: (context, state) => const QueueScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const QueueScreen()),
       ),
       GoRoute(
         path: Routes.notifications,
-        builder: (context, state) => const NotificationsScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const NotificationsScreen()),
       ),
       GoRoute(
         path: Routes.settings,
-        builder: (context, state) => const SettingsScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const SettingsScreen()),
       ),
       // The same screen as the forced change: it reads the auth stage and,
       // signed in, asks for the current password and pops when done.
       GoRoute(
         path: Routes.password,
-        builder: (context, state) => const ChangePasswordScreen(),
+        pageBuilder: (context, state) =>
+            materialPage(state, const ChangePasswordScreen()),
       ),
     ],
   );

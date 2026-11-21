@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The full DEFI lockup — circuit mark plus the "DIGITAL EGYPT FOR
 /// INVESTMENT" wordmark — as the design uses it on splash, first-launch,

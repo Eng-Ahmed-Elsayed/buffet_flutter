@@ -40,10 +40,10 @@ import 'package:buffet_app/features/order/order_mode.dart';
 import 'package:buffet_app/features/order/order_status_screen.dart';
 import 'package:buffet_app/features/settings/settings_screen.dart';
 import 'package:buffet_app/features/staff_queue/widgets/queue_card.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../helpers/app_harness.dart';
 import '../helpers/fake_auth_controller.dart';

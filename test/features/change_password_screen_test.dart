@@ -8,13 +8,12 @@ import 'package:buffet_app/features/auth/auth_controller.dart';
 import 'package:buffet_app/features/auth/change_password_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget _app(AuthStage stage) => ProviderScope(
   overrides: [authStageProvider.overrideWith((ref) => stage)],
@@ -23,9 +22,7 @@ Widget _app(AuthStage stage) => ProviderScope(
     supportedLocales: [Locale('ar'), Locale('en')],
     localizationsDelegates: [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     home: ChangePasswordScreen(),
   ),
@@ -142,9 +139,7 @@ void main() {
             supportedLocales: [Locale('ar'), Locale('en')],
             localizationsDelegates: [
               AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
             ],
             home: ChangePasswordScreen(),
           ),
@@ -215,9 +210,7 @@ class _RoutedPasswordState extends State<_RoutedPassword> {
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: const [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     routerConfig: _router,
   );

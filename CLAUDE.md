@@ -25,9 +25,19 @@ seat, so the design is read from the PNG exports in `design/figma/`.
 **A two-repo quality pass landed on 2026-11-21**: plan and results in
 [docs/quality/buffet-multi-agent-improvement-report.md](docs/quality/buffet-multi-agent-improvement-report.md)
 (stocktake posting/variance fixes, signed consumption, atomic cancel reversal, staff new-order alert,
-stale-poll and stale-catalogue fixes). **The SDK is now Flutter 3.50.1**; `flutter analyze` reports
-163 `deprecated_member_use` infos from the `material.dart`/`cupertino.dart` deprecation until the
-approved `material_ui`/`cupertino_ui` migration phase lands. Any other analyzer line is a real issue.
+stale-poll and stale-catalogue fixes). **The SDK is Flutter 3.50.1, and the app uses the standalone
+`material_ui` and `cupertino_ui` packages**: import `package:material_ui/material_ui.dart` (and
+`cupertino_ui` where a Cupertino class is needed), never `package:flutter/material.dart` or
+`cupertino.dart`, which are deprecated. Localisations are `AppLocalizations.delegate` plus
+`...GlobalMaterialLocalizations.delegates` from `material_ui`; never `flutter_localizations`' delegates
+or the generated `AppLocalizations.localizationsDelegates`, which still lists them and which
+`material_ui`'s widgets do not read (`flutter_localizations` stays in pubspec only for gen-l10n).
+**Every route builds its page with `materialPage(state, …)`** (`lib/app/router.dart`), never
+`builder:`: go_router 14 only recognises `package:flutter`'s `MaterialApp`, and otherwise falls
+back to `NoTransitionPage`, which removed every transition, Android's predictive back and the iOS
+edge swipe (`test/app/router_pages_test.dart`). For the same reason the router sets
+`errorPageBuilder` to the localised `NotFoundScreen` (`lib/app/not_found_screen.dart`); without it an
+unknown address showed go_router's bare English error text.
 
 **The domain rules are verified against the running server**, not just against the contracts — see
 the table at the top of [docs/backend-findings.md](docs/backend-findings.md). Stock deducting at

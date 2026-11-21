@@ -2,9 +2,8 @@ import 'dart:io';
 
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/theme/app_theme.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Shared scaffolding for widget tests, so a screen under test looks and
 /// measures the way it ships.
@@ -67,9 +66,7 @@ Widget testApp({
   supportedLocales: const [Locale('ar'), Locale('en')],
   localizationsDelegates: const [
     AppLocalizations.delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
+    ...GlobalMaterialLocalizations.delegates,
   ],
   builder: textScale == null
       ? null

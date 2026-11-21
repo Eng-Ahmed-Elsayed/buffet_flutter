@@ -10,11 +10,11 @@ import 'package:buffet_app/features/staff_queue/queue_screen.dart';
 import 'package:buffet_app/features/staff_queue/widgets/queue_card.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../helpers/app_harness.dart';
 

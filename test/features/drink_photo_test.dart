@@ -8,10 +8,9 @@ import 'package:buffet_app/features/order/widgets/favourites_strip.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/theme/brand_colors.dart';
 import 'package:buffet_app/theme/dimens.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 // Orders and favourites carry a drink's id but no picture, so the picture
 // comes from the catalogue. A loading menu is a neutral frame, never the
@@ -69,9 +68,7 @@ Widget _app(Widget child, {List<Override> overrides = const []}) =>
         supportedLocales: const [Locale('ar'), Locale('en')],
         localizationsDelegates: const [
           AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
         ],
         home: Scaffold(body: child),
       ),

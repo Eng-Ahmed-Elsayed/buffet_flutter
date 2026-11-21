@@ -1,9 +1,8 @@
 import 'package:buffet_app/app/employee_shell.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The shell's back behaviour, driven through the real system back path
 /// (`handlePopRoute` → go_router's delegate), not by calling a PopScope.
@@ -39,9 +38,7 @@ Widget _app({required Future<void> Function() onExit}) {
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: const [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     routerConfig: router,
   );

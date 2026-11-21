@@ -580,6 +580,12 @@
 
   "navHome": "الرئيسية",
   "@navHome": { "description": "Bottom navigation tab: the employee's landing screen." },
+  "pageNotFoundTitle": "الصفحة غير موجودة",
+  "@pageNotFoundTitle": { "description": "Shown for a link or address the app does not have." },
+  "pageNotFoundBody": "لم نجد ما تبحث عنه. ربما تغيّر الرابط.",
+  "@pageNotFoundBody": { "description": "Under pageNotFoundTitle." },
+  "backToStart": "العودة إلى البداية",
+  "@backToStart": { "description": "Button on the not-found screen: Home for an employee, the queue for staff." },
   "navFavourites": "المفضلة",
   "@navFavourites": { "description": "Bottom navigation tab: the saved-orders list." },
   "navOrders": "طلباتي",

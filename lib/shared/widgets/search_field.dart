@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The design's search bar: a white pill-cornered field with a search icon at
 /// its start and, once something is typed, a clear button at its end.

@@ -2,8 +2,8 @@ import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/features/order/widgets/menu_item_row.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/theme/brand_colors.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../helpers/app_harness.dart';
 

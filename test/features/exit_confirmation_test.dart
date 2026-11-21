@@ -1,17 +1,14 @@
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/shared/widgets/exit_confirmation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 Widget wrap({Locale locale = const Locale('ar')}) => MaterialApp(
   locale: locale,
   supportedLocales: const [Locale('ar'), Locale('en')],
   localizationsDelegates: const [
     AppLocalizations.delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
+    ...GlobalMaterialLocalizations.delegates,
   ],
   home: const ExitConfirmation(child: Scaffold(body: Text('landing'))),
 );
@@ -85,9 +82,7 @@ void main() {
           supportedLocales: const [Locale('ar'), Locale('en')],
           localizationsDelegates: const [
             AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
           ],
           home: ExitConfirmation(
             onExit: () async => exited = true,
@@ -116,9 +111,7 @@ void main() {
           supportedLocales: const [Locale('ar'), Locale('en')],
           localizationsDelegates: const [
             AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
           ],
           home: ExitConfirmation(
             onExit: () async => exited = true,
@@ -151,9 +144,7 @@ void main() {
           supportedLocales: const [Locale('ar'), Locale('en')],
           localizationsDelegates: const [
             AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
+            ...GlobalMaterialLocalizations.delegates,
           ],
           home: ExitConfirmation(
             onExit: () async => exited = true,

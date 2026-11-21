@@ -13,11 +13,10 @@ import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/shared/widgets/quantity_stepper.dart';
 import 'package:buffet_app/shared/widgets/section_header.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../helpers/fake_auth_controller.dart';
 
@@ -87,9 +86,7 @@ Widget _app(
     supportedLocales: const [Locale('ar'), Locale('en')],
     localizationsDelegates: const [
       AppLocalizations.delegate,
-      GlobalMaterialLocalizations.delegate,
-      GlobalWidgetsLocalizations.delegate,
-      GlobalCupertinoLocalizations.delegate,
+      ...GlobalMaterialLocalizations.delegates,
     ],
     home: ComposerScreen(seed: seed ?? ComposerSeed(mode: mode)),
   ),
@@ -586,9 +583,7 @@ void main() {
             supportedLocales: const [Locale('ar'), Locale('en')],
             localizationsDelegates: const [
               AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
             ],
             home: Consumer(
               builder: (context, ref, _) {
@@ -1208,9 +1203,7 @@ void main() {
             supportedLocales: const [Locale('ar'), Locale('en')],
             localizationsDelegates: const [
               AppLocalizations.delegate,
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
+              ...GlobalMaterialLocalizations.delegates,
             ],
             routerConfig: router,
           ),

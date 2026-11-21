@@ -2,9 +2,8 @@ import 'package:buffet_app/data/models/catalogue_models.dart';
 import 'package:buffet_app/data/models/favourite_models.dart';
 import 'package:buffet_app/features/order/widgets/favourites_strip.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 FavouriteDto _favourite({
   int id = 1,
@@ -38,9 +37,7 @@ Widget _wrap(Widget child) => MaterialApp(
   supportedLocales: const [Locale('ar'), Locale('en')],
   localizationsDelegates: const [
     AppLocalizations.delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
+    ...GlobalMaterialLocalizations.delegates,
   ],
   home: Scaffold(body: SingleChildScrollView(child: child)),
 );

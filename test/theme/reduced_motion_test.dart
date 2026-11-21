@@ -1,7 +1,7 @@
 import 'package:buffet_app/theme/app_theme.dart';
 import 'package:buffet_app/theme/motion.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Pushes a page under the real theme and returns where its content sits one
 /// frame into the transition, and where it sits once settled.

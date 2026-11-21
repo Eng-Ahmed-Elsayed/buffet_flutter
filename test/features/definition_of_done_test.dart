@@ -16,9 +16,9 @@ import 'package:buffet_app/features/order/favourites_controller.dart';
 import 'package:buffet_app/features/order/favourites_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../helpers/app_harness.dart';
 import '../helpers/fake_auth_controller.dart';

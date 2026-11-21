@@ -4,10 +4,9 @@ import 'package:buffet_app/features/materials/declare_sheet.dart';
 import 'package:buffet_app/features/materials/my_materials_screen.dart';
 import 'package:buffet_app/features/order/composer_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 CatalogueItemDto _item(int id, String nameAr, String category) =>
     CatalogueItemDto(
@@ -132,9 +131,7 @@ void main() {
         supportedLocales: [Locale('ar'), Locale('en')],
         localizationsDelegates: [
           AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
         ],
         home: Scaffold(body: DeclareSheet()),
       ),

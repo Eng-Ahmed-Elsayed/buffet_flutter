@@ -1,9 +1,8 @@
 import 'package:buffet_app/features/order/widgets/sugar_stepper.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/shared/widgets/quantity_stepper.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 final _ar = lookupAppLocalizations(const Locale('ar'));
 final _en = lookupAppLocalizations(const Locale('en'));
@@ -13,9 +12,7 @@ Widget _host(Widget child) => MaterialApp(
   supportedLocales: const [Locale('ar'), Locale('en')],
   localizationsDelegates: const [
     AppLocalizations.delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
+    ...GlobalMaterialLocalizations.delegates,
   ],
   home: Scaffold(body: Center(child: child)),
 );

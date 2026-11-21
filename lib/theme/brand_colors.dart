@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// The palette, taken from the Figma design (`design/figma/`) and fixed for
 /// contrast where the design fell short — see `docs/figma-redesign.md`.

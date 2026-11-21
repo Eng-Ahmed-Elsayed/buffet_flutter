@@ -1,8 +1,7 @@
 import 'package:buffet_app/features/order/widgets/sugar_stepper.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Wraps a widget in the same localisation and directionality the app uses.
 Widget wrap(Widget child, {Locale locale = const Locale('ar')}) => MaterialApp(
@@ -10,9 +9,7 @@ Widget wrap(Widget child, {Locale locale = const Locale('ar')}) => MaterialApp(
   supportedLocales: const [Locale('ar'), Locale('en')],
   localizationsDelegates: const [
     AppLocalizations.delegate,
-    GlobalMaterialLocalizations.delegate,
-    GlobalWidgetsLocalizations.delegate,
-    GlobalCupertinoLocalizations.delegate,
+    ...GlobalMaterialLocalizations.delegates,
   ],
   home: Scaffold(body: child),
 );

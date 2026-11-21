@@ -7,10 +7,9 @@ import 'package:buffet_app/features/notifications/notifications_screen.dart';
 import 'package:buffet_app/features/staff_queue/queue_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 
 final _l10n = lookupAppLocalizations(const Locale('ar'));
 
@@ -126,9 +125,7 @@ Future<void> _pump(WidgetTester tester, _Repository repository) async {
         locale: Locale('ar'),
         localizationsDelegates: [
           AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
+          ...GlobalMaterialLocalizations.delegates,
         ],
         supportedLocales: [Locale('ar'), Locale('en')],
         home: QueueScreen(),

@@ -8,11 +8,11 @@ import 'package:buffet_app/features/order/favourites_controller.dart';
 import 'package:buffet_app/features/order/my_orders_screen.dart';
 import 'package:buffet_app/l10n/app_localizations.dart';
 import 'package:buffet_app/shared/formatters.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../helpers/app_harness.dart';
 

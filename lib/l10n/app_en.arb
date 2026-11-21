@@ -425,6 +425,9 @@
   "@keepOrder": { "description": "The dismissive action on the cancel-order dialog — leaves the order standing." },
 
   "navHome": "Home",
+  "pageNotFoundTitle": "Page not found",
+  "pageNotFoundBody": "We couldn't find what you were looking for. The link may have changed.",
+  "backToStart": "Back to start",
   "navFavourites": "Favourites",
   "navOrders": "Orders",
   "navAccount": "Account",
